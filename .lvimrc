@@ -1,0 +1,3 @@
+let g:ctrlp_custom_ignore = {
+  \ 'dir':  '\v[\/](tmp|components|node_modules|build|dist|app)$',
+  \ }

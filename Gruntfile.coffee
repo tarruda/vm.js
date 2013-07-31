@@ -19,7 +19,7 @@ module.exports = (grunt) ->
       options:
         bare: true
         sourceMap: true
-      all:
+      src:
         expand: true
         flatten: false
         src: '*.coffee'
@@ -180,7 +180,6 @@ module.exports = (grunt) ->
     livereload = grunt.config.getRaw('livereload')
     if /\.coffee$/.test filepath
       coffeelint.changed = src: filepath
-      console.log filepath
       if /^src/.test filepath
         rel = path.relative coffee.src.cwd, filepath
         coffee.changed =

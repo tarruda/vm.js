@@ -23,12 +23,13 @@
     });
   </script>
   <script src="../app/components/commonjs/common.js"></script>
+  <script src="../app/components/esprima/esprima.js"></script>
   <script src="../build/vm.js"></script>
   <script src="../build/test.js"></script>
   <script>
-  require('test/assembler')
-  mocha.checkLeaks();
-  mocha.globals(['expect']);
+  require('test/vm')
+  // mocha.checkLeaks();
+  // mocha.globals(['expect']);
   mocha.run();
   </script>
 </div>
