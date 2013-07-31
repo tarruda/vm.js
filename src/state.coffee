@@ -4,7 +4,9 @@ class State
     @stack = [] # operand stack
     @locals = {} # local variables
 
-  local: (key, value) -> value if (@locals[key] = value) else @locals[key]
+  save: (key, value) -> @locals[key] = value
+
+  load: (key) -> @locals[key]
 
   pop: -> @stack.pop()
 

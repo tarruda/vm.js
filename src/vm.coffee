@@ -1,5 +1,5 @@
 State = require './state'
-compile = require './compiler'
+compile = require './opcodes'
 
 class Vm
   eval: (string) ->
