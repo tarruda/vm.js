@@ -18,28 +18,34 @@ Opcode = (->
 )()
 
 opcodes = [
-  Opcode 'literal', (s) ->
-    s.push(@args[0])                   # push literal value
+  Opcode 'dup', (s) ->
+    s.push(s.top())                 # duplicate top of stack
   Opcode 'add', (s) ->
-    right = s.pop(); left = s.pop()    # pop left and right operands
-    s.push(left + right)               # push sum
+    right = s.pop(); left = s.pop() # pop left and right operands
+    s.push(left + right)            # push sum
   Opcode 'sub', (s) ->
-    right = s.pop(); left = s.pop()    # pop left and right operands
-    s.push(left - right)               # push subtract
+    right = s.pop(); left = s.pop() # pop left and right operands
+    s.push(left - right)            # push subtract
   Opcode 'mul', (s) ->
-    right = s.pop(); left = s.pop()    # pop left and right operands
-    s.push(left * right)               # push multiplication
+    right = s.pop(); left = s.pop() # pop left and right operands
+    s.push(left * right)            # push multiplication
   Opcode 'div', (s) ->
-    right = s.pop(); left = s.pop()    # pop left and right operands
-    s.push(left / right)               # push division
+    right = s.pop(); left = s.pop() # pop left and right operands
+    s.push(left / right)            # push division
   Opcode 'save', (s) ->
-    s.save(@args[0], s.pop())         # store on local scope
+    s.save(@args[0], s.pop())       # save on scope chain
+  Opcode 'load', (s) ->
+    s.push(s.load(@args[0]))        # load from scope chain
+  Opcode 'literal', (s) ->
+    s.push(@args[0])                # push literal value
 ]
 
 (->
   # associate each opcode with its name
   for opcode in opcodes
-    do (opcode) -> opcodes[opcode::name] = (args...) -> new opcode(args)
+    do (opcode) ->
+      opcodes[opcode::name] = (script, args...) ->
+        script.push(new opcode(args))
 )()
 
 unaryOp =
@@ -78,9 +84,17 @@ logicalOp =
   '||': null
   '&&': null
 
+# creates a composed opcode that is the result of applying the same
+# args to each individual opcodes in the parameter list
+compose = (opcodes...) ->
+  rv = (script, args...) ->
+    for opcode in opcodes
+      opcode(script, args...)
+  return rv
+
 assignOp =
-  '=': null
-  '+=': null
+  '=': compose(opcodes.dup, opcodes.save)
+  '+=': compose(opcodes.load, opcodes.add, opcodes.dup, opcodes.save)
   '-=': null
   '*=': null
   '/=': null
@@ -179,12 +193,11 @@ emit =
     # A variable declaration, via one of var, let, or const.
     # TODO incomplete
     for child in node.declarations
-      emit[child.type](child.init, script)       # declare each variable
+      emit[child.type](child.init, script)
   VariableDeclarator: (node, script) ->
     # A variable declarator
-    emit[node.init.type](node.init, script)      # emit init expression
-    script.push opcodes.store(node.name)         # emit store opcode
-
+    emit[node.init.type](node.init, script)
+    opcodes.store(script, node.name)
   # Expressions
   ThisExpression: (node, script) ->
     # A this expression
@@ -214,10 +227,12 @@ emit =
     # A binary operator expression.
     emit[node.left.type](node.left, script)
     emit[node.right.type](node.right, script)
-    script.push binaryOp[node.operator]()
+    binaryOp[node.operator](script)
   AssignmentExpression: (node, script) ->
-    # An assignment operator expression.
-    throw new Error('not implemented')
+    emit[node.right.type](node.right, script)
+    if node.left.type == 'Identifier'
+      assignOp[node.operator](script, node.left.name)
+
   UpdateExpression: (node, script) ->
     # An update (increment or decrement) operator expression.
     throw new Error('not implemented')
@@ -306,7 +321,7 @@ emit =
     throw new Error('not implemented')
   Literal: (node, script) ->
     # A literal token. Note that a literal can be an expression.
-    script.push opcodes.literal(node.value)
+    opcodes.literal(script, node.value)
 
 
 compile = (node) ->

@@ -2,10 +2,10 @@ State = require './state'
 compile = require './opcodes'
 
 class Vm
-  eval: (string) ->
+  eval: (string, scope) ->
     ast = esprima.parse(string)
     script = compile(ast)
-    state = new State()
+    state = new State(scope)
     codes = script.codes # array of opcodes
     len = codes.length   # total length
     ip = 0        # instruction pointer
