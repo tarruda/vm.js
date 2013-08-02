@@ -2,6 +2,9 @@ Vm = require '../src/vm'
 
 tests =
   ## expressions
+  # literals
+  "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
+  "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
   # unary
   'x = 5; -x': [-5, {x: 5}]
   'x = 5; +x': [5, {x: 5}]
@@ -42,6 +45,7 @@ tests =
   '0xf | 0xf0': [0xff]
   '0xf & 0xf8': [8]
   '0xf0 ^ 8': [0xf8]
+  # assignments
   'x = 15': [15, {x: 15}]
   'x = 3;x += 8': [11, {x: 11}]
   'x = 3;x -= 8': [-5, {x: -5}]

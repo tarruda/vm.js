@@ -2,7 +2,7 @@ Script = require './script'
 {
   DUP, NOOP, INVERT, LNOT, NOT, SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR,
   SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID, LT, LTE, GT, GTE, IN, INSOF,
-  SAVE, LOAD, LIT, LOR, LAND
+  LOR, LAND, SAVE, LOAD, LIT, OLIT, ALIT
 } = require './opcodes'
 
 # generates a opcode composition, which is an anonymous function with the
@@ -17,7 +17,7 @@ compose = (opcodes...) ->
       opcode(script, (args.slice(0, opcode::argc))...)
   return rv
 
-unaryOp =
+prefixUnaryOp =
   '-': INVERT
   '+': NOOP
   '!': LNOT
@@ -25,6 +25,12 @@ unaryOp =
   'typeof': null
   'void': null
   'delete': null
+  '++': null
+  '--': null
+
+suffixUnaryOp =
+  '++': null
+  '--': null
 
 binaryOp =
   '==': CEQ
@@ -65,10 +71,6 @@ assignOp =
   '|=': compose(LOAD, SWAP, OR, DUP, SAVE)
   '&=': compose(LOAD, SWAP, AND, DUP, SAVE)
   '^=': compose(LOAD, SWAP, XOR, DUP, SAVE)
-
-updateOp =
-  '++': null
-  '--': null
 
 # AST node types. Source:
 # https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
@@ -163,14 +165,18 @@ emit =
     # A this expression
     throw new Error('not implemented')
   ArrayExpression: (node, script) ->
-    # An array expression
-    throw new Error('not implemented')
+    for element in node.elements
+      emit[element.type](element, script)
+    ALIT(script, node.elements.length)
   ObjectExpression: (node, script) ->
-    # An object expression. A literal property in an object expression
-    # can have either a string or number as its value. Ordinary property
-    # initializers have a kind value "init"; getters and setters have the
-    # kind values "get" and "set", respectively.An object expression
-    throw new Error('not implemented')
+    for property in node.properties
+      if property.kind == 'init' # object literal
+        if property.key.type == 'Literal'
+          emit[property.key.type](property.key, script)
+        else # identifier. use the name to create a literal string
+          emit.Literal({value: property.key.name}, script)
+        emit[property.value.type](property.value, script)
+    OLIT(script, node.properties.length)
   FunctionExpression: (node, script) ->
     # A function expression
     throw new Error('not implemented')
@@ -182,7 +188,8 @@ emit =
     throw new Error('not implemented')
   UnaryExpression: (node, script) ->
     emit[node.argument.type](node.argument, script)
-    unaryOp[node.operator](script)
+    if node.prefix then prefixUnaryOp[node.operator](script)
+    else suffixUnaryOp[node.operator](script)
   BinaryExpression: (node, script) ->
     # A binary operator expression.
     emit[node.left.type](node.left, script)

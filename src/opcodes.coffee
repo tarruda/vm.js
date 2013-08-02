@@ -42,8 +42,8 @@ BOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 2)
 
 opcodes = [
   # 0-arg opcodes
-  Op 'DUP', (s) -> s.push(s.top())                 # duplicate top of stack
   Op 'NOOP', (s) ->                                # no-op
+  Op 'DUP', (s) -> s.push(s.top())                 # duplicate top of stack
 
   # 0-arg unary opcodes
   UOp 'INVERT', (s, o) -> s.push(-o)               # invert signal
@@ -82,6 +82,17 @@ opcodes = [
   Op 'SAVE', 1, (s, name) -> s.save(name, s.pop()) # save on reference
   Op 'LOAD', 1, (s, name) -> s.push(s.load(name))  # load from reference
   Op 'LIT', 1, (s, value) -> s.push(value)         # push literal value
+  Op 'OLIT', 1, (s, length) ->                     # object literal
+    rv = {}
+    while length--
+      value = s.pop()
+      rv[s.pop()] = value
+    s.push(rv)
+  Op 'ALIT', 1, (s, length) ->                     # array literal
+    rv = new Array(length)
+    while length--
+      rv[length] = s.pop()
+    s.push(rv)
 ]
 
 (->
