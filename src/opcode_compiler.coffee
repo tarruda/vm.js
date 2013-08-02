@@ -1,8 +1,7 @@
 Script = require './script'
 {
-  DUP,
-  SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR,
-  SAVE, LOAD, LITERAL
+  DUP, SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ,
+  CID, CNID, LT, LTE, GT, GTE, IN, INSOF, SAVE, LOAD, LITERAL
 } = require './opcodes'
 
 # generates a opcode composition, which is an anonymous function with the
@@ -27,14 +26,14 @@ unaryOp =
   'delete': null
 
 binaryOp =
-  '==': null
-  '!=': null
-  '===': null
-  '!==': null
-  '<': null
-  '<=': null
-  '>': null
-  '>=': null
+  '==': CEQ
+  '!=': CNEQ
+  '===': CID
+  '!==': CNID
+  '<': LT
+  '<=': LTE
+  '>': GT
+  '>=': GTE
   '<<': SHL
   '>>': SAR
   '>>>': SHR
@@ -46,9 +45,9 @@ binaryOp =
   '|': OR
   '&': AND
   '^': XOR
-  'in': null
-  'instanceof': null
-  '..': null
+  'in': IN
+  'instanceof': INSOF
+  '..': null # e4x-specific
 
 logicalOp =
   '||': null

@@ -39,7 +39,8 @@ module.exports = (grunt) ->
         no_trailing_whitespace: level: 'error'
         no_empty_param_list: level: 'error'
         no_stand_alone_at: level: 'error'
-        cyclomatic_complexity: 'error'
+        cyclomatic_complexity: level: 'error'
+        no_backticks: level: 'ignore'
       src:
         src: 'src/*.coffee'
       test:

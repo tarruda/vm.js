@@ -57,6 +57,17 @@ opcodes = [
   BOp 'OR', (s, r, l) -> s.push(l | r)             # bitwise OR
   BOp 'AND', (s, r, l) -> s.push(l & r)            # bitwise AND
   BOp 'XOR', (s, r, l) -> s.push(l ^ r)            # bitwise XOR
+  # tests
+  BOp 'CEQ', (s, r, l) -> s.push(`l == r`)         # equals
+  BOp 'CNEQ', (s, r, l) -> s.push(`l != r`)        # not equals
+  BOp 'CID', (s, r, l) -> s.push(l == r)           # same
+  BOp 'CNID', (s, r, l) -> s.push(l != r)          # not same
+  BOp 'LT', (s, r, l) -> s.push(l < r)             # less than
+  BOp 'LTE', (s, r, l) -> s.push(l <= r)           # less or equal than
+  BOp 'GT', (s, r, l) -> s.push(l > r)             # greater than
+  BOp 'GTE', (s, r, l) -> s.push(l >= r)           # greater or equal than
+  BOp 'IN', (s, r, l) -> s.push(l of r)            # contains property
+  BOp 'INSOF', (s, r, l) -> s.push(l instanceof r) # instance of
 
   # 1-arg opcodes
   Op 'SAVE', 1, (s, name) -> s.save(name, s.pop()) # save on reference
