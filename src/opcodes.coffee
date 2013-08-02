@@ -1,3 +1,5 @@
+WrappedObject = require './wrapped_object'
+
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
   # to represent serialized opcodes
@@ -19,17 +21,17 @@ OpcodeClassFactory = (->
         constructor::execImpl = fn
         constructor::argc = argc
       if constructor::argc && opc
-        constructor::exec = (s) ->
-          @execImpl.apply(this, [s].concat(@args, s.splice(@opc)))
+        constructor::exec = (f) ->
+          @execImpl.apply(this, [f].concat(@args, f.popn(@opc)))
       else if constructor::argc
-        constructor::exec = (s) ->
-          @execImpl.apply(this, [s].concat(@args))
+        constructor::exec = (f) ->
+          @execImpl.apply(this, [f].concat(@args))
       else if opc
-        constructor::exec = (s) ->
-          @execImpl.apply(this, [s].concat(s.splice(@opc)))
+        constructor::exec = (f) ->
+          @execImpl.apply(this, [f].concat(f.popn(@opc)))
       else
-        constructor::exec = (s) ->
-          @execImpl(s)
+        constructor::exec = (f) ->
+          @execImpl(f)
       return constructor
     )()
     return OpcodeClass
@@ -43,60 +45,65 @@ TOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 3)
 
 opcodes = [
   # 0-arg opcodes
-  Op 'NOOP', (s) ->                                # no-op
-  Op 'POP', (s) -> s.pop()                         # remove top
-  Op 'PUSHS', (s) -> s.pushs()                     # push local scope reference
-  Op 'DUP2', (s) -> s.dup2()                       # duplicate top 2 items
+  Op 'NOOP', (f) ->                                # no-op
+  Op 'POP', (f) -> f.pop()                         # remove top
+  Op 'DUP2', (f) -> f.dup2()                       # duplicate top 2 items
+  Op 'PUSHS', (f) -> f.pushs()                     # push local scope reference
+  Op 'SAVE', (f) -> f.save()                       # pop/save top of stack
 
   # 0-arg unary opcodes
-  UOp 'INV', (s, o) -> s.push(-o)                  # invert signal
-  UOp 'LNOT', (s, o) -> s.push(!o)                 # logical NOT
-  UOp 'NOT', (s, o) -> s.push(~o)                  # bitwise NOT
+  UOp 'INV', (f, o) -> f.push(-o)                  # invert signal
+  UOp 'LNOT', (f, o) -> f.push(!o)                 # logical NOT
+  UOp 'NOT', (f, o) -> f.push(~o)                  # bitwise NOT
+  UOp 'INCP', (f, o) -> f.push(~o)                 # increment prefix
+  UOp 'DECP', (f, o) -> f.push(~o)                 # decrement prefix
+  UOp 'INCS', (f, o) -> f.push(~o)                 # increment postfix
+  UOp 'DECS', (f, o) -> f.push(~o)                 # decrement postfix
 
   # 0-args binary opcodes
-  BOp 'GET', (s, n, o) -> s.push(s.get(o, n))      # get name from object
+  BOp 'GET', (f, n, o) -> f.push(f.get(o, n))      # get name from object
                                                    # by the one below
-  BOp 'ADD', (s, r, l) -> s.push(l + r)            # sum
-  BOp 'SUB', (s, r, l) -> s.push(l - r)            # difference
-  BOp 'MUL', (s, r, l) -> s.push(l * r)            # product
-  BOp 'DIV', (s, r, l) -> s.push(l / r)            # division
-  BOp 'MOD', (s, r, l) -> s.push(l % r)            # modulo
-  BOp 'SHL', (s, r, l) ->  s.push(l << r)          # left shift
-  BOp 'SAR', (s, r, l) -> s.push(l >> r)           # right shift
-  BOp 'SHR', (s, r, l) -> s.push(l >>> r)          # unsigned right shift
-  BOp 'OR', (s, r, l) -> s.push(l | r)             # bitwise OR
-  BOp 'AND', (s, r, l) -> s.push(l & r)            # bitwise AND
-  BOp 'XOR', (s, r, l) -> s.push(l ^ r)            # bitwise XOR
+  BOp 'ADD', (f, r, l) -> f.push(l + r)            # sum
+  BOp 'SUB', (f, r, l) -> f.push(l - r)            # difference
+  BOp 'MUL', (f, r, l) -> f.push(l * r)            # product
+  BOp 'DIV', (f, r, l) -> f.push(l / r)            # division
+  BOp 'MOD', (f, r, l) -> f.push(l % r)            # modulo
+  BOp 'SHL', (f, r, l) ->  f.push(l << r)          # left shift
+  BOp 'SAR', (f, r, l) -> f.push(l >> r)           # right shift
+  BOp 'SHR', (f, r, l) -> f.push(l >>> r)          # unsigned right shift
+  BOp 'OR', (f, r, l) -> f.push(l | r)             # bitwise OR
+  BOp 'AND', (f, r, l) -> f.push(l & r)            # bitwise AND
+  BOp 'XOR', (f, r, l) -> f.push(l ^ r)            # bitwise XOR
   # tests
-  BOp 'CEQ', (s, r, l) -> s.push(`l == r`)         # equals
-  BOp 'CNEQ', (s, r, l) -> s.push(`l != r`)        # not equals
-  BOp 'CID', (s, r, l) -> s.push(l == r)           # same
-  BOp 'CNID', (s, r, l) -> s.push(l != r)          # not same
-  BOp 'LT', (s, r, l) -> s.push(l < r)             # less than
-  BOp 'LTE', (s, r, l) -> s.push(l <= r)           # less or equal than
-  BOp 'GT', (s, r, l) -> s.push(l > r)             # greater than
-  BOp 'GTE', (s, r, l) -> s.push(l >= r)           # greater or equal than
-  BOp 'IN', (s, r, l) -> s.push(l of r)            # contains property
-  BOp 'INSOF', (s, r, l) -> s.push(l instanceof r) # instance of
+  BOp 'CEQ', (f, r, l) -> f.push(`l == r`)         # equals
+  BOp 'CNEQ', (f, r, l) -> f.push(`l != r`)        # not equals
+  BOp 'CID', (f, r, l) -> f.push(l == r)           # same
+  BOp 'CNID', (f, r, l) -> f.push(l != r)          # not same
+  BOp 'LT', (f, r, l) -> f.push(l < r)             # less than
+  BOp 'LTE', (f, r, l) -> f.push(l <= r)           # less or equal than
+  BOp 'GT', (f, r, l) -> f.push(l > r)             # greater than
+  BOp 'GTE', (f, r, l) -> f.push(l >= r)           # greater or equal than
+  BOp 'IN', (f, r, l) -> f.push(l of r)            # contains property
+  BOp 'INSOF', (f, r, l) -> f.push(l instanceof r) # instance of
   # logical
-  BOp 'LOR', (s, r, l) -> s.push(l || r)           # logical OR
-  BOp 'LAND', (s, r, l) -> s.push(l && r)          # logical AND
+  BOp 'LOR', (f, r, l) -> f.push(l || r)           # logical OR
+  BOp 'LAND', (f, r, l) -> f.push(l && r)          # logical AND
 
   # 0-arg ternary opcodes
-  TOp 'SET', (s, v, n, o) -> s.set(o, n, v)        # set name = val on object
+  TOp 'SET', (f, v, n, o) -> f.set(o, n, v)        # set name = val on object
 
-  Op 'LIT', 1, (s, value) -> s.push(value)         # push literal value
-  Op 'OLIT', 1, (s, length) ->                     # object literal
+  Op 'LIT', 1, (f, value) -> f.push(value)         # push literal value
+  Op 'OLIT', 1, (f, length) ->                     # object literal
     rv = {}
     while length--
-      value = s.pop()
-      rv[s.pop()] = value
-    s.push(rv)
-  Op 'ALIT', 1, (s, length) ->                     # array literal
+      value = f.pop()
+      rv[f.pop()] = value
+    f.push(rv)
+  Op 'ALIT', 1, (f, length) ->                     # array literal
     rv = new Array(length)
     while length--
-      rv[length] = s.pop()
-    s.push(rv)
+      rv[length] = f.pop()
+    f.push(rv)
 ]
 
 (->

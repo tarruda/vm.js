@@ -1,4 +1,5 @@
 Vm = require '../src/vm'
+Scope = require '../src/scope'
 
 tests =
   ## expressions
@@ -68,21 +69,21 @@ describe 'vm eval', ->
   scope = null
 
   beforeEach ->
-    scope = {}
+    scope = new Scope()
     vm = new Vm()
 
   for k, v of tests
     do (k, v) ->
       fn = ->
-        expect(vm.eval(k, scope)).to.deep.eql expectedValue
+        result = vm.eval(k, scope)
+        expect(result).to.deep.eql expectedValue
         if typeof expectedScope == 'object'
-          expect(scope).to.deep.eql(expectedScope)
+          expect(scope.keys).to.deep.eql expectedScope
         else
-          expect(scope).to.deep.eql({})
+          expect(scope.keys).to.deep.eql {}
       test = "\"#{k}\""
       expectedValue = v[0]
       expectedScope = v[1]
       if 1 in [expectedScope, v[2]] then it.only(test, fn)
       else if 0 in [expectedScope, v[2]] then it.skip(test, fn)
       else it(test, fn)
-

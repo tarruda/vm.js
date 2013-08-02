@@ -1,8 +1,8 @@
 Script = require './script'
 {
-  NOOP, POP, DUP2, PUSHS, INV, LNOT, NOT, GET, ADD, SUB, MUL, DIV,
-  MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID, LT, LTE, GT, GTE,
-  IN, INSOF, LOR, LAND, SET, LIT, OLIT, ALIT
+  NOOP, POP, DUP2, PUSHS, SAVE, INV, LNOT, NOT, INCP, DECP, INCS, DECS, GET,
+  ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID,
+  LT, LTE, GT, GTE, IN, INSOF, LOR, LAND, SET, LIT, OLIT, ALIT
 } = require './opcodes'
 
 prefixUnaryOp =
@@ -13,12 +13,12 @@ prefixUnaryOp =
   'typeof': null
   'void': null
   'delete': null
-  '++': null
-  '--': null
+  '++': INCP
+  '--': DECP
 
-suffixUnaryOp =
-  '++': null
-  '--': null
+postfixUnaryOp =
+  '++': INCS
+  '--': DECS
 
 binaryOp =
   '==': CEQ
@@ -83,6 +83,7 @@ emit =
     # An expression statement, i.e., a statement consisting of a single
     # expression.
     emit[node.expression.type](node.expression, script)
+    SAVE(script)
   IfStatement: (node, script) ->
     # An if statement.
     throw new Error('not implemented')
