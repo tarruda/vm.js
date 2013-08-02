@@ -43,6 +43,12 @@ BOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 2)
 opcodes = [
   # 0-arg opcodes
   Op 'DUP', (s) -> s.push(s.top())                 # duplicate top of stack
+  Op 'NOOP', (s) ->                                # no-op
+
+  # 0-arg unary opcodes
+  UOp 'INVERT', (s, o) -> s.push(-o)               # invert signal
+  UOp 'LNOT', (s, o) -> s.push(!o)                 # logical NOT
+  UOp 'NOT', (s, o) -> s.push(~o)                  # bitwise NOT
 
   # 0-args binary opcodes
   BOp 'SWAP', (s, b, t) -> s.push(b); s.push(t)    # swap the top 2 stack items
@@ -68,11 +74,14 @@ opcodes = [
   BOp 'GTE', (s, r, l) -> s.push(l >= r)           # greater or equal than
   BOp 'IN', (s, r, l) -> s.push(l of r)            # contains property
   BOp 'INSOF', (s, r, l) -> s.push(l instanceof r) # instance of
+  # logical
+  BOp 'LOR', (s, r, l) -> s.push(l || r)           # logical OR
+  BOp 'LAND', (s, r, l) -> s.push(l && r)          # logical AND
 
   # 1-arg opcodes
   Op 'SAVE', 1, (s, name) -> s.save(name, s.pop()) # save on reference
   Op 'LOAD', 1, (s, name) -> s.push(s.load(name))  # load from reference
-  Op 'LITERAL', 1, (s, value) -> s.push(value)     # push literal value
+  Op 'LIT', 1, (s, value) -> s.push(value)         # push literal value
 ]
 
 (->

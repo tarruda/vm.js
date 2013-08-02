@@ -1,7 +1,8 @@
 Script = require './script'
 {
-  DUP, SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ,
-  CID, CNID, LT, LTE, GT, GTE, IN, INSOF, SAVE, LOAD, LITERAL
+  DUP, NOOP, INVERT, LNOT, NOT, SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR,
+  SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID, LT, LTE, GT, GTE, IN, INSOF,
+  SAVE, LOAD, LIT, LOR, LAND
 } = require './opcodes'
 
 # generates a opcode composition, which is an anonymous function with the
@@ -17,10 +18,10 @@ compose = (opcodes...) ->
   return rv
 
 unaryOp =
-  '-': null
-  '+': null
-  '!': null
-  '~': null
+  '-': INVERT
+  '+': NOOP
+  '!': LNOT
+  '~': NOT
   'typeof': null
   'void': null
   'delete': null
@@ -34,6 +35,8 @@ binaryOp =
   '<=': LTE
   '>': GT
   '>=': GTE
+  '||': LOR
+  '&&': LAND
   '<<': SHL
   '>>': SAR
   '>>>': SHR
@@ -48,10 +51,6 @@ binaryOp =
   'in': IN
   'instanceof': INSOF
   '..': null # e4x-specific
-
-logicalOp =
-  '||': null
-  '&&': null
 
 assignOp =
   '=': compose(DUP, SAVE)
@@ -182,8 +181,8 @@ emit =
     # A sequence expression, i.e., a comma-separated sequence of expressions.
     throw new Error('not implemented')
   UnaryExpression: (node, script) ->
-    # A unary operator expression.
-    throw new Error('not implemented')
+    emit[node.argument.type](node.argument, script)
+    unaryOp[node.operator](script)
   BinaryExpression: (node, script) ->
     # A binary operator expression.
     emit[node.left.type](node.left, script)
@@ -198,8 +197,10 @@ emit =
     # An update (increment or decrement) operator expression.
     throw new Error('not implemented')
   LogicalExpression: (node, script) ->
-    # A logical operator expression.
-    throw new Error('not implemented')
+    # A logical binary operator expression.
+    emit[node.left.type](node.left, script)
+    emit[node.right.type](node.right, script)
+    binaryOp[node.operator](script)
   ConditionalExpression: (node, script) ->
     # A conditional expression, i.e., a ternary ?/: expression
     throw new Error('not implemented')
@@ -279,10 +280,10 @@ emit =
   Identifier: (node, script) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    throw new Error('not implemented')
+    LOAD(script, node.name)
   Literal: (node, script) ->
     # A literal token. Note that a literal can be an expression.
-    LITERAL(script, node.value)
+    LIT(script, node.value)
 
 compile = (node) ->
   script = new Script()

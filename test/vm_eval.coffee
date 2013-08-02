@@ -1,7 +1,13 @@
 Vm = require '../src/vm'
 
 tests =
-  # expressions
+  ## expressions
+  # unary
+  'x = 5; -x': [-5, {x: 5}]
+  'x = 5; +x': [5, {x: 5}]
+  'x = 5; !x': [false, {x: 5}]
+  'x = 5; ~x': [-6, {x: 5}]
+  # binary
   '5 == 5': [true]
   '5 == "005"': [true]
   '5 == 4': [false]
@@ -14,6 +20,10 @@ tests =
   '5 !== 5': [false]
   '5 !== "005"': [true]
   '5 !== 4': [true]
+  'false || true': [true]
+  'false || false': [false]
+  'true && true': [true]
+  'true && false': [false]
   '10 > 9': [true]
   '10 > 10': [false]
   '10 >= 10': [true]
@@ -58,14 +68,14 @@ describe 'vm eval', ->
     do (k, v) ->
       fn = ->
         expect(vm.eval(k, scope)).to.deep.eql expectedValue
-        if v[1] then expect(scope).to.deep.eql expectedScope
-        else expect(scope).to.deep.eql {}
+        if typeof expectedScope == 'object'
+          expect(scope).to.deep.eql(expectedScope)
+        else
+          expect(scope).to.deep.eql({})
+      test = "\"#{k}\""
       expectedValue = v[0]
       expectedScope = v[1]
-      if typeof expectedScope == 'number'
-        if expectedScope == 1 then it.only(k, fn)
-        else if expectedScope == 0 then it.skip(k, fn)
-        expectedScope = v[2]
-      else
-        it(k, fn)
+      if 1 in [expectedScope, v[2]] then it.only(test, fn)
+      else if 0 in [expectedScope, v[2]] then it.skip(test, fn)
+      else it(test, fn)
 
