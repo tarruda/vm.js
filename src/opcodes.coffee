@@ -1,4 +1,3 @@
-WrappedObject = require './wrapped_object'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -55,10 +54,6 @@ opcodes = [
   UOp 'INV', (f, o) -> f.push(-o)                  # invert signal
   UOp 'LNOT', (f, o) -> f.push(!o)                 # logical NOT
   UOp 'NOT', (f, o) -> f.push(~o)                  # bitwise NOT
-  UOp 'INCP', (f, o) -> f.push(~o)                 # increment prefix
-  UOp 'DECP', (f, o) -> f.push(~o)                 # decrement prefix
-  UOp 'INCS', (f, o) -> f.push(~o)                 # increment postfix
-  UOp 'DECS', (f, o) -> f.push(~o)                 # decrement postfix
 
   # 0-args binary opcodes
   BOp 'GET', (f, n, o) -> f.push(f.get(o, n))      # get name from object

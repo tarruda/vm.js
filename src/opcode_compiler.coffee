@@ -1,11 +1,11 @@
 Script = require './script'
 {
-  NOOP, POP, DUP2, PUSHS, SAVE, INV, LNOT, NOT, INCP, DECP, INCS, DECS, GET,
+  NOOP, POP, DUP2, PUSHS, SAVE, INV, LNOT, NOT, GET,
   ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID,
   LT, LTE, GT, GTE, IN, INSOF, LOR, LAND, SET, LIT, OLIT, ALIT
 } = require './opcodes'
 
-prefixUnaryOp =
+unaryOp =
   '-': INV
   '+': NOOP
   '!': LNOT
@@ -13,12 +13,6 @@ prefixUnaryOp =
   'typeof': null
   'void': null
   'delete': null
-  '++': INCP
-  '--': DECP
-
-postfixUnaryOp =
-  '++': INCS
-  '--': DECS
 
 binaryOp =
   '==': CEQ
@@ -80,8 +74,6 @@ emit =
     # A block statement, i.e., a sequence of statements surrounded by braces.
     throw new Error('not implemented')
   ExpressionStatement: (node, script) ->
-    # An expression statement, i.e., a statement consisting of a single
-    # expression.
     emit[node.expression.type](node.expression, script)
     SAVE(script)
   IfStatement: (node, script) ->
@@ -179,8 +171,7 @@ emit =
     throw new Error('not implemented')
   UnaryExpression: (node, script) ->
     emit[node.argument.type](node.argument, script)
-    if node.prefix then prefixUnaryOp[node.operator](script)
-    else suffixUnaryOp[node.operator](script)
+    unaryOp[node.operator](script)
   BinaryExpression: (node, script) ->
     # A binary operator expression.
     emit[node.left.type](node.left, script)
@@ -209,8 +200,16 @@ emit =
       assignOp[node.operator](script)
       SET(script)
   UpdateExpression: (node, script) ->
-    # An update (increment or decrement) operator expression.
-    throw new Error('not implemented')
+    assignNode =
+      operator: if node.operator == '++' then '+=' else '-='
+      left: node.argument
+      right: {type: 'Literal', value: 1}
+    if node.prefix
+      emit.AssignmentExpression(assignNode, script)
+    else
+      emit[node.argument.type](node.argument, script)
+      emit.AssignmentExpression(assignNode, script)
+      POP(script)
   LogicalExpression: (node, script) ->
     # A logical binary operator expression.
     emit[node.left.type](node.left, script)
