@@ -31,10 +31,10 @@ binaryOp =
   '<<': null
   '>>': null
   '>>>': null
-  '+': opcodes.add
-  '-': opcodes.sub
-  '*': opcodes.mul
-  '/': opcodes.div
+  '+': opcodes.ADD
+  '-': opcodes.SUB
+  '*': opcodes.MUL
+  '/': opcodes.DIV
   '%': null
   '|': null
   '^': null
@@ -47,8 +47,8 @@ logicalOp =
   '&&': null
 
 assignOp =
-  '=': compose(opcodes.dup, opcodes.save)
-  '+=': compose(opcodes.load, opcodes.add, opcodes.dup, opcodes.save)
+  '=': compose(opcodes.DUP, opcodes.SAVE)
+  '+=': compose(opcodes.LOAD, opcodes.ADD, opcodes.DUP, opcodes.SAVE)
   '-=': null
   '*=': null
   '/=': null
@@ -151,7 +151,7 @@ emit =
   VariableDeclarator: (node, script) ->
     # A variable declarator
     emit[node.init.type](node.init, script)
-    opcodes.store(script, node.name)
+    opcodes.SAVE(script, node.name)
   # Expressions
   ThisExpression: (node, script) ->
     # A this expression
@@ -275,7 +275,7 @@ emit =
     throw new Error('not implemented')
   Literal: (node, script) ->
     # A literal token. Note that a literal can be an expression.
-    opcodes.literal(script, node.value)
+    opcodes.LITERAL(script, node.value)
 
 compile = (node) ->
   script = new Script()

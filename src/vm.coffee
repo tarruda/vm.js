@@ -7,6 +7,7 @@ class Vm
   eval: (string, scope) ->
     ast = esprima.parse(string)
     script = compile(ast)
+    debugger
     state = new State(scope)
     codes = script.codes # array of opcodes
     len = codes.length   # total length
