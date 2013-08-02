@@ -1,24 +1,12 @@
 Script = require './script'
 {
-  DUP, NOOP, INVERT, LNOT, NOT, SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR,
-  SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID, LT, LTE, GT, GTE, IN, INSOF,
-  LOR, LAND, SAVE, LOAD, LIT, OLIT, ALIT
+  NOOP, POP, DUP2, PUSHS, INV, LNOT, NOT, GET, ADD, SUB, MUL, DIV,
+  MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID, LT, LTE, GT, GTE,
+  IN, INSOF, LOR, LAND, SET, LIT, OLIT, ALIT
 } = require './opcodes'
 
-# generates a opcode composition, which is an anonymous function with the
-# same signature as a normal opcode, but when applied to a script it will
-# have the combined effect of applying each opcode individually with the same
-# set of input args(opcodes with a less argc will ignore trailing arguments)
-compose = (opcodes...) ->
-  rv = (script, args...) ->
-    for opcode in opcodes
-      if opcode::argc > args.length
-        throw new Error('invalid opcode composition')
-      opcode(script, (args.slice(0, opcode::argc))...)
-  return rv
-
 prefixUnaryOp =
-  '-': INVERT
+  '-': INV
   '+': NOOP
   '!': LNOT
   '~': NOT
@@ -59,18 +47,17 @@ binaryOp =
   '..': null # e4x-specific
 
 assignOp =
-  '=': compose(DUP, SAVE)
-  '+=': compose(LOAD, ADD, DUP, SAVE)
-  '-=': compose(LOAD, SWAP, SUB, DUP, SAVE)
-  '*=': compose(LOAD, MUL, DUP, SAVE)
-  '/=': compose(LOAD, SWAP, DIV, DUP, SAVE)
-  '%=': compose(LOAD, SWAP, MOD, DUP, SAVE)
-  '<<=': compose(LOAD, SWAP, SHL, DUP, SAVE)
-  '>>=': compose(LOAD, SWAP, SAR, DUP, SAVE)
-  '>>>=': compose(LOAD, SWAP, SHR, DUP, SAVE)
-  '|=': compose(LOAD, SWAP, OR, DUP, SAVE)
-  '&=': compose(LOAD, SWAP, AND, DUP, SAVE)
-  '^=': compose(LOAD, SWAP, XOR, DUP, SAVE)
+  '+=': ADD
+  '-=': SUB
+  '*=': MUL
+  '/=': DIV
+  '%=': MOD
+  '<<=': SHL
+  '>>=': SAR
+  '>>>=': SHR
+  '|=': OR
+  '&=': AND
+  '^=': XOR
 
 # AST node types. Source:
 # https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
@@ -160,7 +147,8 @@ emit =
     # A variable declarator
     emit[node.init.type](node.init, script)
     SAVE(script, node.name)
-  # Expressions
+
+  # Expressions:
   ThisExpression: (node, script) ->
     # A this expression
     throw new Error('not implemented')
@@ -176,6 +164,8 @@ emit =
         else # identifier. use the name to create a literal string
           emit.Literal({value: property.key.name}, script)
         emit[property.value.type](property.value, script)
+      else
+        throw new Error("property kind '#{property.kind}' not implemented")
     OLIT(script, node.properties.length)
   FunctionExpression: (node, script) ->
     # A function expression
@@ -196,10 +186,27 @@ emit =
     emit[node.right.type](node.right, script)
     binaryOp[node.operator](script)
   AssignmentExpression: (node, script) ->
-    emit[node.right.type](node.right, script)
-    if node.left.type == 'Identifier'
-      assignOp[node.operator](script, node.left.name)
-
+    if node.left.type == 'MemberExpression'
+      # push property owner to stack
+      emit[node.left.object.type](node.left.object, script)
+      # push property key to stack
+      if node.left.computed
+        emit[node.left.property.type](node.left.property, script)
+      else
+        LIT(script, node.left.property.name)
+    else if node.left.type == 'Identifier'
+      PUSHS(script) # push local scope to stack
+      LIT(script, node.left.name)
+    # push value to be set
+    if node.operator == '=' # simple assignment
+      emit[node.right.type](node.right, script)
+      SET(script)
+    else # get the value, apply the operation then assign
+      DUP2(script)
+      GET(script)
+      emit[node.right.type](node.right, script)
+      assignOp[node.operator](script)
+      SET(script)
   UpdateExpression: (node, script) ->
     # An update (increment or decrement) operator expression.
     throw new Error('not implemented')
@@ -218,11 +225,12 @@ emit =
     # A function or method call expression.
     throw new Error('not implemented')
   MemberExpression: (node, script) ->
-    # A member expression. If computed === true, the node corresponds to
-    # a computed e1[e2] expression and property is an Expression. If
-    # computed === false, the node corresponds to a static e1.x
-    # expression and property is an Identifier.
-    throw new Error('not implemented')
+    emit[node.object.type](node.object, script)
+    if node.computed # computed at runtime, eg: x[y]
+      emit[node.property.type](node.property, script)
+    else # static member eg: x.y
+      LIT(script, node.property.name)
+    GET(script)
   YieldExpression: (node, script) ->
     # A yield expression
     throw new Error('not implemented')
@@ -287,9 +295,10 @@ emit =
   Identifier: (node, script) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    LOAD(script, node.name)
+    PUSHS(script)
+    LIT(script, node.name)
+    GET(script)
   Literal: (node, script) ->
-    # A literal token. Note that a literal can be an expression.
     LIT(script, node.value)
 
 compile = (node) ->

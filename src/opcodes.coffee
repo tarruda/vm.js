@@ -8,7 +8,7 @@ OpcodeClassFactory = (->
     OpcodeClass = (->
       # this is ugly but its the only way I found to get nice opcode
       # names when debugging with web inspector
-      constructor = eval "(function #{name}(args) { this.args = args; })"
+      constructor = eval("(function #{name}(args) { this.args = args; })")
       constructor::id = id++
       constructor::name = name
       constructor::opc = opc
@@ -39,19 +39,23 @@ OpcodeClassFactory = (->
 Op = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 0)
 UOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 1)
 BOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 2)
+TOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 3)
 
 opcodes = [
   # 0-arg opcodes
   Op 'NOOP', (s) ->                                # no-op
-  Op 'DUP', (s) -> s.push(s.top())                 # duplicate top of stack
+  Op 'POP', (s) -> s.pop()                         # remove top
+  Op 'PUSHS', (s) -> s.pushs()                     # push local scope reference
+  Op 'DUP2', (s) -> s.dup2()                       # duplicate top 2 items
 
   # 0-arg unary opcodes
-  UOp 'INVERT', (s, o) -> s.push(-o)               # invert signal
+  UOp 'INV', (s, o) -> s.push(-o)                  # invert signal
   UOp 'LNOT', (s, o) -> s.push(!o)                 # logical NOT
   UOp 'NOT', (s, o) -> s.push(~o)                  # bitwise NOT
 
   # 0-args binary opcodes
-  BOp 'SWAP', (s, b, t) -> s.push(b); s.push(t)    # swap the top 2 stack items
+  BOp 'GET', (s, n, o) -> s.push(s.get(o, n))      # get name from object
+                                                   # by the one below
   BOp 'ADD', (s, r, l) -> s.push(l + r)            # sum
   BOp 'SUB', (s, r, l) -> s.push(l - r)            # difference
   BOp 'MUL', (s, r, l) -> s.push(l * r)            # product
@@ -78,9 +82,9 @@ opcodes = [
   BOp 'LOR', (s, r, l) -> s.push(l || r)           # logical OR
   BOp 'LAND', (s, r, l) -> s.push(l && r)          # logical AND
 
-  # 1-arg opcodes
-  Op 'SAVE', 1, (s, name) -> s.save(name, s.pop()) # save on reference
-  Op 'LOAD', 1, (s, name) -> s.push(s.load(name))  # load from reference
+  # 0-arg ternary opcodes
+  TOp 'SET', (s, v, n, o) -> s.set(o, n, v)        # set name = val on object
+
   Op 'LIT', 1, (s, value) -> s.push(value)         # push literal value
   Op 'OLIT', 1, (s, length) ->                     # object literal
     rv = {}
