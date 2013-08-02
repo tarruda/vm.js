@@ -1,13 +1,18 @@
 Script = require './script'
-opcodes = require './opcodes'
+{
+  DUP, SWAP, ADD, SUB, MUL, DIV, SAVE, LOAD, LITERAL
+} = require './opcodes'
 
-# compose a set of opcodes and return an object with the opcode interface
-# that when applied to a script will have the effect of applying each
-# opcode individually with the same args
+# generates a opcode composition, which is an anonymous function with the
+# same signature as a normal opcode, but when applied to a script it will
+# have the combined effect of applying each opcode individually with the same
+# set of input args(opcodes with a less argc will ignore trailing arguments)
 compose = (opcodes...) ->
   rv = (script, args...) ->
     for opcode in opcodes
-      opcode(script, args...)
+      if opcode::argc > args.length
+        throw new Error('invalid opcode composition')
+      opcode(script, (args.slice(0, opcode::argc))...)
   return rv
 
 unaryOp =
@@ -31,10 +36,10 @@ binaryOp =
   '<<': null
   '>>': null
   '>>>': null
-  '+': opcodes.ADD
-  '-': opcodes.SUB
-  '*': opcodes.MUL
-  '/': opcodes.DIV
+  '+': ADD
+  '-': SUB
+  '*': MUL
+  '/': DIV
   '%': null
   '|': null
   '^': null
@@ -47,9 +52,9 @@ logicalOp =
   '&&': null
 
 assignOp =
-  '=': compose(opcodes.DUP, opcodes.SAVE)
-  '+=': compose(opcodes.LOAD, opcodes.ADD, opcodes.DUP, opcodes.SAVE)
-  '-=': null
+  '=': compose(DUP, SAVE)
+  '+=': compose(LOAD, ADD, DUP, SAVE)
+  '-=': compose(LOAD, SWAP, SUB, DUP, SAVE)
   '*=': null
   '/=': null
   '%=': null
@@ -151,7 +156,7 @@ emit =
   VariableDeclarator: (node, script) ->
     # A variable declarator
     emit[node.init.type](node.init, script)
-    opcodes.SAVE(script, node.name)
+    SAVE(script, node.name)
   # Expressions
   ThisExpression: (node, script) ->
     # A this expression
@@ -275,7 +280,7 @@ emit =
     throw new Error('not implemented')
   Literal: (node, script) ->
     # A literal token. Note that a literal can be an expression.
-    opcodes.LITERAL(script, node.value)
+    LITERAL(script, node.value)
 
 compile = (node) ->
   script = new Script()

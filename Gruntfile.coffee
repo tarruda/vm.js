@@ -8,6 +8,13 @@ module.exports = (grunt) ->
   esprima = grunt.file.read('./app/components/esprima/esprima.js')
   esprima = commonjsWrap('esprima', esprima)
 
+  data =
+    # map used to store files with the debugger statement
+    # used to automatically turn debugging on/off
+    debug: null
+    # current test runner process
+    child: null
+
   coffeeOpts = (prefix, src = '*.coffee') ->
     expand: true
     flatten: false
@@ -63,6 +70,12 @@ module.exports = (grunt) ->
         src: '**/*.js'
         dest: 'build/vm.js'
 
+    'check-debug':
+      all: [
+        'src/*.coffee'
+        'test/*.coffee'
+      ]
+
     test:
       all: [
         'test/index.js'
@@ -90,6 +103,7 @@ module.exports = (grunt) ->
         ]
         tasks: [
           'common-changed'
+          'check-debug:changed'
           'test'
         ]
 
@@ -114,14 +128,24 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
 
+  grunt.registerMultiTask 'check-debug', ->
+    data.debug = {}
+    files = @filesSrc
+    for file in files
+      code = grunt.file.read(file)
+      if /^\s*debugger\s*/gm.test(code) then data.debug[file] = true
+      else delete data.debug[file]
+
   grunt.registerMultiTask 'test', ->
     done = @async()
     args = @filesSrc
     args.unshift('--check-leaks')
-    # args.unshift('--debug-brk')
+    if Object.keys(data.debug).length then args.unshift('--debug-brk')
     opts = stdio: 'inherit'
-    child = spawn('./node_modules/.bin/mocha', args, opts)
-    child.on 'close', (code) -> done(code == 0)
+    data.child = spawn('./node_modules/.bin/mocha', args, opts)
+    data.child.on 'close', (code) ->
+      data.child = null
+      done(code == 0)
 
   grunt.registerMultiTask 'mapcat', ->
     dest = @data.dest
@@ -204,6 +228,7 @@ module.exports = (grunt) ->
   grunt.registerTask 'debug-nodejs', ->
     grunt.task.run [
       'common-rebuild'
+      'check-debug'
       'test'
       'watch:nodejs'
     ]
@@ -214,6 +239,7 @@ module.exports = (grunt) ->
 
   grunt.event.on 'watch', (action, filepath) ->
     changed = (prefix) ->
+      code = grunt.file.read(filepath)
       rel = path.relative(coffee[prefix].cwd, filepath)
       coffee.changed = coffeeOpts(prefix, rel)
       commonjs.changed = commonjsOpts(prefix, rel.replace(/coffee$/, 'js'))
@@ -221,11 +247,15 @@ module.exports = (grunt) ->
     coffeelint = grunt.config.getRaw('coffeelint')
     coffee = grunt.config.getRaw('coffee')
     commonjs = grunt.config.getRaw('commonjs')
+    checkDebug = grunt.config.getRaw('check-debug')
     if /\.coffee$/.test filepath
+      checkDebug.changed = [filepath]
       coffeelint.changed = src: filepath
       grunt.regarde = changed: ['test.js']
       if /^src/.test filepath then changed('src')
       else changed('test')
+      if data.child
+        data.child.kill('SIGTERM')
 
 
 commonjsWrap = (definePath, code) ->

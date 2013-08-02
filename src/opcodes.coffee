@@ -1,6 +1,9 @@
 Opcode = (->
+  # opcode id, correspond to the index in the opcodes array and is used
+  # to represent serialized opcodes
   id = 0
-  classFactory = (name, fn) ->
+
+  classFactory = (name, argc, fn) ->
     OpcodeClass = (->
       # this is ugly but its the only way to get nice opcode
       # names when debugging with google chrome(since we are generating
@@ -9,7 +12,12 @@ Opcode = (->
       # constructor = (@args) ->
       constructor::id = id++
       constructor::name = name
-      constructor::exec = fn
+      if typeof argc == 'function'
+        constructor::exec = argc
+        constructor::argc = 0
+      else
+        constructor::exec = fn
+        constructor::argc = argc
       return constructor
     )()
     return OpcodeClass
@@ -17,26 +25,29 @@ Opcode = (->
 )()
 
 opcodes = [
-  Opcode 'DUP', (s) ->
-    s.push(s.top())                 # duplicate top of stack
-  Opcode 'ADD', (s) ->
-    right = s.pop(); left = s.pop() # pop left and right operands
-    s.push(left + right)            # push sum
-  Opcode 'SUB', (s) ->
-    right = s.pop(); left = s.pop() # pop left and right operands
-    s.push(left - right)            # push subtract
-  Opcode 'MUL', (s) ->
-    right = s.pop(); left = s.pop() # pop left and right operands
-    s.push(left * right)            # push multiplication
-  Opcode 'DIV', (s) ->
-    right = s.pop(); left = s.pop() # pop left and right operands
-    s.push(left / right)            # push division
-  Opcode 'SAVE', (s) ->
-    s.save(@args[0], s.pop())       # save on scope chain
-  Opcode 'LOAD', (s) ->
-    s.push(s.load(@args[0]))        # load from scope chain
-  Opcode 'LITERAL', (s) ->
-    s.push(@args[0])                # push literal value
+  Opcode 'SWAP', (s) ->             # swap the top of stack with the
+    bottom = s.pop(); top = s.pop() # item below
+    s.push(bottom); s.push(top)
+  Opcode 'DUP', (s) ->              # duplicate top of stack
+    s.push(s.top())
+  Opcode 'ADD', (s) ->              # pop right and left operands and
+    right = s.pop(); left = s.pop() # push the sum
+    s.push(left + right)
+  Opcode 'SUB', (s) ->              # pop right and left operands and
+    right = s.pop(); left = s.pop() # push the difference
+    s.push(left - right)
+  Opcode 'MUL', (s) ->              # pop right and left operands and
+    right = s.pop(); left = s.pop() # push the product
+    s.push(left * right)
+  Opcode 'DIV', (s) ->              # pop right and left operands and
+    right = s.pop(); left = s.pop() # push the division
+    s.push(left / right)
+  Opcode 'SAVE', 1, (s) ->          # save on reference
+    s.save(@args[0], s.pop())
+  Opcode 'LOAD', 1, (s) ->          # load from reference
+    s.push(s.load(@args[0]))
+  Opcode 'LITERAL', 1, (s) ->       # push literal value
+    s.push(@args[0])
 ]
 
 (->
