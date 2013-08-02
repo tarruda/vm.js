@@ -35,16 +35,17 @@ binaryOp =
   '<=': null
   '>': null
   '>=': null
-  '<<': null
-  '>>': null
-  '>>>': null
+  '<<': SHL
+  '>>': SAR
+  '>>>': SHR
   '+': ADD
   '-': SUB
   '*': MUL
   '/': DIV
-  '%': null
-  '|': null
-  '^': null
+  '%': MOD
+  '|': OR
+  '&': AND
+  '^': XOR
   'in': null
   'instanceof': null
   '..': null
@@ -59,13 +60,13 @@ assignOp =
   '-=': compose(LOAD, SWAP, SUB, DUP, SAVE)
   '*=': compose(LOAD, MUL, DUP, SAVE)
   '/=': compose(LOAD, SWAP, DIV, DUP, SAVE)
-  '%=': null
-  '<<=': null
-  '>>=': null
-  '>>>=': null
-  '|=': null
-  '^=': null
-  '&=': null
+  '%=': compose(LOAD, SWAP, MOD, DUP, SAVE)
+  '<<=': compose(LOAD, SWAP, SHL, DUP, SAVE)
+  '>>=': compose(LOAD, SWAP, SAR, DUP, SAVE)
+  '>>>=': compose(LOAD, SWAP, SHR, DUP, SAVE)
+  '|=': compose(LOAD, SWAP, OR, DUP, SAVE)
+  '&=': compose(LOAD, SWAP, AND, DUP, SAVE)
+  '^=': compose(LOAD, SWAP, XOR, DUP, SAVE)
 
 updateOp =
   '++': null
