@@ -10,9 +10,8 @@ class Vm
     fiber = new Fiber(scope)
     codes = script.codes # array of opcodes
     len = codes.length   # total length
-    ip = 0        # instruction pointer
-    while ip < len
-      rv = codes[ip++].exec(fiber)
+    while fiber.ip < len
+      rv = codes[fiber.ip++].exec(fiber)
     if fiber.stack.idx != 0
       throw new Error('operand stack still has items after execution')
     return scope.load()

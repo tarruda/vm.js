@@ -1,6 +1,6 @@
-Script = require './script'
+{Script} = require './script'
 {
-  NOOP, POP, DUP2, PUSHS, SAVE, INV, LNOT, NOT, GET,
+  NOOP, POP, DUP2, PUSHS, SAVE, INV, LNOT, NOT, GET, JMP, JMPT, JMPF,
   ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID,
   LT, LTE, GT, GTE, IN, INSOF, LOR, LAND, SET, LIT, OLIT, ALIT
 } = require './opcodes'
@@ -216,8 +216,15 @@ emit =
     emit[node.right.type](node.right, script)
     binaryOp[node.operator](script)
   ConditionalExpression: (node, script) ->
-    # A conditional expression, i.e., a ternary ?/: expression
-    throw new Error('not implemented')
+    ifTrue = script.label()
+    end = script.label()
+    emit[node.test.type](node.test, script)
+    JMPT(script, ifTrue)
+    emit[node.alternate.type](node.alternate, script)
+    JMP(script, end)
+    ifTrue.mark()
+    emit[node.consequent.type](node.consequent, script)
+    end.mark()
   NewExpression: (node, script) ->
     # A new expression.
     throw new Error('not implemented')
@@ -304,6 +311,8 @@ emit =
 compile = (node) ->
   script = new Script()
   emit[node.type](node, script)
+  for code in script.codes
+    code.normalizeLabels()
   return script
 
 module.exports = compile

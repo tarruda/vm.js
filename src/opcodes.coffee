@@ -1,3 +1,4 @@
+{Label} = require './script'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -31,6 +32,11 @@ OpcodeClassFactory = (->
       else
         constructor::exec = (f) ->
           @execImpl(f)
+      constructor::normalizeLabels = ->
+        for i in [0...@argc]
+          if @args[i] instanceof Label
+            # its a label, replace with the instruction pointer
+            @args[i] = @args[i].ip
       return constructor
     )()
     return OpcodeClass
@@ -99,6 +105,11 @@ opcodes = [
     while length--
       rv[length] = f.pop()
     f.push(rv)
+
+  # jumps
+  Op 'JMP', 1, (f, ip) -> f.jump(ip)               # unconditional jump
+  Op 'JMPT', 1, (f, ip) -> f.jump(ip) if f.pop()   # jump if true
+  Op 'JMPF', 1, (f, ip) -> f.jump(ip) if !f.pop()  # jump if false
 ]
 
 (->

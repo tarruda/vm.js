@@ -3,6 +3,9 @@ Scope = require '../src/scope'
 
 tests =
   ## expressions
+  # conditional expressions
+  '3 ? 1 : 2': [1]
+  'false ? 1 : 2': [2]
   # literals
   "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
   "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]

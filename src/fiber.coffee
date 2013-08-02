@@ -2,7 +2,10 @@ Scope = require '../src/scope'
 
 class Fiber
   constructor: (@scope)->
+    @ip = 0
     @stack = new OperandStack(127)
+
+  jump: (to) -> @ip = to
 
   # stack wrappers
   pop: -> @stack.pop()
