@@ -1,6 +1,8 @@
 Script = require './script'
 {
-  DUP, SWAP, ADD, SUB, MUL, DIV, SAVE, LOAD, LITERAL
+  DUP,
+  SWAP, ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR,
+  SAVE, LOAD, LITERAL
 } = require './opcodes'
 
 # generates a opcode composition, which is an anonymous function with the
@@ -55,8 +57,8 @@ assignOp =
   '=': compose(DUP, SAVE)
   '+=': compose(LOAD, ADD, DUP, SAVE)
   '-=': compose(LOAD, SWAP, SUB, DUP, SAVE)
-  '*=': null
-  '/=': null
+  '*=': compose(LOAD, MUL, DUP, SAVE)
+  '/=': compose(LOAD, SWAP, DIV, DUP, SAVE)
   '%=': null
   '<<=': null
   '>>=': null

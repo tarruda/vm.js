@@ -1,7 +1,7 @@
 esprima = require 'esprima'
 
 State = require './state'
-compile = require './compiler'
+compile = require './opcode_compiler'
 
 class Vm
   eval: (string, scope) ->

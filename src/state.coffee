@@ -1,4 +1,4 @@
-# Encapsulates all state of script execution
+# Quick and dirty object to keep track of execution state
 class State
   constructor: (locals)->
     @stack = [] # operand stack
@@ -9,6 +9,8 @@ class State
   load: (key) -> @locals[key]
 
   pop: -> @stack.pop()
+
+  splice: (n) -> @stack.splice(@stack.length - n, n).reverse()
 
   top: -> @stack[@stack.length - 1]
 

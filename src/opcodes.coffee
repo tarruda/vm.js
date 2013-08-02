@@ -1,53 +1,67 @@
-Opcode = (->
+OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
   # to represent serialized opcodes
   id = 0
 
-  classFactory = (name, argc, fn) ->
+  classFactory = (name, argc, fn, opc) ->
+    # generate opcode class
     OpcodeClass = (->
-      # this is ugly but its the only way to get nice opcode
-      # names when debugging with google chrome(since we are generating
-      # the opcode classes)
+      # this is ugly but its the only way I found to get nice opcode
+      # names when debugging with web inspector
       constructor = eval "(function #{name}(args) { this.args = args; })"
-      # constructor = (@args) ->
       constructor::id = id++
       constructor::name = name
+      constructor::opc = opc
       if typeof argc == 'function'
-        constructor::exec = argc
+        constructor::execImpl = argc
         constructor::argc = 0
       else
-        constructor::exec = fn
+        constructor::execImpl = fn
         constructor::argc = argc
+      if constructor::argc && opc
+        constructor::exec = (s) ->
+          @execImpl.apply(this, [s].concat(@args, s.splice(@opc)))
+      else if constructor::argc
+        constructor::exec = (s) ->
+          @execImpl.apply(this, [s].concat(@args))
+      else if opc
+        constructor::exec = (s) ->
+          @execImpl.apply(this, [s].concat(s.splice(@opc)))
+      else
+        constructor::exec = (s) ->
+          @execImpl(s)
       return constructor
     )()
     return OpcodeClass
   return classFactory
 )()
 
+Op = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 0)
+UOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 1)
+BOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 2)
+
 opcodes = [
-  Opcode 'SWAP', (s) ->             # swap the top of stack with the
-    bottom = s.pop(); top = s.pop() # item below
-    s.push(bottom); s.push(top)
-  Opcode 'DUP', (s) ->              # duplicate top of stack
-    s.push(s.top())
-  Opcode 'ADD', (s) ->              # pop right and left operands and
-    right = s.pop(); left = s.pop() # push the sum
-    s.push(left + right)
-  Opcode 'SUB', (s) ->              # pop right and left operands and
-    right = s.pop(); left = s.pop() # push the difference
-    s.push(left - right)
-  Opcode 'MUL', (s) ->              # pop right and left operands and
-    right = s.pop(); left = s.pop() # push the product
-    s.push(left * right)
-  Opcode 'DIV', (s) ->              # pop right and left operands and
-    right = s.pop(); left = s.pop() # push the division
-    s.push(left / right)
-  Opcode 'SAVE', 1, (s) ->          # save on reference
-    s.save(@args[0], s.pop())
-  Opcode 'LOAD', 1, (s) ->          # load from reference
-    s.push(s.load(@args[0]))
-  Opcode 'LITERAL', 1, (s) ->       # push literal value
-    s.push(@args[0])
+  # 0-arg opcodes
+  Op 'DUP', (s) -> s.push(s.top())                 # duplicate top of stack
+
+  # 0-args binary opcodes
+  BOp 'SWAP', (s, b, t) -> s.push(b); s.push(t)    # swap the top 2 stack items
+  BOp 'ADD', (s, r, l) -> s.push(l + r)            # sum
+  BOp 'SUB', (s, r, l) -> s.push(l - r)            # difference
+  BOp 'MUL', (s, r, l) -> s.push(l * r)            # product
+  BOp 'DIV', (s, r, l) -> s.push(l / r)            # division
+  BOp 'MOD', (s, r, l) -> s.push(l % r)            # modulo
+  BOp 'SHL', (s, r, l) ->  s.push(l << r)          # left shift
+  BOp 'SAR', (s, r, l) -> s.push(l >> r)           # right shift
+  BOp 'SHR', (s, r, l) -> s.push(l >>> r)          # unsigned right shift
+  BOp 'OR', (s, r, l) -> s.push(l | r)             # bitwise OR
+  BOp 'AND', (s, r, l) -> s.push(l & r)            # bitwise AND
+  BOp 'XOR', (s, r, l) -> s.push(l ^ r)            # bitwise XOR
+
+  # 1-arg opcodes
+  Op 'SAVE', 1, (s, name) -> s.save(name, s.pop()) # save on reference
+  Op 'LOAD', 1, (s, name) -> s.push(s.load(name))  # load from reference
+  Op 'LITERAL', 1, (s, value) -> s.push(value)     # push literal value
 ]
 
 (->
