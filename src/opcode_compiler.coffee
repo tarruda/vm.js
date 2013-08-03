@@ -69,29 +69,33 @@ emit =
 
   # Statements:
   EmptyStatement: (node, script) ->
-    # An empty statement, i.e., a solitary semicolon.
-    throw new Error('not implemented')
+    # do nothing
   BlockStatement: (node, script) ->
-    # A block statement, i.e., a sequence of statements surrounded by braces.
-    throw new Error('not implemented')
+    # A complete program source tree.
+    for child in node.body
+      emit[child.type](child, script)
   ExpressionStatement: (node, script) ->
     emit[node.expression.type](node.expression, script)
     SAVE(script)
+
   IfStatement: (node, script) ->
     # An if statement.
     throw new Error('not implemented')
+
   LabeledStatement: (node, script) ->
     # A labeled statement, i.e., a statement prefixed by a break/continue labe
     throw new Error('not implemented')
+
   BreakStatement: (node, script) ->
-    # A break statement
-    throw new Error('not implemented')
+    JMP(script, script.enclosingEnd())
+
   ContinueStatement: (node, script) ->
-    # A continue statement
-    throw new Error('not implemented')
+    JMP(script, script.enclosingStart())
+
   WithStatement: (node, script) ->
     # A with statement
     throw new Error('not implemented')
+
   SwitchStatement: (node, script) ->
     # A switch statement. The lexical flag is metadata indicating whether
     # the switch statement contains any unnested let declarations
@@ -107,8 +111,16 @@ emit =
     # A try statement
     throw new Error('not implemented')
   WhileStatement: (node, script) ->
-    # A while statement
-    throw new Error('not implemented')
+    loopStart = script.label()
+    loopEnd = script.label()
+    script.pushLoop({start: loopStart, end: loopEnd})
+    loopStart.mark()
+    emit[node.test.type](node.test, script)
+    JMPF(script, loopEnd)
+    emit[node.body.type](node.body, script)
+    JMP(script, loopStart)
+    loopEnd.mark()
+
   DoWhileStatement: (node, script) ->
     # A do/while statement
     throw new Error('not implemented')
