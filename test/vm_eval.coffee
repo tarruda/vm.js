@@ -102,12 +102,24 @@ tests =
   i;
   """: [1000, {i: 1000, j: 100000, k: 2000}]
   """
-  i = 0;j = 0
+  i = 0, j = 0
   do {
     j += 5
   } while (i++ < 10)
-  i;
-  """: [11, {i: 11, j: 55}]
+  i,j;
+  """: [55, {i: 11, j: 55}]
+  """
+  obj = {length: 5};
+  j = 0;
+  for (i = 0, len = obj.length; i < len; i++) {
+    j++;
+  }
+  i
+  """: [5, {i: 5, j: 5, len: 5, obj: {length: 5}}]
+  """
+  for (var i = 0, len = 6; i < len; i+=10) { }
+  i
+  """: [10, {i: 10, len: 6}]
 
 describe 'vm eval', ->
   vm = null

@@ -61,12 +61,15 @@ emit =
     throw new Error('not implemented')
 
   # Statements:
+  
   EmptyStatement: (node, script) ->
-    # do nothing
+
   BlockStatement: (node, script) ->
-    # A complete program source tree.
+    script.pushBlock()
     for child in node.body
       emit[child.type](child, script)
+    script.popBlock()
+
   ExpressionStatement: (node, script) ->
     emit[node.expression.type](node.expression, script)
     script.SAVE()
@@ -80,10 +83,10 @@ emit =
     throw new Error('not implemented')
 
   BreakStatement: (node, script) ->
-    script.JMP(script.enclosingEnd())
+    script.JMP(script.loopEnd())
 
   ContinueStatement: (node, script) ->
-    script.JMP(script.enclosingStart())
+    script.JMP(script.loopStart())
 
   WithStatement: (node, script) ->
     # A with statement
@@ -127,8 +130,21 @@ emit =
     script.popLoop()
 
   ForStatement: (node, script) ->
-    # A for statement
-    throw new Error('not implemented')
+    loopStart = script.label()
+    loopEnd = script.label()
+    script.pushLoop({start: loopStart, end: loopEnd})
+    emit[node.init.type](node.init, script)
+    script.POP() if node.init.type != 'VariableDeclaration'
+    loopStart.mark()
+    emit[node.test.type](node.test, script)
+    script.JMPF(loopEnd)
+    emit[node.body.type](node.body, script)
+    emit[node.update.type](node.update, script)
+    script.POP()
+    script.JMP(loopStart)
+    loopEnd.mark()
+    script.popLoop()
+
   ForInStatement: (node, script) ->
     # A for/in statement, or, if each is true, a for each/in statement
     throw new Error('not implemented')
@@ -146,20 +162,26 @@ emit =
   FunctionDeclaration: (node, script) ->
     # A function declaration
     throw new Error('not implemented')
-  VariableDeclaraction: (node, script) ->
-    # A variable declaration, via one of var, let, or const.
-    # TODO incomplete
+
+  VariableDeclaration: (node, script) ->
     for child in node.declarations
-      emit[child.type](child.init, script)
+      emit[child.type](child, script)
+
   VariableDeclarator: (node, script) ->
     # A variable declarator
-    emit[node.init.type](node.init, script)
-    script.SAVE(node.name)
+    script.declareVar(node)
+    assignNode =
+      operator: '='
+      left: node.id
+      right: node.init
+    emit.AssignmentExpression(assignNode, script)
+    script.POP()
 
   # Expressions:
   ThisExpression: (node, script) ->
     # A this expression
     throw new Error('not implemented')
+
   ArrayExpression: (node, script) ->
     for element in node.elements
       emit[element.type](element, script)
@@ -184,7 +206,7 @@ emit =
 
   SequenceExpression: (node, script) ->
     for expression in node.expressions
-      emit[expression.type](expression)
+      emit[expression.type](expression, script)
       script.SAVE()
     script.LOAD()
 
@@ -371,7 +393,7 @@ emit =
 compile = (node) ->
   script = new Script()
   emit[node.type](node, script)
-  for code in script.codes
+  for code in script.instructions
     code.normalizeLabels()
   return script
 

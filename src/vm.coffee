@@ -8,10 +8,10 @@ class Vm
     ast = esprima.parse(string)
     script = compile(ast)
     fiber = new Fiber(scope)
-    codes = script.codes # array of opcodes
-    len = codes.length   # total length
+    instructions = script.instructions # array of opcodes
+    len = instructions.length   # total length
     while fiber.ip < len
-      rv = codes[fiber.ip++].exec(fiber)
+      rv = instructions[fiber.ip++].exec(fiber)
     if (remaining = fiber.stack.idx) != 0
       throw new Error("operand stack still has #{remaining} after execution")
     return fiber.stack.load()
