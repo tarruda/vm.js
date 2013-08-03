@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "commonjs": "0.2.0",
-    "esprima": "1.0.3"
+    "commonjs": "0.2.0"
   }
 }

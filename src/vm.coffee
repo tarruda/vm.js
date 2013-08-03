@@ -12,9 +12,9 @@ class Vm
     len = codes.length   # total length
     while fiber.ip < len
       rv = codes[fiber.ip++].exec(fiber)
-    if fiber.stack.idx != 0
-      throw new Error('operand stack still has items after execution')
-    return scope.load()
+    if (remaining = fiber.stack.idx) != 0
+      throw new Error("operand stack still has #{remaining} after execution")
+    return fiber.stack.load()
 
 
 module.exports = Vm

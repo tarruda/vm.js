@@ -35,6 +35,8 @@ OpcodeClassFactory = (->
       constructor::normalizeLabels = ->
         for i in [0...@argc]
           if @args[i] instanceof Label
+            if @args[i].ip == null
+              throw new Error('label has not been marked')
             # its a label, replace with the instruction pointer
             @args[i] = @args[i].ip
       return constructor
@@ -52,9 +54,14 @@ opcodes = [
   # 0-arg opcodes
   Op 'NOOP', (f) ->                                # no-op
   Op 'POP', (f) -> f.pop()                         # remove top
+  Op 'SWAP', (f) -> f.swap()                       # swap the top 2
+  Op 'DUP', (f) -> f.dup()                         # duplicate top item
   Op 'DUP2', (f) -> f.dup2()                       # duplicate top 2 items
-  Op 'PUSHS', (f) -> f.pushs()                     # push local scope reference
+  Op 'PUSH_SCOPE', (f) -> f.pushScope()            # push local scope reference
   Op 'SAVE', (f) -> f.save()                       # pop/save top of stack
+  Op 'SAVE2', (f) -> f.save2()                     # pop/save top 2 items
+  Op 'LOAD', (f) -> f.load()                       # push saved value
+  Op 'LOAD2', (f) -> f.load2()                      # push 2 saved values
 
   # 0-arg unary opcodes
   UOp 'INV', (f, o) -> f.push(-o)                  # invert signal
@@ -85,22 +92,23 @@ opcodes = [
   BOp 'GT', (f, r, l) -> f.push(l > r)             # greater than
   BOp 'GTE', (f, r, l) -> f.push(l >= r)           # greater or equal than
   BOp 'IN', (f, r, l) -> f.push(l of r)            # contains property
-  BOp 'INSOF', (f, r, l) -> f.push(l instanceof r) # instance of
+  BOp 'INSTANCE_OF', (f, r, l) ->                  # instance of
+    f.push(l instanceof r)
   # logical
   BOp 'LOR', (f, r, l) -> f.push(l || r)           # logical OR
   BOp 'LAND', (f, r, l) -> f.push(l && r)          # logical AND
 
   # 0-arg ternary opcodes
-  TOp 'SET', (f, v, n, o) -> f.set(o, n, v)        # set name = val on object
+  TOp 'SET', (f, n, o, v) -> f.set(o, n, v)        # set name = val on object
 
-  Op 'LIT', 1, (f, value) -> f.push(value)         # push literal value
-  Op 'OLIT', 1, (f, length) ->                     # object literal
+  Op 'LITERAL', 1, (f, value) -> f.push(value)     # push literal value
+  Op 'OBJECT_LITERAL', 1, (f, length) ->           # object literal
     rv = {}
     while length--
       value = f.pop()
       rv[f.pop()] = value
     f.push(rv)
-  Op 'ALIT', 1, (f, length) ->                     # array literal
+  Op 'ARRAY_LITERAL', 1, (f, length) ->            # array literal
     rv = new Array(length)
     while length--
       rv[length] = f.pop()

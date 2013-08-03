@@ -3,9 +3,6 @@ Scope = require '../src/scope'
 
 tests =
   ## expressions
-  # conditional expressions
-  '3 ? 1 : 2': [1]
-  'false ? 1 : 2': [2]
   # literals
   "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
   "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
@@ -54,6 +51,9 @@ tests =
   '0xf | 0xf0': [0xff]
   '0xf & 0xf8': [8]
   '0xf0 ^ 8': [0xf8]
+  # conditional expressions
+  '3 ? 1 : 2': [1]
+  'false ? 1 : 2': [2]
   # assignments
   "x = {count: 28};x.count = 29": [29, {x: {count: 29}}]
   "x = [1, 2, 3];x[2] = 5": [5, {x: [1, 2, 5]}]
@@ -70,6 +70,10 @@ tests =
   'x = 0xf;x |= 0xf0': [0xff, {x: 0xff}]
   'x = 0xf;x &= 0xf8': [8, {x: 8}]
   'x = 0xf0;x ^= 8': [0xf8, {x: 0xf8}]
+  # destructuring assignments
+  '[x, y] = [1, 2]': [[1, 2], {x: 1, y: 2}]
+  '[,,y] = [1, 2, 3 ,4]': [[1, 2, 3, 4], {y: 3}]
+  '({x: X, y: Y} = {x: 1, y: 2})': [{x: 1, y: 2}, {X: 1, Y: 2}]
 
 describe 'vm eval', ->
   vm = null

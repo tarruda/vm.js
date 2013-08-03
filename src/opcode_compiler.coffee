@@ -1,8 +1,9 @@
 {Script} = require './script'
 {
-  NOOP, POP, DUP2, PUSHS, SAVE, INV, LNOT, NOT, GET, JMP, JMPT, JMPF,
+  NOOP, POP, DUP, DUP2, PUSH_SCOPE, INV, LNOT, NOT, GET, JMP, JMPT, JMPF,
   ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID,
-  LT, LTE, GT, GTE, IN, INSOF, LOR, LAND, SET, LIT, OLIT, ALIT
+  LT, LTE, GT, GTE, IN, INSTANCE_OF, LOR, LAND, SET, LITERAL, OBJECT_LITERAL,
+  ARRAY_LITERAL, SAVE, LOAD, SAVE2, LOAD2, SWAP
 } = require './opcodes'
 
 unaryOp =
@@ -37,7 +38,7 @@ binaryOp =
   '&': AND
   '^': XOR
   'in': IN
-  'instanceof': INSOF
+  'instanceof': INSTANCE_OF
   '..': null # e4x-specific
 
 assignOp =
@@ -148,7 +149,7 @@ emit =
   ArrayExpression: (node, script) ->
     for element in node.elements
       emit[element.type](element, script)
-    ALIT(script, node.elements.length)
+    ARRAY_LITERAL(script, node.elements.length)
   ObjectExpression: (node, script) ->
     for property in node.properties
       if property.kind == 'init' # object literal
@@ -159,7 +160,7 @@ emit =
         emit[property.value.type](property.value, script)
       else
         throw new Error("property kind '#{property.kind}' not implemented")
-    OLIT(script, node.properties.length)
+    OBJECT_LITERAL(script, node.properties.length)
   FunctionExpression: (node, script) ->
     # A function expression
     throw new Error('not implemented')
@@ -177,7 +178,45 @@ emit =
     emit[node.left.type](node.left, script)
     emit[node.right.type](node.right, script)
     binaryOp[node.operator](script)
+
   AssignmentExpression: (node, script) ->
+    emit[node.right.type](node.right, script)
+    if node.left.type == 'ArrayPattern'
+      index = 0
+      for element in node.left.elements
+        if element
+          DUP(script)
+          # get the nth-item from the array
+          childAssignment =
+            operator: node.operator
+            type: node.type
+            left: element
+            right:
+              type: 'MemberExpression'
+              # omit the object since its already loaded on stack
+              computed: true
+              property: {type: 'Literal', value: index}
+          emit.AssignmentExpression(childAssignment, script)
+          POP(script)
+        index++
+      return
+    if node.left.type == 'ObjectPattern'
+      for property in node.left.properties
+        DUP(script)
+        source = property.key
+        target = property.value
+        childAssignment =
+          operator: node.operator
+          type: node.type
+          left: target
+          right:
+            type: 'MemberExpression'
+            # omit the object since its already loaded on stack
+            computed: true
+            property: {type: 'Literal', value: source.name}
+        emit.AssignmentExpression(childAssignment, script)
+        POP(script)
+      return
     if node.left.type == 'MemberExpression'
       # push property owner to stack
       emit[node.left.object.type](node.left.object, script)
@@ -185,20 +224,19 @@ emit =
       if node.left.computed
         emit[node.left.property.type](node.left.property, script)
       else
-        LIT(script, node.left.property.name)
-    else if node.left.type == 'Identifier'
-      PUSHS(script) # push local scope to stack
-      LIT(script, node.left.name)
-    # push value to be set
-    if node.operator == '=' # simple assignment
-      emit[node.right.type](node.right, script)
-      SET(script)
-    else # get the value, apply the operation then assign
+        LITERAL(script, node.left.property.name)
+    else # Identifier
+      PUSH_SCOPE(script) # push local scope to stack
+      LITERAL(script, node.left.name) # push key to stack
+    if node.operator != '='
       DUP2(script)
+      SAVE2(script)
       GET(script)
-      emit[node.right.type](node.right, script)
-      assignOp[node.operator](script)
-      SET(script)
+      SWAP(script)
+      assignOp[node.operator](script) # execute operation
+      LOAD2(script)
+    SET(script)
+
   UpdateExpression: (node, script) ->
     assignNode =
       operator: if node.operator == '++' then '+=' else '-='
@@ -210,11 +248,13 @@ emit =
       emit[node.argument.type](node.argument, script)
       emit.AssignmentExpression(assignNode, script)
       POP(script)
+
   LogicalExpression: (node, script) ->
     # A logical binary operator expression.
     emit[node.left.type](node.left, script)
     emit[node.right.type](node.right, script)
     binaryOp[node.operator](script)
+
   ConditionalExpression: (node, script) ->
     ifTrue = script.label()
     end = script.label()
@@ -225,18 +265,20 @@ emit =
     ifTrue.mark()
     emit[node.consequent.type](node.consequent, script)
     end.mark()
+
   NewExpression: (node, script) ->
     # A new expression.
     throw new Error('not implemented')
+
   CallExpression: (node, script) ->
     # A function or method call expression.
     throw new Error('not implemented')
   MemberExpression: (node, script) ->
-    emit[node.object.type](node.object, script)
+    if node.object then emit[node.object.type](node.object, script)
     if node.computed # computed at runtime, eg: x[y]
       emit[node.property.type](node.property, script)
     else # static member eg: x.y
-      LIT(script, node.property.name)
+      LITERAL(script, node.property.name)
     GET(script)
   YieldExpression: (node, script) ->
     # A yield expression
@@ -302,11 +344,11 @@ emit =
   Identifier: (node, script) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    PUSHS(script)
-    LIT(script, node.name)
+    PUSH_SCOPE(script)
+    LITERAL(script, node.name)
     GET(script)
   Literal: (node, script) ->
-    LIT(script, node.value)
+    LITERAL(script, node.value)
 
 compile = (node) ->
   script = new Script()

@@ -12,7 +12,7 @@
     "email": "tpadilha84@gmail.com"
   },
   "dependencies": {
-    "esprima": "~1.0.3"
+    "esprima": "git://github.com/ariya/esprima.git#harmony"
   },
   "devDependencies": {
     "grunt": "~0.4.1",

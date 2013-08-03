@@ -14,15 +14,23 @@ class Fiber
 
   top: -> @stack.top()
 
+  dup: -> @stack.dup()
+
   dup2: -> @stack.dup2()
+
+  swap: -> @stack.swap()
 
   push: (item) -> @stack.push(item)
 
-  pushs: -> @stack.push(@scope)
-  #
+  pushScope: -> @stack.push(@scope)
 
-  # scope wrappers
-  save: -> @scope.save(@pop())
+  save: -> @stack.save()
+
+  save2: -> @stack.save2()
+
+  load: -> @stack.load()
+
+  load2: -> @stack.load2()
   #
 
   # object wrappers
@@ -40,15 +48,27 @@ class OperandStack
   constructor: (size) ->
     @array = new Array(size)
     @idx = 0
+    @slot1 = null
+    @slot2 = null
+
+  save: -> @slot1 = @pop()
+
+  save2: -> @slot1 = @pop(); @slot2 = @pop()
+
+  load: -> @push(@slot1)
+
+  load2: -> @push(@slot2); @push(@slot1)
+
+  dup: -> @push(@array[@idx - 1])
+
+  dup2: -> @push(@array[@idx - 2]); @push(@array[@idx - 2])
+
+  swap: -> top = @pop(); bot = @pop(); @push(top); @push(bot)
 
   push: (item) -> @array[@idx++] = item
 
   pop: -> @array[--@idx]
 
-  dup2: ->
-    @array[@idx] = @array[@idx - 2]
-    @array[@idx + 1] = @array[@idx - 1]
-    @idx += 2
 
   popn: (n) ->
     rv = []
