@@ -1,58 +1,51 @@
-{Script} = require './script'
-{
-  NOOP, POP, DUP, DUP2, PUSH_SCOPE, INV, LNOT, NOT, GET, JMP, JMPT, JMPF,
-  ADD, SUB, MUL, DIV, MOD, SHL, SAR, SHR, OR, AND, XOR, CEQ, CNEQ, CID, CNID,
-  LT, LTE, GT, GTE, IN, INSTANCE_OF, LOR, LAND, SET, LITERAL, OBJECT_LITERAL,
-  ARRAY_LITERAL, SAVE, LOAD, SAVE2, LOAD2, SWAP
-} = require './opcodes'
+Script = require './script'
 
 unaryOp =
-  '-': INV
-  '+': NOOP
-  '!': LNOT
-  '~': NOT
+  '-': 'INV'
+  '+': 'NOOP'
+  '!': 'LNOT'
+  '~': 'NOT'
   'typeof': null
   'void': null
   'delete': null
 
 binaryOp =
-  '==': CEQ
-  '!=': CNEQ
-  '===': CID
-  '!==': CNID
-  '<': LT
-  '<=': LTE
-  '>': GT
-  '>=': GTE
-  '||': LOR
-  '&&': LAND
-  '<<': SHL
-  '>>': SAR
-  '>>>': SHR
-  '+': ADD
-  '-': SUB
-  '*': MUL
-  '/': DIV
-  '%': MOD
-  '|': OR
-  '&': AND
-  '^': XOR
-  'in': IN
-  'instanceof': INSTANCE_OF
-  '..': null # e4x-specific
+  '==': 'CEQ'
+  '!=': 'CNEQ'
+  '===': 'CID'
+  '!==': 'CNID'
+  '<': 'LT'
+  '<=': 'LTE'
+  '>': 'GT'
+  '>=': 'GTE'
+  '||': 'LOR'
+  '&&': 'LAND'
+  '<<': 'SHL'
+  '>>': 'SAR'
+  '>>>': 'SHR'
+  '+': 'ADD'
+  '-': 'SUB'
+  '*': 'MUL'
+  '/': 'DIV'
+  '%': 'MOD'
+  '|': 'OR'
+  '&': 'AND'
+  '^': 'XOR'
+  'in': 'IN'
+  'instanceof': 'INSTANCE_OF'
 
 assignOp =
-  '+=': ADD
-  '-=': SUB
-  '*=': MUL
-  '/=': DIV
-  '%=': MOD
-  '<<=': SHL
-  '>>=': SAR
-  '>>>=': SHR
-  '|=': OR
-  '&=': AND
-  '^=': XOR
+  '+=': 'ADD'
+  '-=': 'SUB'
+  '*=': 'MUL'
+  '/=': 'DIV'
+  '%=': 'MOD'
+  '<<=': 'SHL'
+  '>>=': 'SAR'
+  '>>>=': 'SHR'
+  '|=': 'OR'
+  '&=': 'AND'
+  '^=': 'XOR'
 
 # AST node types. Source:
 # https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
@@ -76,7 +69,7 @@ emit =
       emit[child.type](child, script)
   ExpressionStatement: (node, script) ->
     emit[node.expression.type](node.expression, script)
-    SAVE(script)
+    script.SAVE()
 
   IfStatement: (node, script) ->
     # An if statement.
@@ -87,10 +80,10 @@ emit =
     throw new Error('not implemented')
 
   BreakStatement: (node, script) ->
-    JMP(script, script.enclosingEnd())
+    script.JMP(script.enclosingEnd())
 
   ContinueStatement: (node, script) ->
-    JMP(script, script.enclosingStart())
+    script.JMP(script.enclosingStart())
 
   WithStatement: (node, script) ->
     # A with statement
@@ -116,14 +109,23 @@ emit =
     script.pushLoop({start: loopStart, end: loopEnd})
     loopStart.mark()
     emit[node.test.type](node.test, script)
-    JMPF(script, loopEnd)
+    script.JMPF(loopEnd)
     emit[node.body.type](node.body, script)
-    JMP(script, loopStart)
+    script.JMP(loopStart)
     loopEnd.mark()
+    script.popLoop()
 
   DoWhileStatement: (node, script) ->
-    # A do/while statement
-    throw new Error('not implemented')
+    loopStart = script.label()
+    loopEnd = script.label()
+    script.pushLoop({start: loopStart, end: loopEnd})
+    loopStart.mark()
+    emit[node.body.type](node.body, script)
+    emit[node.test.type](node.test, script)
+    script.JMPT(loopStart)
+    loopEnd.mark()
+    script.popLoop()
+
   ForStatement: (node, script) ->
     # A for statement
     throw new Error('not implemented')
@@ -152,7 +154,7 @@ emit =
   VariableDeclarator: (node, script) ->
     # A variable declarator
     emit[node.init.type](node.init, script)
-    SAVE(script, node.name)
+    script.SAVE(node.name)
 
   # Expressions:
   ThisExpression: (node, script) ->
@@ -161,7 +163,7 @@ emit =
   ArrayExpression: (node, script) ->
     for element in node.elements
       emit[element.type](element, script)
-    ARRAY_LITERAL(script, node.elements.length)
+    script.ARRAY_LITERAL(node.elements.length)
   ObjectExpression: (node, script) ->
     for property in node.properties
       if property.kind == 'init' # object literal
@@ -172,24 +174,28 @@ emit =
         emit[property.value.type](property.value, script)
       else
         throw new Error("property kind '#{property.kind}' not implemented")
-    OBJECT_LITERAL(script, node.properties.length)
+    script.OBJECT_LITERAL(node.properties.length)
   FunctionExpression: (node, script) ->
     # A function expression
     throw new Error('not implemented')
   ArrowExpression: (node, script) ->
     # A fat arrow function expression, i.e.,`let foo = (bar) => { /* body */ }`
     throw new Error('not implemented')
+
   SequenceExpression: (node, script) ->
-    # A sequence expression, i.e., a comma-separated sequence of expressions.
-    throw new Error('not implemented')
+    for expression in node.expressions
+      emit[expression.type](expression)
+      script.SAVE()
+    script.LOAD()
+
   UnaryExpression: (node, script) ->
     emit[node.argument.type](node.argument, script)
-    unaryOp[node.operator](script)
+    script[unaryOp[node.operator]]()
   BinaryExpression: (node, script) ->
     # A binary operator expression.
     emit[node.left.type](node.left, script)
     emit[node.right.type](node.right, script)
-    binaryOp[node.operator](script)
+    script[binaryOp[node.operator]]()
 
   AssignmentExpression: (node, script) ->
     emit[node.right.type](node.right, script)
@@ -197,7 +203,7 @@ emit =
       index = 0
       for element in node.left.elements
         if element
-          DUP(script)
+          script.DUP()
           # get the nth-item from the array
           childAssignment =
             operator: node.operator
@@ -209,12 +215,12 @@ emit =
               computed: true
               property: {type: 'Literal', value: index}
           emit.AssignmentExpression(childAssignment, script)
-          POP(script)
+          script.POP()
         index++
       return
     if node.left.type == 'ObjectPattern'
       for property in node.left.properties
-        DUP(script)
+        script.DUP()
         source = property.key
         target = property.value
         childAssignment =
@@ -227,7 +233,7 @@ emit =
             computed: true
             property: {type: 'Literal', value: source.name}
         emit.AssignmentExpression(childAssignment, script)
-        POP(script)
+        script.POP()
       return
     if node.left.type == 'MemberExpression'
       # push property owner to stack
@@ -236,18 +242,18 @@ emit =
       if node.left.computed
         emit[node.left.property.type](node.left.property, script)
       else
-        LITERAL(script, node.left.property.name)
+        script.LITERAL(node.left.property.name)
     else # Identifier
-      PUSH_SCOPE(script) # push local scope to stack
-      LITERAL(script, node.left.name) # push key to stack
+      script.PUSH_SCOPE() # push local scope to stack
+      script.LITERAL(node.left.name) # push key to stack
     if node.operator != '='
-      DUP2(script)
-      SAVE2(script)
-      GET(script)
-      SWAP(script)
-      assignOp[node.operator](script) # execute operation
-      LOAD2(script)
-    SET(script)
+      script.DUP2()
+      script.SAVE2()
+      script.GET()
+      script.SWAP()
+      script[assignOp[node.operator]]() # execute operation
+      script.LOAD2()
+    script.SET()
 
   UpdateExpression: (node, script) ->
     assignNode =
@@ -259,21 +265,21 @@ emit =
     else
       emit[node.argument.type](node.argument, script)
       emit.AssignmentExpression(assignNode, script)
-      POP(script)
+      script.POP()
 
   LogicalExpression: (node, script) ->
     # A logical binary operator expression.
     emit[node.left.type](node.left, script)
     emit[node.right.type](node.right, script)
-    binaryOp[node.operator](script)
+    script[binaryOp[node.operator]]()
 
   ConditionalExpression: (node, script) ->
     ifTrue = script.label()
     end = script.label()
     emit[node.test.type](node.test, script)
-    JMPT(script, ifTrue)
+    script.JMPT(ifTrue)
     emit[node.alternate.type](node.alternate, script)
-    JMP(script, end)
+    script.JMP(end)
     ifTrue.mark()
     emit[node.consequent.type](node.consequent, script)
     end.mark()
@@ -290,8 +296,8 @@ emit =
     if node.computed # computed at runtime, eg: x[y]
       emit[node.property.type](node.property, script)
     else # static member eg: x.y
-      LITERAL(script, node.property.name)
-    GET(script)
+      script.LITERAL(node.property.name)
+    script.GET()
   YieldExpression: (node, script) ->
     # A yield expression
     throw new Error('not implemented')
@@ -356,11 +362,11 @@ emit =
   Identifier: (node, script) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    PUSH_SCOPE(script)
-    LITERAL(script, node.name)
-    GET(script)
+    script.PUSH_SCOPE()
+    script.LITERAL(node.name)
+    script.GET()
   Literal: (node, script) ->
-    LITERAL(script, node.value)
+    script.LITERAL(node.value)
 
 compile = (node) ->
   script = new Script()

@@ -1,5 +1,3 @@
-{Label} = require './script'
-
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
   # to represent serialized opcodes
@@ -32,13 +30,6 @@ OpcodeClassFactory = (->
       else
         constructor::exec = (f) ->
           @execImpl(f)
-      constructor::normalizeLabels = ->
-        for i in [0...@argc]
-          if @args[i] instanceof Label
-            if @args[i].ip == null
-              throw new Error('label has not been marked')
-            # its a label, replace with the instruction pointer
-            @args[i] = @args[i].ip
       return constructor
     )()
     return OpcodeClass
@@ -119,13 +110,5 @@ opcodes = [
   Op 'JMPT', 1, (f, ip) -> f.jump(ip) if f.pop()   # jump if true
   Op 'JMPF', 1, (f, ip) -> f.jump(ip) if !f.pop()  # jump if false
 ]
-
-(->
-  # associate each opcode with its name
-  for opcode in opcodes
-    do (opcode) ->
-      opcodes[opcode::name] = (script, args...) ->
-        script.push(new opcode(args))
-)()
 
 module.exports = opcodes
