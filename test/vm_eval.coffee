@@ -1,5 +1,4 @@
 Vm = require '../src/vm'
-Scope = require '../src/scope'
 
 tests =
   ## expressions
@@ -120,21 +119,32 @@ tests =
   for (var i = 0, len = 6; i < len; i+=10) { }
   i
   """: [10, {i: 10, len: 6}]
+  """
+  i = 0;
+  test();
+  function test() { i = 10; }
+  i
+  """: [10, ((scope) ->
+    expect(scope.i).to.eql(10)
+    expect(scope.test.constructor.name).to.eql('Closure')
+  )]
 
 describe 'vm eval', ->
   vm = null
   scope = null
 
   beforeEach ->
-    scope = new Scope()
-    vm = new Vm()
+    vm = new Vm(256)
+    scope = vm.global
 
   for k, v of tests
     do (k, v) ->
       fn = ->
         result = vm.eval(k, scope)
         expect(result).to.deep.eql expectedValue
-        if typeof expectedScope == 'object'
+        if typeof expectedScope == 'function'
+          expectedScope(scope.keys)
+        else if typeof expectedScope == 'object'
           expect(scope.keys).to.deep.eql expectedScope
         else
           expect(scope.keys).to.deep.eql {}

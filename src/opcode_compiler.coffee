@@ -51,14 +51,13 @@ assignOp =
 # https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 emit =
   # Programs:
-  Program: (node, script) ->
-    # A complete program source tree.
+  Program: (node) ->
+    program = new Script()
     for child in node.body
-      emit[child.type](child, script)
-  Function: (node, script) ->
-    # A function declaration or expression. The body of the function may be a
-    # block statement, or in the case of an expression closure, an expression.
-    throw new Error('not implemented')
+      emit[child.type](child, program)
+    program.end()
+    program.instructions.pop() # remove RET
+    return program
 
   # Statements:
   
@@ -160,8 +159,19 @@ emit =
 
   # Declarations:
   FunctionDeclaration: (node, script) ->
-    # A function declaration
-    throw new Error('not implemented')
+    # reuse the FunctionExpression emitter
+    expr =
+      id: node.id
+      params: node.params
+      defaults: node.defaults
+      rest: node.rest
+      generator: node.generator
+      expression: node.expression
+      body: node.body
+    emit.FunctionExpression(expr, script)
+    # when declaring we don't need push the function object into the stack
+    # so remove the last instruction which is responsible for doing this
+    opcode = script.popInstruction()
 
   VariableDeclaration: (node, script) ->
     for child in node.declarations
@@ -197,9 +207,33 @@ emit =
       else
         throw new Error("property kind '#{property.kind}' not implemented")
     script.OBJECT_LITERAL(node.properties.length)
+
   FunctionExpression: (node, script) ->
-    # A function expression
-    throw new Error('not implemented')
+    fn = new Script()
+    for child in node.body.body
+      emit[child.type](child, fn)
+    fn.end()
+    params = []
+    # use some assertions for param, default and rest node.types since
+    # I don't if more types are possible
+    for i in [0...node.params.length]
+      param = node.params[i]
+      def = node.defaults[i]
+      if param.type != 'Identifier' then throw new Error('invalid param')
+      param = {name: param.name, def: null}
+      if def
+        if def.type != 'Literal' then throw new Error('invalid default param')
+        param.def = def.value
+      fn.addParam(param)
+    if node.nest
+      if node.rest.type != 'Identifier' then throw new Error('invalid rest')
+      fn.setRest(node.rest.name)
+    functionIndex = script.addScript(fn)
+    # push the function on the stack
+    script.FUNCTION(functionIndex)
+    if node.id # if it has a name, also declare it
+      script.declareFunction(node.id.name, functionIndex)
+
   ArrowExpression: (node, script) ->
     # A fat arrow function expression, i.e.,`let foo = (bar) => { /* body */ }`
     throw new Error('not implemented')
@@ -266,7 +300,7 @@ emit =
       else
         script.LITERAL(node.left.property.name)
     else # Identifier
-      script.PUSH_SCOPE() # push local scope to stack
+      script.SCOPE() # push local scope to stack
       script.LITERAL(node.left.name) # push key to stack
     if node.operator != '='
       script.DUP2()
@@ -311,8 +345,11 @@ emit =
     throw new Error('not implemented')
 
   CallExpression: (node, script) ->
-    # A function or method call expression.
-    throw new Error('not implemented')
+    emit[node.callee.type](node.callee, script)
+    for argument in node.arguments
+      emit[argument.type](argument, script)
+    script.CALL()
+
   MemberExpression: (node, script) ->
     if node.object then emit[node.object.type](node.object, script)
     if node.computed # computed at runtime, eg: x[y]
@@ -320,6 +357,7 @@ emit =
     else # static member eg: x.y
       script.LITERAL(node.property.name)
     script.GET()
+
   YieldExpression: (node, script) ->
     # A yield expression
     throw new Error('not implemented')
@@ -384,18 +422,15 @@ emit =
   Identifier: (node, script) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    script.PUSH_SCOPE()
+    script.SCOPE()
     script.LITERAL(node.name)
     script.GET()
+
   Literal: (node, script) ->
     script.LITERAL(node.value)
 
 compile = (node) ->
-  script = new Script()
-  emit[node.type](node, script)
-  for code in script.instructions
-    code.normalizeLabels()
-  return script
+  return emit.Program(node)
 
 module.exports = compile
 

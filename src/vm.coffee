@@ -1,19 +1,18 @@
 esprima = require 'esprima'
 
+Scope = require './scope'
 Fiber = require './fiber'
 compile = require './opcode_compiler'
 
 class Vm
-  eval: (string, scope) ->
+  constructor: (@maxDepth) ->
+    @global = new Scope()
+
+  eval: (string) ->
     ast = esprima.parse(string)
     script = compile(ast)
-    fiber = new Fiber(scope)
-    instructions = script.instructions # array of opcodes
-    len = instructions.length   # total length
-    while fiber.ip < len
-      rv = instructions[fiber.ip++].exec(fiber)
-    if (remaining = fiber.stack.idx) != 0
-      throw new Error("operand stack still has #{remaining} after execution")
+    fiber = new Fiber(@maxDepth, @global, script)
+    fiber.run()
     return fiber.stack.load()
 
 

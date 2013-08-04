@@ -48,16 +48,19 @@ opcodes = [
   Op 'SWAP', (f) -> f.swap()                       # swap the top 2
   Op 'DUP', (f) -> f.dup()                         # duplicate top item
   Op 'DUP2', (f) -> f.dup2()                       # duplicate top 2 items
-  Op 'PUSH_SCOPE', (f) -> f.pushScope()            # push local scope reference
+  Op 'SCOPE', (f) -> f.pushScope()                 # push local scope reference
   Op 'SAVE', (f) -> f.save()                       # pop/save top of stack
   Op 'SAVE2', (f) -> f.save2()                     # pop/save top 2 items
   Op 'LOAD', (f) -> f.load()                       # push saved value
-  Op 'LOAD2', (f) -> f.load2()                      # push 2 saved values
+  Op 'LOAD2', (f) -> f.load2()                     # push 2 saved values
+  Op 'RET', (f) -> f.ret()                         # return from function
 
   # 0-arg unary opcodes
   UOp 'INV', (f, o) -> f.push(-o)                  # invert signal
   UOp 'LNOT', (f, o) -> f.push(!o)                 # logical NOT
   UOp 'NOT', (f, o) -> f.push(~o)                  # bitwise NOT
+  UOp 'CALL', (f, s) -> f.call(s)                  # call function
+  UOp 'RETV', (f, v) -> f.ret(v)                   # return value
 
   # 0-args binary opcodes
   BOp 'GET', (f, n, o) -> f.push(f.get(o, n))      # get name from object
@@ -92,6 +95,10 @@ opcodes = [
   # 0-arg ternary opcodes
   TOp 'SET', (f, n, o, v) -> f.set(o, n, v)        # set name = val on object
 
+  # 1-args opcode
+  Op 'JMP', 1, (f, ip) -> f.jump(ip)               # unconditional jump
+  Op 'JMPT', 1, (f, ip) -> f.jump(ip) if f.pop()   # jump if true
+  Op 'JMPF', 1, (f, ip) -> f.jump(ip) if !f.pop()  # jump if false
   Op 'LITERAL', 1, (f, value) -> f.push(value)     # push literal value
   Op 'OBJECT_LITERAL', 1, (f, length) ->           # object literal
     rv = {}
@@ -104,11 +111,7 @@ opcodes = [
     while length--
       rv[length] = f.pop()
     f.push(rv)
-
-  # jumps
-  Op 'JMP', 1, (f, ip) -> f.jump(ip)               # unconditional jump
-  Op 'JMPT', 1, (f, ip) -> f.jump(ip) if f.pop()   # jump if true
-  Op 'JMPF', 1, (f, ip) -> f.jump(ip) if !f.pop()  # jump if false
+  Op 'FUNCTION', 1, (f, i) -> f.fn(i)              # push function reference
 ]
 
 module.exports = opcodes

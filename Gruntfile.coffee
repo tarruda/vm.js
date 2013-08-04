@@ -5,7 +5,7 @@ path = require 'path'
 module.exports = (grunt) ->
   # load some browser dependencies
   commonjs = grunt.file.read('./app/components/commonjs/common.js')
-  esprima = grunt.file.read('./app/components/esprima/esprima.js')
+  esprima = grunt.file.read('./node_modules/esprima/esprima.js')
   esprima = commonjsWrap('esprima', esprima)
 
   data =
