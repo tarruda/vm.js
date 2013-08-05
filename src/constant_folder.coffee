@@ -5,6 +5,8 @@ class ConstantFolder extends AstVisitor
 
   UnaryExpression: (node) ->
     node = super(node)
+    if node.operator == '+'
+      return node.argument
     if node.argument.type == 'Literal'
       if node.prefix
         result = eval("#{node.operator}#{node.argument.raw}")

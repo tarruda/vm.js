@@ -144,7 +144,7 @@ tests =
     return f;
   }
   fn(1, 2, 3, 4, 5, 6);
-  """: [[5, 6], ((scope) -> expect(len(scope)).to.eql(1))]
+  """: [[5, 6], (scope) -> expect(len(scope)).to.eql(1)]
 
 len = (obj) -> Object.keys(obj).length
 

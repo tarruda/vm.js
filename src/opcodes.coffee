@@ -43,16 +43,9 @@ TOp = (name, argc, fn) -> OpcodeClassFactory(name, argc, fn, 3)
 
 opcodes = [
   # 0-arg opcodes
-  Op 'NOOP', (f) ->                                # no-op
   Op 'POP', (f) -> f.pop()                         # remove top
-  Op 'SWAP', (f) -> f.swap()                       # swap the top 2
-  Op 'DUP', (f) -> f.dup()                         # duplicate top item
-  Op 'DUP2', (f) -> f.dup2()                       # duplicate top 2 items
-  Op 'SCOPE', (f) -> f.pushScope()                 # push local scope reference
-  Op 'SAVE', (f) -> f.save()                       # pop/save top of stack
-  Op 'SAVE2', (f) -> f.save2()                     # pop/save top 2 items
-  Op 'LOAD', (f) -> f.load()                       # push saved value
-  Op 'LOAD2', (f) -> f.load2()                     # push 2 saved values
+  Op 'DUP', (f) -> f.push(f.top())                 # duplicate top
+  Op 'SCOPE', (f) -> f.push(f.scope)               # push local scope reference
   Op 'RET', (f) -> f.ret()                         # return from function
 
   # 0-arg unary opcodes
@@ -86,13 +79,9 @@ opcodes = [
   BOp 'IN', (f, r, l) -> f.push(l of r)            # contains property
   BOp 'INSTANCE_OF', (f, r, l) ->                  # instance of
     f.push(l instanceof r)
-  # logical
-  BOp 'LOR', (f, r, l) -> f.push(l || r)           # logical OR
-  BOp 'LAND', (f, r, l) -> f.push(l && r)          # logical AND
 
   # 0-arg ternary opcodes
-  TOp 'SET', (f, n, o, v) -> f.set(o, n, v)        # set name = val on object
-  TOp 'SET2', (f, v, n, o) -> f.set2(o, n, v)      # set name = val on object
+  TOp 'SET', (f, v, n, o) -> f.set(o, n, v)        # set name = val on object
 
   # 1-args opcodes
   Op 'JMP', 1, (f, ip) -> f.jump(ip)               # unconditional jump
@@ -111,8 +100,9 @@ opcodes = [
       rv[length] = f.pop()
     f.push(rv)
   Op 'FUNCTION', 1, (f, i) -> f.fn(i)              # push function reference
-  Op 'TMP_SAVE', 1, (f, n) -> f.tmpSave(n)         # save temporary value
-  Op 'TMP_LOAD', 1, (f, n) -> f.tmpLoad(n)         # load temporary value
+  Op 'SAVE', 1, (f, n) -> f.save(n)                # save temporary value
+  Op 'LOAD', 1, (f, n) -> f.load(n)                # load temporary value
+  Op 'PULL', 1, (f, n) -> f.pull(n)                # load/del temporary value
 
   # 2-args opcodes
   Op 'REST_INIT', 2, (f, i, n) -> f.restInit(i, n) # initialize 'rest' param

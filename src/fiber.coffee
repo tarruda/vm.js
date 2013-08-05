@@ -1,4 +1,4 @@
-{Closure, Scope, OperandStack} = require './data'
+{Closure, Scope} = require './data'
 
 
 class Fiber
@@ -41,6 +41,20 @@ class Frame
     if !@paused
       @fiber.popFrame()
 
+  pop: -> @stack.pop()
+
+  popn: (n) -> @stack.popn(n)
+
+  top: -> @stack.top()
+
+  push: (item) -> @stack.push(item)
+
+  save: (name) -> @stack.save(name)
+
+  load: (name) -> @stack.load(name)
+
+  pull: (name) -> @stack.pull(name)
+
   get: (object, key) ->
     if object instanceof Scope then object.get(key)
     else object[key]
@@ -50,40 +64,7 @@ class Frame
     else object[key] = value
     @stack.push(value)
 
-  set2: (object, key, value) ->
-    if object instanceof Scope then object.set(key, value)
-    else object[key] = value
-    @stack.push(value)
-
   jump: (to) -> @ip = to
-
-  pop: -> @stack.pop()
-
-  popn: (n) -> @stack.popn(n)
-
-  top: -> @stack.top()
-
-  dup: -> @stack.dup()
-
-  dup2: -> @stack.dup2()
-
-  swap: -> @stack.swap()
-
-  push: (item) -> @stack.push(item)
-
-  tmpSave: (name) -> @stack.tmpSave(name)
-
-  tmpLoad: (name) -> @stack.tmpLoad(name)
-
-  save: -> @stack.save()
-
-  save2: -> @stack.save2()
-
-  load: -> @stack.load()
-
-  load2: -> @stack.load2()
-
-  pushScope: -> @stack.push(@scope)
 
   fn: (scriptIndex) ->
     @stack.push(new Closure(@script.scripts[scriptIndex], @scope))
@@ -107,31 +88,21 @@ class Frame
 
   ret: -> @ip = @script.instructions.length
 
+
 class OperandStack
   constructor: (size) ->
     @array = new Array(size)
     @idx = 0
-    @slot1 = null
-    @slot2 = null
     @tmp = {}
 
-  tmpSave: (name) -> @tmp[name] = @pop()
+  save: (name) -> @tmp[name] = @pop()
 
-  tmpLoad: (name) -> @push(@tmp[name])
+  load: (name) -> @push(@tmp[name])
 
-  save: -> @slot1 = @pop()
-
-  save2: -> @slot1 = @pop(); @slot2 = @pop()
-
-  load: -> @push(@slot1)
-
-  load2: -> @push(@slot2); @push(@slot1)
-
-  dup: -> @push(@array[@idx - 1])
-
-  dup2: -> @push(@array[@idx - 2]); @push(@array[@idx - 2])
-
-  swap: -> top = @pop(); bot = @pop(); @push(top); @push(bot)
+  pull: (name) ->
+    value = @tmp[name]
+    delete @tmp[name]
+    @push(value)
 
   push: (item) -> @array[@idx++] = item
 
@@ -145,14 +116,7 @@ class OperandStack
 
   top: -> @array[@idx - 1]
 
-  inspect: ->
-    rv = []; i = @idx
-    while i--
-      rv.push((@array[i].inspect || @array[i].toString)())
-    return rv.reverse().join(', ')
-
   remaining: -> @idx
-
 
 
 module.exports = Fiber

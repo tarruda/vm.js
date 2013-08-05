@@ -53,7 +53,8 @@ class Normalizer extends AstVisitor
     node = super(node)
     if node.left.type in ['ArrayPattern', 'ObjectPattern']
       load = {type: 'VmLoadExpression', name: '_destruct'}
-      save = {type: 'VmSaveExpression', name: '_destruct', value: node.right}
+      save = {type: 'VmSaveStatement', name: '_destruct', value: node.right}
+      pull = {type: 'VmPullExpression', name: '_destruct'}
       # translate destructuring assignment to a bunch of simple assignments
       destructuringAssignment =
         type: 'SequenceExpression'
@@ -90,7 +91,7 @@ class Normalizer extends AstVisitor
               computed: true
               property: {type: 'Literal', value: source.name}
           destructuringAssignment.expressions.push(childAssignment)
-      destructuringAssignment.expressions.push(load)
+      destructuringAssignment.expressions.push(pull)
       return destructuringAssignment
     vmAssign =
       type: 'VmAssignmentExpression'
@@ -117,9 +118,10 @@ class Normalizer extends AstVisitor
       assignNode =
         type: 'SequenceExpression'
         expressions: [
-          {type: 'VmSaveExpression', name: '_update', value: node.argument}
+          {type: 'VmSaveStatement', name: '_update', value: node.argument}
           assignNode
           {type: 'VmLoadExpression', name: '_update'}
+          {type: 'VmPullExpression', name: '_update'}
         ]
     return assignNode
 

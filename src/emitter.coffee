@@ -29,9 +29,9 @@ class Emitter extends AstVisitor
     # a function is declared by binding a name to the function ref
     # before other statements that are not function declarations
     codes = [
-      new opcodes.FUNCTION([index])
       new opcodes.SCOPE([])
       new opcodes.LITERAL([name])
+      new opcodes.FUNCTION([index])
       new opcodes.SET([])
     ]
     @instructions = codes.concat(@instructions)
@@ -46,7 +46,7 @@ class Emitter extends AstVisitor
   ExpressionStatement: (node) ->
     super(node)
     # remove the expression value from the stack and save it
-    @SAVE()
+    @SAVE('_lastExpression')
 
   IfStatement: (node) ->
     throw new Error('not implemented')
@@ -162,8 +162,10 @@ class Emitter extends AstVisitor
   VmFunction: (node) ->
     fn = new Emitter()
     # load the the 'arguments' object into the local scope
+    fn.SAVE('_args')
     fn.SCOPE()
     fn.LITERAL('arguments')
+    fn.PULL('_args')
     fn.SET()
     fn.POP()
     # emit function body
@@ -181,8 +183,8 @@ class Emitter extends AstVisitor
   SequenceExpression: (node) ->
     for expression in node.expressions
       @visit(expression)
-      @SAVE()
-    @LOAD()
+      @SAVE('_lastExpression')
+    @PULL('_lastExpression')
 
   UnaryExpression: (node) ->
     super(node)
@@ -192,11 +194,13 @@ class Emitter extends AstVisitor
     super(node)
     @[binaryOp[node.operator]]()
 
-  VmSaveExpression: (node) ->
+  VmSaveStatement: (node) ->
     @visit(node.value)
-    @TMP_SAVE(node.name)
+    @SAVE(node.name)
 
-  VmLoadExpression: (node) -> @TMP_LOAD(node.name)
+  VmLoadExpression: (node) -> @LOAD(node.name)
+
+  VmPullExpression: (node) -> @PULL(node.name)
 
   VmAssignmentExpression: (node) ->
     if node.left.type == 'MemberExpression'
@@ -211,71 +215,19 @@ class Emitter extends AstVisitor
       @SCOPE() # push local scope
       @LITERAL(node.left.name) # push local variable name
     @visit(node.right) # push property value
-    @SET2()
-
-  AssignmentExpression: (node) ->
-    @visit(node.right)
-    if node.left.type == 'ArrayPattern'
-      index = 0
-      for element in node.left.elements
-        if element
-          @DUP()
-          # get the nth-item from the array
-          childAssignment =
-            operator: node.operator
-            type: 'AssignmentExpression'
-            left: element
-            right:
-              type: 'MemberExpression'
-              # omit the object since its already loaded on stack
-              computed: true
-              property: {type: 'Literal', value: index}
-          @visit(childAssignment)
-          @POP()
-        index++
-      return
-    if node.left.type == 'ObjectPattern'
-      for property in node.left.properties
-        @DUP()
-        source = property.key
-        target = property.value
-        childAssignment =
-          operator: node.operator
-          type: 'AssignmentExpression'
-          left: target
-          right:
-            type: 'MemberExpression'
-            # omit the object since its already loaded on stack
-            computed: true
-            property: {type: 'Literal', value: source.name}
-        @visit(childAssignment)
-        @POP()
-      return
-    if node.left.type == 'MemberExpression'
-      # push property owner to stack
-      @visit(node.left.object)
-      # push property key to stack
-      if node.left.computed
-        @visit(node.left.property)
-      else
-        @LITERAL(node.left.property.name)
-    else # Identifier
-      @SCOPE() # push local scope to stack
-      @LITERAL(node.left.name) # push key to stack
-    if node.operator != '='
-      @DUP2()
-      @SAVE2()
-      @GET()
-      @SWAP()
-      @[assignOp[node.operator]]() # execute operation
-      @LOAD2()
     @SET()
 
   LogicalExpression: (node) ->
-    # A logical binary operator expression.
+    evalEnd = @label()
     @visit(node.left)
+    @DUP()
+    if node.operator == '||'
+      @JMPT(evalEnd)
+    else
+      @JMPF(evalEnd)
+    @POP()
     @visit(node.right)
-    @[binaryOp[node.operator]]()
+    evalEnd.mark()
 
   ConditionalExpression: (node) ->
     ifTrue = @label()
@@ -416,7 +368,6 @@ class Script
 
 unaryOp =
   '-': 'INV'
-  '+': 'NOOP'
   '!': 'LNOT'
   '~': 'NOT'
   'typeof': null
@@ -432,8 +383,6 @@ binaryOp =
   '<=': 'LTE'
   '>': 'GT'
   '>=': 'GTE'
-  '||': 'LOR'
-  '&&': 'LAND'
   '<<': 'SHL'
   '>>': 'SAR'
   '>>>': 'SHR'
