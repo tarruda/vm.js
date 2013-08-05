@@ -107,7 +107,7 @@ class Emitter extends AstVisitor
     loopEnd = @label()
     @pushLoop({start: loopStart, end: loopEnd})
     @visit(node.init)
-    if node.init.type != 'VariableDeclaration'
+    if node.init.type != 'VmVariableDeclaration'
       @POP()
     loopStart.mark()
     @visit(node.test)
@@ -135,18 +135,7 @@ class Emitter extends AstVisitor
     # A debugger statement
     throw new Error('not implemented')
 
-  VariableDeclarator: (node) ->
-    # A variable declarator
-    @declareVar(node.id.name)
-    if node.init
-      assignNode =
-        loc: node.loc
-        type: 'VmAssignmentExpression'
-        operator: '='
-        left: node.id
-        right: node.init
-      @visit(assignNode)
-    @POP()
+  VmVariableDeclaration: (node) -> @declareVar(node.name)
 
   ThisExpression: (node) ->
     # A this expression

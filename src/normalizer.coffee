@@ -34,7 +34,7 @@ class Normalizer extends AstVisitor
       # initialize rest parameter
       declaration = parse("var #{node.rest.name};").body[0]
       rest = {type: 'VmRestParamInit', name: node.rest.name, index: len}
-      node.body.body.unshift(declaration)
+      node.body.body.unshift(@visit(declaration))
       node.body.body.unshift(rest)
     params = []
     for i in [0...len]
@@ -122,5 +122,22 @@ class Normalizer extends AstVisitor
           {type: 'VmLoadExpression', name: '_update'}
         ]
     return assignNode
+
+  VariableDeclarator: (node) ->
+    node = super(node)
+    vmDeclare =
+      type: 'BlockStatement'
+      body: [{type: 'VmVariableDeclaration', name: node.id.name}]
+    if node.init
+      vmAssign =
+        type: 'ExpressionStatement'
+        expression:
+          loc: node.loc
+          type: 'VmAssignmentExpression'
+          operator: '='
+          left: node.id
+          right: node.init
+      vmDeclare.body.push(vmAssign)
+    return vmDeclare
 
 module.exports = Normalizer
