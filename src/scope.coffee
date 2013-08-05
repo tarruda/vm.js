@@ -9,7 +9,7 @@ class Scope
     return rv
 
   set: (key, value) ->
-    if !@vars || key of @vars
+    if !@vars || key of @vars || key == 'arguments'
       @keys[key] = value
       return
     @parent.set(key, value)

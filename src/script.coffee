@@ -6,13 +6,10 @@ class Script
     @loops = []
     @blocks = []
     @scripts = []
-    @params = []
     @vars = {}
     @rest = null
 
-  addParam: (param) -> @params.add(param)
-
-  setRest: (name) -> @rest = name
+  setRest: (@rest) ->
 
   addScript: (script) -> @scripts.push(script); return @scripts.length - 1
 
@@ -29,8 +26,8 @@ class Script
   declareVar: (name) -> @vars[name] = null
 
   declareFunction: (name, index) ->
-    # declaring a function is nothing but assigning it to a name
-    # at the beginning of the script
+    # a function is declared by binding a name to the function ref
+    # before other statements that are not function declarations
     codes = [
       new opcodes.FUNCTION([index])
       new opcodes.SCOPE([])

@@ -19,7 +19,8 @@ class Fiber
   pushFrame: (closure) ->
     if @depth == @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
-    @frames[++@depth] = new Frame(this, @stack, closure.script, closure.parent)
+    scope = new Scope(closure.parent, closure.script.vars)
+    @frames[++@depth] = new Frame(this, @stack, closure.script, scope)
 
   popFrame: ->
     frame = @frames[--@depth]
@@ -28,8 +29,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @stack, @script, parentScope) ->
-    @scope = new Scope(parentScope, @script.vars)
+  constructor: (@fiber, @stack, @script, @scope) ->
     @ip = 0
     @paused = false
 
@@ -79,9 +79,22 @@ class Frame
   fn: (scriptIndex) ->
     @stack.push(new Closure(@script.scripts[scriptIndex], @scope))
 
-  call: (closure) ->
-    @paused = true
-    @fiber.pushFrame(closure)
+  call: (length, closure) ->
+    args = {length: length, callee: closure}
+    while length
+      args[--length] = @stack.pop()
+    if closure instanceof Function
+      # 'native' function, execute and push to the stack
+      @stack.push(closure.apply(null, Array::slice.call(args)))
+    else
+      @stack.push(args)
+      @paused = true
+      @fiber.pushFrame(closure)
+
+  initRest: (index) ->
+    args = @scope.get('arguments')
+    if index < args.length
+      @scope.set(@script.rest, Array::slice.call(args, index))
 
   ret: -> @ip = @script.instructions.length
 

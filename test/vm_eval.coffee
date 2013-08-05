@@ -115,10 +115,9 @@ tests =
   }
   i
   """: [5, {i: 5, j: 5, len: 5, obj: {length: 5}}]
-  """
-  for (var i = 0, len = 6; i < len; i+=10) { }
-  i
-  """: [10, {i: 10, len: 6}]
+  'for (var i = 0, len = 6; i < len; i+=10) { }; i': [10, {i: 10, len: 6}]
+  '(function() { return 10; })()': [10]
+  '(function() { var i = 4; return i * i; })()': [16]
   """
   i = 0;
   test();
@@ -128,6 +127,26 @@ tests =
     expect(scope.i).to.eql(10)
     expect(scope.test.constructor.name).to.eql('Closure')
   )]
+  """
+  fn = function(a, b, c, d) {
+    return a + b + c * d;
+  }
+  fn(4, 9, 10, 3);
+  """: [43, (scope) -> expect(len(scope)).to.eql(1)]
+  """
+  fn = function(a, b=2, c=b*b, d=c) {
+    return a + b + c + d;
+  }
+  fn(9);
+  """: [19, (scope) -> expect(len(scope)).to.eql(1)]
+  """
+  fn = function(a, b=2, c=b*b, d=c, ...f) {
+    return f;
+  }
+  fn(1, 2, 3, 4, 5, 6);
+  """: [[5, 6], ((scope) -> expect(len(scope)).to.eql(1))]
+
+len = (obj) -> Object.keys(obj).length
 
 describe 'vm eval', ->
   vm = null

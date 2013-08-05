@@ -59,8 +59,6 @@ opcodes = [
   UOp 'INV', (f, o) -> f.push(-o)                  # invert signal
   UOp 'LNOT', (f, o) -> f.push(!o)                 # logical NOT
   UOp 'NOT', (f, o) -> f.push(~o)                  # bitwise NOT
-  UOp 'CALL', (f, s) -> f.call(s)                  # call function
-  UOp 'RETV', (f, v) -> f.ret(v)                   # return value
 
   # 0-args binary opcodes
   BOp 'GET', (f, n, o) -> f.push(f.get(o, n))      # get name from object
@@ -112,6 +110,10 @@ opcodes = [
       rv[length] = f.pop()
     f.push(rv)
   Op 'FUNCTION', 1, (f, i) -> f.fn(i)              # push function reference
+  Op 'INIT_REST', 1, (f, i) -> f.initRest(i)       # initialize 'rest'
+
+  # 1-args unary opcode
+  UOp 'CALL', 1, (f, l, s) -> f.call(l, s)          # call function
 ]
 
 module.exports = opcodes

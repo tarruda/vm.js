@@ -1,3 +1,5 @@
+esprima = require 'esprima'
+
 Script = require './script'
 
 unaryOp =
@@ -50,7 +52,6 @@ assignOp =
 # AST node types. Source:
 # https://developer.mozilla.org/en-US/docs/SpiderMonkey/Parser_API
 emit =
-  # Programs:
   Program: (node) ->
     program = new Script()
     for child in node.body
@@ -59,8 +60,6 @@ emit =
     program.instructions.pop() # remove RET
     return program
 
-  # Statements:
-  
   EmptyStatement: (node, script) ->
 
   BlockStatement: (node, script) ->
@@ -71,6 +70,7 @@ emit =
 
   ExpressionStatement: (node, script) ->
     emit[node.expression.type](node.expression, script)
+    # remove the expression value from the stack and save it
     script.SAVE()
 
   IfStatement: (node, script) ->
@@ -96,15 +96,20 @@ emit =
     # the switch statement contains any unnested let declarations
     # (and therefore introduces a new lexical scope)
     throw new Error('not implemented')
+
   ReturnStatement: (node, script) ->
-    # A return statement
-    throw new Error('not implemented')
+    if node.argument
+      emit[node.argument.type](node.argument, script)
+    script.RET()
+
   ThrowStatement: (node, script) ->
     # A throw statement
     throw new Error('not implemented')
+
   TryStatement: (node, script) ->
     # A try statement
     throw new Error('not implemented')
+
   WhileStatement: (node, script) ->
     loopStart = script.label()
     loopEnd = script.label()
@@ -157,7 +162,6 @@ emit =
     # A debugger statement
     throw new Error('not implemented')
 
-  # Declarations:
   FunctionDeclaration: (node, script) ->
     # reuse the FunctionExpression emitter
     expr =
@@ -179,7 +183,7 @@ emit =
 
   VariableDeclarator: (node, script) ->
     # A variable declarator
-    script.declareVar(node)
+    script.declareVar(node.id.name)
     assignNode =
       operator: '='
       left: node.id
@@ -187,7 +191,6 @@ emit =
     emit.AssignmentExpression(assignNode, script)
     script.POP()
 
-  # Expressions:
   ThisExpression: (node, script) ->
     # A this expression
     throw new Error('not implemented')
@@ -210,28 +213,36 @@ emit =
 
   FunctionExpression: (node, script) ->
     fn = new Script()
+    # assign the 'arguments' object
+    fn.SCOPE()
+    fn.LITERAL('arguments')
+    fn.SET()
+    fn.POP()
+    # declare/emit arguments initialization
+    len = node.params.length
+    for i in [0...len]
+      param = node.params[i]
+      def = node.defaults[i]
+      if param.type != 'Identifier' then throw new Error('assert error')
+      declare = esprima.parse("var #{param.name} = arguments[#{i}] || 0")
+      declare = declare.body[0].declarations[0]
+      if def then declare.init.right = def
+      else declare.init = declare.init.left
+      emit[declare.type](declare, fn)
+    if node.rest
+      fn.setRest(node.rest.name)
+      rest = esprima.parse("var #{node.rest.name} = null;")
+      rest = rest.body[0].declarations[0]
+      emit[rest.type](rest, fn)
+      fn.INIT_REST(len)
+    # emit function body
     for child in node.body.body
       emit[child.type](child, fn)
     fn.end()
-    params = []
-    # use some assertions for param, default and rest node.types since
-    # I don't if more types are possible
-    for i in [0...node.params.length]
-      param = node.params[i]
-      def = node.defaults[i]
-      if param.type != 'Identifier' then throw new Error('invalid param')
-      param = {name: param.name, def: null}
-      if def
-        if def.type != 'Literal' then throw new Error('invalid default param')
-        param.def = def.value
-      fn.addParam(param)
-    if node.nest
-      if node.rest.type != 'Identifier' then throw new Error('invalid rest')
-      fn.setRest(node.rest.name)
     functionIndex = script.addScript(fn)
     # push the function on the stack
     script.FUNCTION(functionIndex)
-    if node.id # if it has a name, also declare it
+    if node.id # declare if it has a name
       script.declareFunction(node.id.name, functionIndex)
 
   ArrowExpression: (node, script) ->
@@ -263,7 +274,7 @@ emit =
           # get the nth-item from the array
           childAssignment =
             operator: node.operator
-            type: node.type
+            type: 'AssignmentExpression'
             left: element
             right:
               type: 'MemberExpression'
@@ -345,10 +356,10 @@ emit =
     throw new Error('not implemented')
 
   CallExpression: (node, script) ->
-    emit[node.callee.type](node.callee, script)
     for argument in node.arguments
       emit[argument.type](argument, script)
-    script.CALL()
+    emit[node.callee.type](node.callee, script)
+    script.CALL(node.arguments.length)
 
   MemberExpression: (node, script) ->
     if node.object then emit[node.object.type](node.object, script)
