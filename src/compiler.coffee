@@ -42,16 +42,15 @@ class Compiler
     return new Script(@instructions, @scripts, @vars, @rest)
 
   emit: (node) ->
-    for transformer in @transformers
-      if transformer[node.type]
-        node = transformer[node.type](node)
     @[node.type](node)
     return this
 
   Program: (node) ->
+    # apply all transformations before starting emitting opcodes
+    for transformer in @transformers
+      node = transformer.visit(node)
     for child in node.body
       @emit(child)
-    # @instructions.pop() # remove RET
 
   EmptyStatement: ->
 
