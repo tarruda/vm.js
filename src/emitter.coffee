@@ -137,23 +137,6 @@ class Emitter extends AstVisitor
     # A debugger statement
     throw new Error('not implemented')
 
-  FunctionDeclaration: (node) ->
-    # reuse the FunctionExpression emitter
-    expr =
-      loc: node.loc
-      type: 'FunctionExpression'
-      id: node.id
-      params: node.params
-      defaults: node.defaults
-      rest: node.rest
-      generator: node.generator
-      expression: node.expression
-      body: node.body
-    @visit(expr)
-    # when declaring we don't need push the function object into the stack
-    # so remove the last instruction which is responsible for doing this
-    @instructions.pop()
-
   VariableDeclaration: (node) ->
     for child in node.declarations
       @visit(child)
@@ -190,7 +173,7 @@ class Emitter extends AstVisitor
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
 
-  FunctionExpression: (node) ->
+  VmFunction: (node) ->
     fn = new Emitter()
     # assign the 'arguments' object
     fn.SCOPE()
@@ -209,6 +192,7 @@ class Emitter extends AstVisitor
       else declare.init = declare.init.left
       fn.visit(declare)
     if node.rest
+      # initialize rest parameter
       fn.rest = node.rest.name
       rest = esprima.parse("var #{node.rest.name} = null;")
       rest = rest.body[0].declarations[0]
@@ -219,10 +203,12 @@ class Emitter extends AstVisitor
     script = fn.end()
     functionIndex = @scripts.length
     @scripts.push(script)
-    # push the function on the stack
-    @FUNCTION(functionIndex)
-    if node.id # declare if it has a name
-      @declareFunction(node.id.name, functionIndex)
+    if node.push
+      # push function on the stack
+      @FUNCTION(functionIndex)
+    if node.declare
+      # declare so the function will be bound at the beginning of the context
+      @declareFunction(node.declare, functionIndex)
 
   SequenceExpression: (node) ->
     for expression in node.expressions

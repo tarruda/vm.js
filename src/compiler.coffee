@@ -2,6 +2,7 @@ esprima = require 'esprima'
 
 opcodes = require './opcodes'
 ConstantFolder = require './constant_folder'
+Normalizer = require './normalizer'
 Emitter = require './emitter'
 
 class Compiler
@@ -16,4 +17,6 @@ class Compiler
     return emitter.end()
 
 
-module.exports = (code) -> new Compiler(new ConstantFolder()).compile(code)
+module.exports = (code) ->
+  compiler = new Compiler(new ConstantFolder(), new Normalizer())
+  return compiler.compile(code)
