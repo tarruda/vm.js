@@ -1,5 +1,3 @@
-esprima = require 'esprima'
-
 {Scope} = require './data'
 Fiber = require './fiber'
 compile = require './compiler'
@@ -9,8 +7,7 @@ class Vm
     @global = new Scope()
 
   eval: (string) ->
-    ast = esprima.parse(string, loc: true)
-    script = compile(ast)
+    script = compile(string)
     fiber = new Fiber(@maxDepth, @global, script)
     fiber.run()
     return fiber.stack.load()

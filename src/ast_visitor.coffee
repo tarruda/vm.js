@@ -9,7 +9,9 @@ class AstVisitor
       return @visitArray(node)
     if node && node.type
       return @[node.type](node)
-    if node then throw new Error('unexpected node')
+    if node
+      console.log node
+      throw new Error('unexpected node')
     return null
 
   visitArray: (array) ->
@@ -199,8 +201,8 @@ class AstVisitor
     return node
 
   CallExpression: (node) ->
-    node.callee = @visit(node.callee)
     node.arguments = @visit(node.arguments)
+    node.callee = @visit(node.callee)
     return node
 
   MemberExpression: (node) ->
