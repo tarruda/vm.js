@@ -1,4 +1,4 @@
-Scope = require '../src/scope'
+{Closure, Scope, OperandStack} = require './data'
 
 
 class Fiber
@@ -99,48 +99,5 @@ class Frame
   ret: -> @ip = @script.instructions.length
 
 
-class Closure
-  constructor: (@script, @parent) ->
-
-class OperandStack
-  constructor: (size) ->
-    @array = new Array(size)
-    @idx = 0
-    @slot1 = null
-    @slot2 = null
-
-  save: -> @slot1 = @pop()
-
-  save2: -> @slot1 = @pop(); @slot2 = @pop()
-
-  load: -> @push(@slot1)
-
-  load2: -> @push(@slot2); @push(@slot1)
-
-  dup: -> @push(@array[@idx - 1])
-
-  dup2: -> @push(@array[@idx - 2]); @push(@array[@idx - 2])
-
-  swap: -> top = @pop(); bot = @pop(); @push(top); @push(bot)
-
-  push: (item) -> @array[@idx++] = item
-
-  pop: -> @array[--@idx]
-
-  popn: (n) ->
-    rv = []
-    while n--
-      rv.push(@array[--@idx])
-    return rv
-
-  top: -> @array[@idx - 1]
-
-  inspect: ->
-    rv = []; i = @idx
-    while i--
-      rv.push((@array[i].inspect || @array[i].toString)())
-    return rv.reverse().join(', ')
-
-  remaining: -> @idx
 
 module.exports = Fiber
