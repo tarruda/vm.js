@@ -2,7 +2,7 @@ esprima = require 'esprima'
 
 {Scope} = require './data'
 Fiber = require './fiber'
-Emitter = require './emitter'
+compile = require './compiler'
 
 class Vm
   constructor: (@maxDepth) ->
@@ -10,10 +10,9 @@ class Vm
 
   eval: (string) ->
     ast = esprima.parse(string, loc: true)
-    script = new Emitter().emit(ast).end()
+    script = compile(ast)
     fiber = new Fiber(@maxDepth, @global, script)
     fiber.run()
     return fiber.stack.load()
-
 
 module.exports = Vm
