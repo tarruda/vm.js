@@ -26,7 +26,7 @@ class Normalizer extends AstVisitor
       rest: node.rest
       generator: node.generator
       expression: node.expression
-      body: node.body
+      body: @visit(node.body)
       declare: false
       isExpression: true
     len = node.params.length
@@ -45,11 +45,12 @@ class Normalizer extends AstVisitor
       declarator = declaration.declarations[0]
       if def then declarator.init.right = def
       else declarator.init = declarator.init.left
-      params.push(declaration)
+      params.push(@visit(declaration))
     node.body.body = params.concat(node.body.body)
     return node
 
   AssignmentExpression: (node) ->
+    node = super(node)
     if node.left.type in ['ArrayPattern', 'ObjectPattern']
       load = {type: 'VmLoadExpression', name: '_destruct'}
       save = {type: 'VmSaveExpression', name: '_destruct', value: node.right}
@@ -106,6 +107,7 @@ class Normalizer extends AstVisitor
     return vmAssign
 
   UpdateExpression: (node) ->
+    node = super(node)
     assignNode = @AssignmentExpression
       type: 'AssignmentExpression'
       operator: if node.operator == '++' then '+=' else '-='
