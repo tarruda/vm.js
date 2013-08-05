@@ -50,6 +50,11 @@ class Frame
     else object[key] = value
     @stack.push(value)
 
+  set2: (object, key, value) ->
+    if object instanceof Scope then object.set(key, value)
+    else object[key] = value
+    @stack.push(value)
+
   jump: (to) -> @ip = to
 
   pop: -> @stack.pop()
@@ -65,6 +70,10 @@ class Frame
   swap: -> @stack.swap()
 
   push: (item) -> @stack.push(item)
+
+  tmpSave: (name) -> @stack.tmpSave(name)
+
+  tmpLoad: (name) -> @stack.tmpLoad(name)
 
   save: -> @stack.save()
 
@@ -91,12 +100,58 @@ class Frame
       @paused = true
       @fiber.pushFrame(closure)
 
-  initRest: (index) ->
+  restInit: (index, name) ->
     args = @scope.get('arguments')
     if index < args.length
-      @scope.set(@script.rest, Array::slice.call(args, index))
+      @scope.set(name, Array::slice.call(args, index))
 
   ret: -> @ip = @script.instructions.length
+
+class OperandStack
+  constructor: (size) ->
+    @array = new Array(size)
+    @idx = 0
+    @slot1 = null
+    @slot2 = null
+    @tmp = {}
+
+  tmpSave: (name) -> @tmp[name] = @pop()
+
+  tmpLoad: (name) -> @push(@tmp[name])
+
+  save: -> @slot1 = @pop()
+
+  save2: -> @slot1 = @pop(); @slot2 = @pop()
+
+  load: -> @push(@slot1)
+
+  load2: -> @push(@slot2); @push(@slot1)
+
+  dup: -> @push(@array[@idx - 1])
+
+  dup2: -> @push(@array[@idx - 2]); @push(@array[@idx - 2])
+
+  swap: -> top = @pop(); bot = @pop(); @push(top); @push(bot)
+
+  push: (item) -> @array[@idx++] = item
+
+  pop: -> @array[--@idx]
+
+  popn: (n) ->
+    rv = []
+    while n--
+      rv.push(@array[--@idx])
+    return rv
+
+  top: -> @array[@idx - 1]
+
+  inspect: ->
+    rv = []; i = @idx
+    while i--
+      rv.push((@array[i].inspect || @array[i].toString)())
+    return rv.reverse().join(', ')
+
+  remaining: -> @idx
 
 
 

@@ -92,8 +92,9 @@ opcodes = [
 
   # 0-arg ternary opcodes
   TOp 'SET', (f, n, o, v) -> f.set(o, n, v)        # set name = val on object
+  TOp 'SET2', (f, v, n, o) -> f.set2(o, n, v)      # set name = val on object
 
-  # 1-args opcode
+  # 1-args opcodes
   Op 'JMP', 1, (f, ip) -> f.jump(ip)               # unconditional jump
   Op 'JMPT', 1, (f, ip) -> f.jump(ip) if f.pop()   # jump if true
   Op 'JMPF', 1, (f, ip) -> f.jump(ip) if !f.pop()  # jump if false
@@ -110,7 +111,11 @@ opcodes = [
       rv[length] = f.pop()
     f.push(rv)
   Op 'FUNCTION', 1, (f, i) -> f.fn(i)              # push function reference
-  Op 'INIT_REST', 1, (f, i) -> f.initRest(i)       # initialize 'rest'
+  Op 'TMP_SAVE', 1, (f, n) -> f.tmpSave(n)         # save temporary value
+  Op 'TMP_LOAD', 1, (f, n) -> f.tmpLoad(n)         # load temporary value
+
+  # 2-args opcodes
+  Op 'REST_INIT', 2, (f, i, n) -> f.restInit(i, n) # initialize 'rest' param
 
   # 1-args unary opcode
   UOp 'CALL', 1, (f, l, s) -> f.call(l, s)          # call function

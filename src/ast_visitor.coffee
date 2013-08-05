@@ -36,7 +36,7 @@ class AstVisitor
     return node
 
   ExpressionStatement: (node) ->
-    @visit(node.expression)
+    node.expression = @visit(node.expression)
     return node
 
   IfStatement: (node) ->

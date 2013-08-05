@@ -54,11 +54,9 @@ class Emitter extends AstVisitor
   LabeledStatement: (node) ->
     throw new Error('not implemented')
 
-  BreakStatement: (node) ->
-    @JMP(@loopEnd())
+  BreakStatement: (node) -> @JMP(@loopEnd())
 
-  ContinueStatement: (node) ->
-    @JMP(@loopStart())
+  ContinueStatement: (node) -> @JMP(@loopStart())
 
   WithStatement: (node) ->
     throw new Error('not implemented')
@@ -137,20 +135,17 @@ class Emitter extends AstVisitor
     # A debugger statement
     throw new Error('not implemented')
 
-  VariableDeclaration: (node) ->
-    for child in node.declarations
-      @visit(child)
-
   VariableDeclarator: (node) ->
     # A variable declarator
     @declareVar(node.id.name)
-    assignNode =
-      loc: node.loc
-      type: 'AssignmentExpression'
-      operator: '='
-      left: node.id
-      right: node.init
-    @visit(assignNode)
+    if node.init
+      assignNode =
+        loc: node.loc
+        type: 'VmAssignmentExpression'
+        operator: '='
+        left: node.id
+        right: node.init
+      @visit(assignNode)
     @POP()
 
   ThisExpression: (node) ->
@@ -173,37 +168,21 @@ class Emitter extends AstVisitor
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
 
+  VmRestParamInit: (node) -> @REST_INIT(node.index, node.name)
+
   VmFunction: (node) ->
     fn = new Emitter()
-    # assign the 'arguments' object
+    # load the the 'arguments' object into the local scope
     fn.SCOPE()
     fn.LITERAL('arguments')
     fn.SET()
     fn.POP()
-    # declare/emit arguments initialization
-    len = node.params.length
-    for i in [0...len]
-      param = node.params[i]
-      def = node.defaults[i]
-      if param.type != 'Identifier' then throw new Error('assert error')
-      declare = esprima.parse("var #{param.name} = arguments[#{i}] || 0")
-      declare = declare.body[0].declarations[0]
-      if def then declare.init.right = def
-      else declare.init = declare.init.left
-      fn.visit(declare)
-    if node.rest
-      # initialize rest parameter
-      fn.rest = node.rest.name
-      rest = esprima.parse("var #{node.rest.name} = null;")
-      rest = rest.body[0].declarations[0]
-      fn.visit(rest)
-      fn.INIT_REST(len)
     # emit function body
     fn.visit(node.body.body)
     script = fn.end()
     functionIndex = @scripts.length
     @scripts.push(script)
-    if node.push
+    if node.isExpression
       # push function on the stack
       @FUNCTION(functionIndex)
     if node.declare
@@ -223,6 +202,27 @@ class Emitter extends AstVisitor
   BinaryExpression: (node) ->
     super(node)
     @[binaryOp[node.operator]]()
+
+  VmSaveExpression: (node) ->
+    @visit(node.value)
+    @TMP_SAVE(node.name)
+
+  VmLoadExpression: (node) -> @TMP_LOAD(node.name)
+
+  VmAssignmentExpression: (node) ->
+    if node.left.type == 'MemberExpression'
+      # push property owner
+      @visit(node.left.object)
+      # push property key
+      if node.left.computed
+        @visit(node.left.property)
+      else
+        @LITERAL(node.left.property.name)
+    else
+      @SCOPE() # push local scope
+      @LITERAL(node.left.name) # push local variable name
+    @visit(node.right) # push property value
+    @SET2()
 
   AssignmentExpression: (node) ->
     @visit(node.right)
@@ -281,19 +281,6 @@ class Emitter extends AstVisitor
       @[assignOp[node.operator]]() # execute operation
       @LOAD2()
     @SET()
-
-  UpdateExpression: (node) ->
-    assignNode =
-      type: 'AssignmentExpression'
-      operator: if node.operator == '++' then '+=' else '-='
-      left: node.argument
-      right: {type: 'Literal', value: 1}
-    if node.prefix
-      @visit(assignNode)
-    else
-      @visit(node.argument)
-      @visit(assignNode)
-      @POP()
 
   LogicalExpression: (node) ->
     # A logical binary operator expression.
