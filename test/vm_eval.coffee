@@ -127,7 +127,7 @@ tests =
   l = []
   for (var k in obj) l.push(k)
   l
-  """: [1, 1]
+  """: [1, 0]
   """
   var i, j;
   var l = [];
@@ -188,6 +188,50 @@ tests =
   fn(1, 2, 3, 4, 5, 6);
   """: [[5, 6], (scope) -> expect(len(scope)).to.eql(1)]
 
+  """
+  function fn1() {
+    try {
+      fn2();
+      return 3;
+    } catch (e) {
+      return 5;
+    }
+  }
+  function fn2() {
+    throw 'error'
+  }
+  fn1();
+  """: [5, ((scope) ->)]
+
+  """
+  function fn1() {
+    try {
+      fn2();
+      return 3;
+    } catch (e) {
+      return i;
+    } finally {
+      j = 10;
+    }
+  }
+  function fn2() {
+    try {
+      fn3();
+    } finally {
+      i = 11;
+    }
+  }
+  function fn3() {
+    try {
+      throw 'error'
+    } catch (e) {
+      throw 'error2'
+    }
+  }
+  fn1();
+  """: [11, ((scope) ->
+    expect(scope.i).to.eql(11)
+  )]
 len = (obj) -> Object.keys(obj).length
 
 describe 'vm eval', ->

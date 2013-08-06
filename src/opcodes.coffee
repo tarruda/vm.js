@@ -49,7 +49,10 @@ opcodes = [
   Op 'DUP', (f) -> f.push(f.top())                 # duplicate top
   Op 'SCOPE', (f) -> f.push(f.scope)               # push local scope reference
   Op 'RET', (f) -> f.ret()                         # return from function
-  Op 'DEBUG', (f) -> f.debug()                     # return from function
+  Op 'RETV', (f) -> f.retv(f.pop())                # return value from function
+  Op 'THRW', (f) -> f.thrw(f.pop())                # throw something
+  Op 'CHECK', (f) -> f.check()                     # throw something
+  Op 'DEBUG', (f) -> f.debug()                     # pause execution
   Op 'ITER_PROPS', (f) ->                          # iterator that yields
     f.push(new PropertiesIterator(f.pop()))        # enumerable properties
 

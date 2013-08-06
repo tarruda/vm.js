@@ -90,9 +90,9 @@ class AstVisitor
 
   TryStatement: (node) ->
     node.block = @visit(node.block)
-    node.handler = @visit(node.handler)
+    node.handlers = @visit(node.handlers)
     node.guardedHandlers = @visit(node.guardedHandlers)
-    node.finalizer = @visit(node.finalizers)
+    node.finalizer = @visit(node.finalizer)
     return node
 
   WhileStatement: (node) ->

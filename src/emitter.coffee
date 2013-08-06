@@ -11,7 +11,9 @@ class Emitter extends AstVisitor
     @labels = []
     @scripts = []
     @vars = {}
-    @rest = null
+    @guards = []
+
+  newLabel: -> new Label(@instructions)
 
   label: (name) ->
     if !name
@@ -42,9 +44,14 @@ class Emitter extends AstVisitor
   end: ->
     for code in @instructions
       code.normalizeLabels()
+    for guard in @guards
+      guard.start = guard.start.ip
+      guard.handler = guard.handler.ip if guard.handler
+      guard.finalizer = guard.finalizer.ip if guard.finalizer
+      guard.end = guard.end.ip
     if !(@instructions[@instructions.length - 1] instanceof opcodes.RET)
       this.RET()
-    return new Script(@instructions, @scripts, @vars, @rest)
+    return new Script(@instructions, @scripts, @vars, @guards)
 
   ExpressionStatement: (node) ->
     super(node)
@@ -52,8 +59,8 @@ class Emitter extends AstVisitor
     @SAVE('_lastExpression')
 
   IfStatement: (node) ->
-    ifTrue = new Label(@instructions)
-    end = new Label(@instructions)
+    ifTrue = @newLabel()
+    end = @newLabel()
     @visit(node.test)
     @JMPT(ifTrue)
     @visit(node.alternate)
@@ -63,7 +70,7 @@ class Emitter extends AstVisitor
     end.mark()
 
   LabeledStatement: (node) ->
-    brk = new Label(@instructions)
+    brk = @newLabel()
     @pushLabel(node.label.name, node.body, brk)
     @visit(node.body)
     brk.mark()
@@ -93,16 +100,42 @@ class Emitter extends AstVisitor
     throw new Error('not implemented')
 
   ReturnStatement: (node) ->
-    super(node)
-    @RET()
+    if node.argument
+      @visit(node.argument)
+      @RETV()
+    else
+      @RET()
 
   ThrowStatement: (node) ->
-    # A throw statement
-    throw new Error('not implemented')
+    super(node)
+    @THRW()
 
   TryStatement: (node) ->
-    # A try statement
-    throw new Error('not implemented')
+    if node.handlers.length > 1
+      throw new Error('assert error')
+    start = @newLabel()
+    handler = @newLabel()
+    finalizer = @newLabel()
+    end = @newLabel()
+    guard =
+      start: start
+      handler: if node.handlers.length then handler else null
+      finalizer: if node.finalizer then finalizer else null
+      end: end
+    @guards.push(guard)
+    start.mark()
+    @visit(node.block)
+    @JMP(finalizer)
+    handler.mark()
+    if node.handlers.length
+      @visit(node.handlers[0].body)
+    finalizer.mark()
+    if node.finalizer
+      @visit(node.finalizer)
+      # tell the vm to check if the error was handled.
+      # if not, return and pass to the next frame
+      @CHECK()
+    end.mark()
 
   VmIterProperties: (node) ->
     @visit(node.object)
@@ -110,14 +143,14 @@ class Emitter extends AstVisitor
 
   VmLoop: (node) ->
     currentLabel = @label()
-    start = new Label(@instructions)
-    cont = new Label(@instructions)
+    start = @newLabel()
+    cont = @newLabel()
     if currentLabel?.stmt == node
       brk = currentLabel.brk
       currentLabel.cont = cont
     else
       pop = true
-      brk = new Label(@instructions)
+      brk = @newLabel()
       @pushLabel(null, node, brk, cont)
     if node.init
       @visit(node.init)
@@ -233,7 +266,7 @@ class Emitter extends AstVisitor
     @SET()
 
   LogicalExpression: (node) ->
-    evalEnd = new Label(@instructions)
+    evalEnd = @newLabel()
     @visit(node.left)
     @DUP()
     if node.operator == '||'
@@ -334,11 +367,6 @@ class Emitter extends AstVisitor
     # the body of a switch statement.
     throw new Error('not implemented')
 
-  CatchClause: (node) ->
-    # A catch clause following a try block. The optional guard property
-    # corresponds to the optional expression guard on the bound variable.
-    throw new Error('not implemented')
-
   ComprehensionBlock: (node) ->
     # A for or for each block in an array comprehension or generator expression
     throw new Error('not implemented')
@@ -363,7 +391,7 @@ class Label
 
 
 class Script
-  constructor: (@instructions, @scripts, @vars, @rest)->
+  constructor: (@instructions, @scripts, @vars, @guards)->
 
 
 (->
