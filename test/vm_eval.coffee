@@ -231,6 +231,7 @@ tests =
   fn1();
   """: [11, ((scope) ->
     expect(scope.i).to.eql(11)
+    expect(scope.j).to.eql(10)
   )]
 len = (obj) -> Object.keys(obj).length
 

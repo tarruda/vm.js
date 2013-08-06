@@ -49,8 +49,6 @@ class Emitter extends AstVisitor
       guard.handler = guard.handler.ip if guard.handler
       guard.finalizer = guard.finalizer.ip if guard.finalizer
       guard.end = guard.end.ip
-    if !(@instructions[@instructions.length - 1] instanceof opcodes.RET)
-      this.RET()
     return new Script(@instructions, @scripts, @vars, @guards)
 
   ExpressionStatement: (node) ->
@@ -132,9 +130,10 @@ class Emitter extends AstVisitor
     finalizer.mark()
     if node.finalizer
       @visit(node.finalizer)
-      # tell the vm to check if the error was handled.
-      # if not, return and pass to the next frame
-      @CHECK()
+      if !node.handlers.length
+        # return from the function so the next frame can be checked
+        # for a guard
+        @RET()
     end.mark()
 
   VmIterProperties: (node) ->

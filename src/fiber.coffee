@@ -14,20 +14,20 @@ class Fiber
     frame = @frames[@depth]
     while @depth >= 0 && frame
       if @error
-        frame = @handleError()
+        frame = @unwind()
       frame.run()
-      if frame.done()
-        # function finished executing
-        @stack.push(@rv)
-        @rv = undefined
-        frame = @popFrame()
+      if !frame.done()
+        frame = @frames[@depth] # function call
         continue
-      frame = @frames[@depth] # function call
+      # function returned
+      @stack.push(@rv)
+      @rv = undefined
+      frame = @popFrame()
     if !@depth && (remaining = @stack.remaining())
       # debug
       throw new Error("operand stack has #{remaining} items after execution")
 
-  handleError: ->
+  unwind: ->
     # unwind the stack searching for a guard set to handle this
     current = @frames[@depth]
     while current
@@ -41,6 +41,14 @@ class Fiber
               # thrown inside the guarded region
               @error = null
               current.ip = guard.handler
+              if guard.finalizer != null
+                # if the catch returns from the function, the finally
+                # block still must be executed, so adjust the exitIp
+                # to match the try/catch/finally block last ip.
+                current.exitIp = guard.end
+                # warn the frame about finalization so the RET instruction
+                # will correctly jump to it
+                current.finalizer = guard.finalizer
             else
               # thrown outside the guarded region(eg: catch or finally block)
               continue
@@ -67,13 +75,14 @@ class Fiber
 class Frame
   constructor: (@fiber, @stack, @script, @scope) ->
     @ip = 0
+    @exitIp = @script.instructions.length
     @paused = false
+    @finalizer = null
     @rv = undefined
 
   run: ->
     instructions = @script.instructions
-    len = instructions.length
-    while @ip < len && !@paused
+    while @ip != @exitIp && !@paused
       instructions[@ip++].exec(this)
 
   pop: -> @stack.pop()
@@ -132,21 +141,20 @@ class Frame
       @scope.set(name, Array::slice.call(args, index))
 
   ret: ->
-    @ip = @script.instructions.length
+    if @finalizer
+      @ip = @finalizer
+    else
+      @ip = @exitIp
 
   retv: (value) ->
     @fiber.rv = value
-    @ip = @script.instructions.length
+    @ret()
 
   thrw: (obj) ->
     @paused = true
     @fiber.error = obj
 
-  check: ->
-    if @fiber.error
-      @ret()
-
-  done: -> @ip == @script.instructions.length
+  done: -> @ip == @exitIp
 
 class OperandStack
   constructor: (size) ->
