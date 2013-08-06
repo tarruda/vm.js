@@ -77,6 +77,7 @@ tests =
   "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
   'i = 0; while(i++ < 10) { i++; }; i;': [11, {i: 11}]
+
   """
   i = 0;
   while (i < 1000) {
@@ -89,6 +90,7 @@ tests =
   };
   i;
   """: [1000, {i: 1000, j: 100}]
+
   """
   i = 0; j = 0; k = 0;
   while (i < 1000) {
@@ -102,6 +104,7 @@ tests =
   };
   i;
   """: [1000, {i: 1000, j: 100000, k: 2000}]
+
   """
   i = 0, j = 0
   do {
@@ -109,6 +112,7 @@ tests =
   } while (i++ < 10)
   i,j;
   """: [55, {i: 11, j: 55}]
+
   """
   obj = {length: 5};
   j = 0;
@@ -117,26 +121,36 @@ tests =
   }
   i
   """: [5, {i: 5, j: 5, len: 5, obj: {length: 5}}]
+
   """
   var i, j;
   var l = [];
   loop1:
   for (i = 0; i < 3; i++) {
      loop2:
-     for (j = 0; j < 3; j++) {
-        if (i == 1 && j == 1) {
-           continue loop1;
-        } else {
-           l.push(i); l.push(j);
-        }
-     }
+     for (j = 0; j < 3; j++)
+        if (i == 1 && j == 1) continue loop1;
+        else l.push(i), l.push(j);
   }
-  i;
-  """: [3, {i: 3, j: 3, l: [0, 0, 0, 1, 0, 2, 1, 0, 2, 0, 2, 1, 2, 2]}]
+  """: [undefined, {i: 3, j: 3, l: [0, 0, 0, 1, 0, 2, 1, 0, 2, 0, 2, 1, 2, 2]}]
+
+  """
+  var i, j;
+  var l = [];
+  loop1:
+  for (i = 0; i < 3; i++) {
+     loop2:
+     for (j = 0; j < 3; j++)
+        if (i == 1 && j == 1) break loop1;
+        else l.push(i), l.push(j);
+  }
+  """: [undefined, {i: 1, j: 1, l: [0, 0, 0, 1, 0, 2, 1, 0]}]
+
   'for (var i = 0, len = 6; i < len; i+=10) { }; i': [10, {i: 10, len: 6}]
   '(function() { return 10; })()': [10]
   '(function() { var i = 4; return i * i; })()': [16]
   '(function named() { var i = 4; return i * i; })()': [16]
+
   """
   i = 0;
   test();
@@ -146,18 +160,21 @@ tests =
     expect(scope.i).to.eql(10)
     expect(scope.test.constructor.name).to.eql('Closure')
   )]
+
   """
   fn = function(a, b, c, d) {
     return a + b + c * d;
   }
   fn(4, 9, 10, 3);
   """: [43, (scope) -> expect(len(scope)).to.eql(1)]
+
   """
   fn = function(a, b=2, c=b*b, d=c) {
     return a + b + c + d;
   }
   fn(9);
   """: [19, (scope) -> expect(len(scope)).to.eql(1)]
+
   """
   fn = function(a, b=2, c=b*b, d=c, ...f) {
     return f;
