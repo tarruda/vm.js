@@ -89,12 +89,13 @@ class AstVisitor
     return node
 
   DoWhileStatement: (node) ->
-    node.test = @visit(node.test)
     node.body = @visit(node.body)
+    node.test = @visit(node.test)
     return node
 
   ForStatement: (node) ->
-    node = @WhileStatement(node)
+    node.test = @visit(node.test)
+    node.body = @visit(node.body)
     node.init = @visit(node.init)
     node.update = @visit(node.update)
     return node

@@ -104,8 +104,9 @@ class Emitter extends AstVisitor
     # A try statement
     throw new Error('not implemented')
 
-  WhileStatement: (node) ->
+  VmLoop: (node) ->
     currentLabel = @label()
+    start = new Label(@instructions)
     cont = new Label(@instructions)
     if currentLabel?.stmt == node
       brk = currentLabel.brk
@@ -114,66 +115,30 @@ class Emitter extends AstVisitor
       pop = true
       brk = new Label(@instructions)
       @pushLabel(null, node, brk, cont)
-    cont.mark()
-    @visit(node.test)
-    @JMPF(brk)
+    if node.init
+      @visit(node.init)
+      if node.init.type != 'VmVariableDeclaration'
+        @POP()
+    if node.update
+      start.mark()
+    else
+      cont.mark()
+    if node.beforeTest
+      @visit(node.beforeTest)
+      @JMPF(brk)
     @visit(node.body)
+    if node.update
+      cont.mark()
+      @visit(node.update)
+      @POP()
+      @JMP(start)
+    if node.afterTest
+      @visit(node.afterTest)
+      @JMPF(brk)
     @JMP(cont)
     if pop
       brk.mark()
       @popLabel()
-
-  DoWhileStatement: (node) ->
-    currentLabel = @label()
-    cont = new Label(@instructions)
-    if currentLabel?.stmt == node
-      brk = currentLabel.brk
-      currentLabel.cont = cont
-    else
-      pop = true
-      brk = new Label(@instructions)
-      @pushLabel(null, node, brk, cont)
-    cont.mark()
-    @visit(node.body)
-    @visit(node.test)
-    @JMPT(cont)
-    if pop
-      brk.mark()
-      @popLabel()
-
-  ForStatement: (node) ->
-    start = new Label(@instructions)
-    currentLabel = @label()
-    cont = new Label(@instructions)
-    if currentLabel?.stmt == node
-      brk = currentLabel.brk
-      currentLabel.cont = cont
-    else
-      pop = true
-      brk = new Label(@instructions)
-      @pushLabel(null, node, brk, cont)
-    @visit(node.init)
-    if node.init.type != 'VmVariableDeclaration'
-      @POP()
-    start.mark()
-    @visit(node.test)
-    @JMPF(brk)
-    @visit(node.body)
-    cont.mark()
-    @visit(node.update)
-    @POP()
-    @JMP(start)
-    if pop
-      brk.mark()
-      @popLabel()
-
-  ForInStatement: (node) ->
-    # A for/in statement, or, if each is true, a for each/in statement
-    throw new Error('not implemented')
-
-  ForOfStatement: (node) ->
-    # A for/of statement
-    throw new Error('not implemented')
 
   LetStatement: (node) ->
     # A let statement
