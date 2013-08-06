@@ -47,6 +47,7 @@ opcodes = [
   Op 'DUP', (f) -> f.push(f.top())                 # duplicate top
   Op 'SCOPE', (f) -> f.push(f.scope)               # push local scope reference
   Op 'RET', (f) -> f.ret()                         # return from function
+  Op 'DEBUG', (f) -> f.debug()                     # return from function
 
   # 0-arg unary opcodes
   UOp 'INV', (f, o) -> f.push(-o)                  # invert signal
@@ -106,9 +107,8 @@ opcodes = [
 
   # 2-args opcodes
   Op 'REST_INIT', 2, (f, i, n) -> f.restInit(i, n) # initialize 'rest' param
+  Op 'CALL', 2, (f, l, m) -> f.call(l, m)          # call function
 
-  # 1-args unary opcode
-  UOp 'CALL', 1, (f, l, s) -> f.call(l, s)          # call function
 ]
 
 module.exports = opcodes

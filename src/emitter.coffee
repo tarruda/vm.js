@@ -8,21 +8,24 @@ opcodes = require './opcodes'
 class Emitter extends AstVisitor
   constructor: ->
     @instructions = []
-    @loops = []
+    @labels = []
     @scripts = []
     @vars = {}
     @rest = null
 
-  label: -> new Label(@instructions)
+  label: (name) ->
+    if !name
+      return @labels[@labels.length - 1]
+    for label in @labels
+      if label.name == name
+        return label
+    return null
 
-  pushLoop: (labels) -> @loops.push(labels)
+  pushLabel: (name, stmt, brk, cont) ->
+    @labels.push({name: name, stmt: stmt, brk: brk, cont: cont})
 
-  popLoop: (labels) -> @loops.pop()
-
-  loopStart: -> @loops[@loops.length - 1].start
-
-  loopEnd: -> @loops[@loops.length - 1].end
-
+  popLabel: -> @labels.pop()
+    
   declareVar: (name) -> @vars[name] = null
 
   declareFunction: (name, index) ->
@@ -49,14 +52,36 @@ class Emitter extends AstVisitor
     @SAVE('_lastExpression')
 
   IfStatement: (node) ->
-    throw new Error('not implemented')
+    ifTrue = new Label(@instructions)
+    end = new Label(@instructions)
+    @visit(node.test)
+    @JMPT(ifTrue)
+    @visit(node.alternate)
+    @JMP(end)
+    ifTrue.mark()
+    @visit(node.consequent)
+    end.mark()
 
   LabeledStatement: (node) ->
-    throw new Error('not implemented')
+    brk = new Label(@instructions)
+    @pushLabel(node.label.name, node.body, brk)
+    @visit(node.body)
+    brk.mark()
+    @popLabel()
 
-  BreakStatement: (node) -> @JMP(@loopEnd())
+  BreakStatement: (node) ->
+    if node.label
+      label = @label(node.label.name)
+    else
+      label = @label()
+    @JMP(label.brk)
 
-  ContinueStatement: (node) -> @JMP(@loopStart())
+  ContinueStatement: (node) ->
+    if node.label
+      label = @label(node.label.name)
+    else
+      label = @label()
+    @JMP(label.cont)
 
   WithStatement: (node) ->
     throw new Error('not implemented')
@@ -80,44 +105,67 @@ class Emitter extends AstVisitor
     throw new Error('not implemented')
 
   WhileStatement: (node) ->
-    loopStart = @label()
-    loopEnd = @label()
-    @pushLoop({start: loopStart, end: loopEnd})
-    loopStart.mark()
+    currentLabel = @label()
+    cont = new Label(@instructions)
+    if currentLabel?.stmt == node
+      brk = currentLabel.brk
+      currentLabel.cont = cont
+    else
+      pop = true
+      brk = new Label(@instructions)
+      @pushLabel(null, node, brk, cont)
+    cont.mark()
     @visit(node.test)
-    @JMPF(loopEnd)
+    @JMPF(brk)
     @visit(node.body)
-    @JMP(loopStart)
-    loopEnd.mark()
-    @popLoop()
+    @JMP(cont)
+    if pop
+      brk.mark()
+      @popLabel()
 
   DoWhileStatement: (node) ->
-    loopStart = @label()
-    loopEnd = @label()
-    @pushLoop({start: loopStart, end: loopEnd})
-    loopStart.mark()
+    currentLabel = @label()
+    cont = new Label(@instructions)
+    if currentLabel?.stmt == node
+      brk = currentLabel.brk
+      currentLabel.cont = cont
+    else
+      pop = true
+      brk = new Label(@instructions)
+      @pushLabel(null, node, brk, cont)
+    cont.mark()
     @visit(node.body)
     @visit(node.test)
-    @JMPT(loopStart)
-    loopEnd.mark()
-    @popLoop()
+    @JMPT(cont)
+    if pop
+      brk.mark()
+      @popLabel()
 
   ForStatement: (node) ->
-    loopStart = @label()
-    loopEnd = @label()
-    @pushLoop({start: loopStart, end: loopEnd})
+    start = new Label(@instructions)
+    currentLabel = @label()
+    cont = new Label(@instructions)
+    if currentLabel?.stmt == node
+      brk = currentLabel.brk
+      currentLabel.cont = cont
+    else
+      pop = true
+      brk = new Label(@instructions)
+      @pushLabel(null, node, brk, cont)
     @visit(node.init)
     if node.init.type != 'VmVariableDeclaration'
       @POP()
-    loopStart.mark()
+    start.mark()
     @visit(node.test)
-    @JMPF(loopEnd)
+    @JMPF(brk)
     @visit(node.body)
+    cont.mark()
     @visit(node.update)
     @POP()
-    @JMP(loopStart)
-    loopEnd.mark()
-    @popLoop()
+    @JMP(start)
+    if pop
+      brk.mark()
+      @popLabel()
 
   ForInStatement: (node) ->
     # A for/in statement, or, if each is true, a for each/in statement
@@ -131,9 +179,7 @@ class Emitter extends AstVisitor
     # A let statement
     throw new Error('not implemented')
 
-  DebuggerStatement: (node) ->
-    # A debugger statement
-    throw new Error('not implemented')
+  DebuggerStatement: (node) -> @DEBUG()
 
   VmVariableDeclaration: (node) -> @declareVar(node.name)
 
@@ -218,7 +264,7 @@ class Emitter extends AstVisitor
     @SET()
 
   LogicalExpression: (node) ->
-    evalEnd = @label()
+    evalEnd = new Label(@instructions)
     @visit(node.left)
     @DUP()
     if node.operator == '||'
@@ -229,24 +275,27 @@ class Emitter extends AstVisitor
     @visit(node.right)
     evalEnd.mark()
 
-  ConditionalExpression: (node) ->
-    ifTrue = @label()
-    end = @label()
-    @visit(node.test)
-    @JMPT(ifTrue)
-    @visit(node.alternate)
-    @JMP(end)
-    ifTrue.mark()
-    @visit(node.consequent)
-    end.mark()
+  ConditionalExpression: (node) -> @IfStatement(node)
 
   NewExpression: (node) ->
     # A new expression.
     throw new Error('not implemented')
 
   CallExpression: (node) ->
-    super(node)
-    @CALL(node.arguments.length)
+    if isMethod = (node.callee.type == 'MemberExpression')
+      @visit(node.callee.object)
+      @SAVE('_target')
+      @LOAD('_target')
+      @visit(node.arguments)
+      @PULL('_target')
+      if node.callee.property.computed
+        @visit(node.callee.property)
+      else
+        @LITERAL(node.callee.property.name)
+      @GET()
+    else
+      super(node)
+    @CALL(node.arguments.length, isMethod)
 
   MemberExpression: (node) ->
     if node.object

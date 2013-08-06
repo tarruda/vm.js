@@ -1,0 +1,6 @@
+# project-specific ackrc
+--ignore-dir=node_modules
+--ignore-dir=browser-libs
+--ignore-dir=tmp
+--ignore-dir=build
+

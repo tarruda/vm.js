@@ -74,6 +74,8 @@ tests =
   '[,,y] = [1, 2, 3 ,4]': [[1, 2, 3, 4], {y: 3}]
   '({x: X, y: Y} = {x: 1, y: 2})': [{x: 1, y: 2}, {X: 1, Y: 2}]
   # control flow
+  "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
+  "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
   'i = 0; while(i++ < 10) { i++; }; i;': [11, {i: 11}]
   """
   i = 0;
@@ -115,9 +117,26 @@ tests =
   }
   i
   """: [5, {i: 5, j: 5, len: 5, obj: {length: 5}}]
+  """
+  var i, j;
+  var l = [];
+  loop1:
+  for (i = 0; i < 3; i++) {
+     loop2:
+     for (j = 0; j < 3; j++) {
+        if (i == 1 && j == 1) {
+           continue loop1;
+        } else {
+           l.push(i); l.push(j);
+        }
+     }
+  }
+  i;
+  """: [3, {i: 3, j: 3, l: [0, 0, 0, 1, 0, 2, 1, 0, 2, 0, 2, 1, 2, 2]}]
   'for (var i = 0, len = 6; i < len; i+=10) { }; i': [10, {i: 10, len: 6}]
   '(function() { return 10; })()': [10]
   '(function() { var i = 4; return i * i; })()': [16]
+  '(function named() { var i = 4; return i * i; })()': [16]
   """
   i = 0;
   test();

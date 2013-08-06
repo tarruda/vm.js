@@ -69,14 +69,20 @@ class Frame
   fn: (scriptIndex) ->
     @stack.push(new Closure(@script.scripts[scriptIndex], @scope))
 
-  call: (length, closure) ->
+  debug: ->
+
+  call: (length, isMethod) ->
+    closure = @stack.pop()
     args = {length: length, callee: closure}
     while length
       args[--length] = @stack.pop()
+    if isMethod
+      target = @stack.pop()
     if closure instanceof Function
       # 'native' function, execute and push to the stack
-      @stack.push(closure.apply(null, Array::slice.call(args)))
+      @stack.push(closure.apply(target, Array::slice.call(args)))
     else
+      # TODO set context
       @stack.push(args)
       @paused = true
       @fiber.pushFrame(closure)
