@@ -123,6 +123,12 @@ tests =
   """: [5, {i: 5, j: 5, len: 5, obj: {length: 5}}]
 
   """
+  obj = {name: '1', address: 2, email: 3};
+  l = []
+  for (var k in obj) l.push(k)
+  l
+  """: [1, 1]
+  """
   var i, j;
   var l = [];
   loop1:

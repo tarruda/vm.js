@@ -80,7 +80,11 @@ class Frame
       target = @stack.pop()
     if closure instanceof Function
       # 'native' function, execute and push to the stack
-      @stack.push(closure.apply(target, Array::slice.call(args)))
+      try
+        @stack.push(closure.apply(target, Array::slice.call(args)))
+      catch e
+        console.log "native function throws an error"
+        throw e
     else
       # TODO set context
       @stack.push(args)

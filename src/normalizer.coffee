@@ -97,7 +97,6 @@ class Normalizer extends AstVisitor
       type: 'VmAssignmentExpression'
       left: node.left
       right: node.right
-      operator: node.operator
     if node.operator != '='
       vmAssign.right =
         type: 'BinaryExpression'
@@ -169,8 +168,42 @@ class Normalizer extends AstVisitor
     return vmLoop
 
   ForInStatement: (node) ->
-    # A for/in statement, or, if each is true, a for each/in statement
-    throw new Error('not implemented')
+    pull = {type: 'VmPullExpression', name: '_iterator'}
+    init =
+      type: 'BlockStatement'
+      body: [
+        {
+          type: 'VmSaveStatement'
+          name: '_iterator'
+          value: {type: 'VmIterProperties', object: node.right}
+        }
+      ]
+    update =
+      type: 'AssignmentExpression'
+      operator: '='
+      right:
+        type: 'CallExpression'
+        arguments: []
+        callee:
+          type: 'MemberExpression'
+          computed: false
+          object: {type: 'VmLoadExpression', name: '_iterator'}
+          property: {type: 'Identifier', name: 'next'}
+    if node.left.type == 'VariableDeclaration'
+      init.body.push(node.left)
+      update.left = node.left.declarations[0].id
+    else
+      update.left = node.left
+    init = @visit(init)
+    update = @visit(update)
+    body = @visit(node.body)
+    init.body.push(update)
+    vmLoop =
+      type: 'VmLoop'
+      init: init
+      update: update
+      body: body
+    return vmLoop
 
   ForOfStatement: (node) ->
     # A for/of statement

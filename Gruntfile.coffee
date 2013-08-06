@@ -15,7 +15,7 @@ module.exports = (grunt) ->
     # current test runner process
     child: null
 
-  coffeeOpts = (prefix, src = '*.coffee') ->
+  coffeeOpts = (prefix, src = '**/*.coffee') ->
     expand: true
     flatten: false
     src: src
@@ -23,7 +23,7 @@ module.exports = (grunt) ->
     cwd: prefix
     dest: "tmp/#{prefix}"
 
-  commonjsOpts = (prefix, src = '*.js') ->
+  commonjsOpts = (prefix, src = '**/*.js') ->
     expand: true
     flatten: false
     prefix: prefix
@@ -42,9 +42,9 @@ module.exports = (grunt) ->
         cyclomatic_complexity: level: 'error'
         no_backticks: level: 'ignore'
       src:
-        src: 'src/*.coffee'
+        src: 'src/**/*.coffee'
       test:
-        src: 'test/*.coffee'
+        src: 'test/**/*.coffee'
 
     coffee:
       options:
@@ -69,18 +69,18 @@ module.exports = (grunt) ->
         append: ['})(window.vm = {});']
         cwd: 'tmp'
         src: '**/*.js'
-        dest: 'build/vm.js'
+        dest: 'build/box.js'
 
     'check-debug':
       all: [
-        'src/*.coffee'
-        'test/*.coffee'
+        'src/**/*.coffee'
+        'test/**/*.coffee'
       ]
 
     test:
       all: [
         'test/index.js'
-        'tmp/test/*.js'
+        'tmp/test/**/*.js'
       ]
 
     watch:
@@ -88,8 +88,8 @@ module.exports = (grunt) ->
         nospawn: true
       browser:
         files: [
-          'src/*.coffee'
-          'test/*.coffee'
+          'src/**/*.coffee'
+          'test/**/*.coffee'
         ]
         tasks: [
           'common-changed'
@@ -99,8 +99,8 @@ module.exports = (grunt) ->
         ]
       nodejs:
         files: [
-          'src/*.coffee'
-          'test/*.coffee'
+          'src/**/*.coffee'
+          'test/**/*.coffee'
         ]
         tasks: [
           'common-changed'

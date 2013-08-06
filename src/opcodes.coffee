@@ -1,3 +1,5 @@
+{PropertiesIterator} = require './engine/util'
+
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
   # to represent serialized opcodes
@@ -48,6 +50,8 @@ opcodes = [
   Op 'SCOPE', (f) -> f.push(f.scope)               # push local scope reference
   Op 'RET', (f) -> f.ret()                         # return from function
   Op 'DEBUG', (f) -> f.debug()                     # return from function
+  Op 'ITER_PROPS', (f) ->                          # iterator that yields
+    f.push(new PropertiesIterator(f.pop()))        # enumerable properties
 
   # 0-arg unary opcodes
   UOp 'INV', (f, o) -> f.push(-o)                  # invert signal

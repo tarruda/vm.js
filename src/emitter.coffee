@@ -104,6 +104,10 @@ class Emitter extends AstVisitor
     # A try statement
     throw new Error('not implemented')
 
+  VmIterProperties: (node) ->
+    @visit(node.object)
+    @ITER_PROPS()
+
   VmLoop: (node) ->
     currentLabel = @label()
     start = new Label(@instructions)
