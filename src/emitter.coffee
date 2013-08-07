@@ -35,10 +35,8 @@ class Emitter extends AstVisitor
     # before other statements that are not function declarations
     codes = [
       new opcodes.FUNCTION([index])
-      new opcodes.LITERAL([name])
-      new opcodes.SCOPE([])
-      new opcodes.SET([])
-      new opcodes.POP([])
+      new opcodes.SETL([name])
+      new opcodes.POP()
     ]
     @instructions = codes.concat(@instructions)
 
@@ -353,49 +351,56 @@ class Emitter extends AstVisitor
       @SR1()
       @visit(node.left.object)
       @SR2()
+      if node.operator != '='
+        @LR1()
+        @LR2()
+        @GET() # get current value
+        @SR4() # save current value
+        @LR3() # load new value
+        @LR4() # load current value
+        # apply operator
+        @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
+        @LR1() # load property
+        @LR2() # load object
+        @SET() # set
+      else
+        @LR3() # load value
+        @LR1() # load property
+        @LR2() # load object
+        @SET()
     else
-      @LITERAL(node.left.name)
-      @SR1()
-      @SCOPE()
-      @SR2()
-    if node.operator != '='
-      @LR1()
-      @LR2()
-      @GET() # get current value
-      @SR4() # save current value
-      @LR3() # load new value
-      @LR4() # load current value
-      # apply operator
-      @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
-      @LR1() # load property
-      @LR2() # load object
-      @SET() # set
-    else
-      @LR3() # load value
-      @LR1() # load property
-      @LR2() # load object
-      @SET()
+      if node.operator != '='
+        @GETL(node.left.name) # get current value
+        @SR4() # save current value
+        @LR3() # load new value
+        @LR4() # load current value
+        # apply operator
+        @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
+      else
+        @LR3() # load new value
+      @SETL(node.left.name) # set value
 
   UpdateExpression: (node) ->
     if node.argument.type == 'MemberExpression'
-      @visitProperty(node.left)
+      @visitProperty(node.argument.name)
       @SR1()
-      @visit(node.left.object)
+      @visit(node.argument.object)
       @SR2()
+      @LR1()
+      @LR2()
+      @GET() # get current
+      @SR3() # save current
+      @LR3() # load current
+      if node.operator == '++' then @INC() else @DEC()
+      @LR1() # load property
+      @LR2() # load object
+      @SET()
     else
-      @LITERAL(node.argument.name)
-      @SR1()
-      @SCOPE()
-      @SR2()
-    @LR1()
-    @LR2()
-    @GET() # get current
-    @SR3() # save current
-    @LR3() # load current
-    if node.operator == '++' then @INC() else @DEC()
-    @LR1() # load property
-    @LR2() # load object
-    @SET()
+      @GETL(node.argument.name) # get current
+      @SR3() # save current
+      @LR3() # load current
+      if node.operator == '++' then @INC() else @DEC()
+      @SETL(node.argument.name)
     if !node.prefix
       @POP()
       @LR3()
@@ -467,9 +472,7 @@ class Emitter extends AstVisitor
   Identifier: (node) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    @LITERAL(node.name)
-    @SCOPE()
-    @GET()
+    @GETL(node.name)
 
   Literal: (node) ->
     @LITERAL(node.value)
@@ -515,6 +518,7 @@ unaryOp =
   'void': null
   'delete': null
 
+
 binaryOp =
   '==': 'CEQ'
   '!=': 'CNEQ'
@@ -551,5 +555,6 @@ assignOp =
   '|=': 'OR'
   '&=': 'AND'
   '^=': 'XOR'
+
 
 module.exports = Emitter

@@ -16,8 +16,8 @@ class Scope extends BuiltinObject
   set: (key, value) ->
     if !@vars || key of @vars || key == 'arguments'
       @keys[key] = value
-      return
-    @parent.set(key, value)
+      return value
+    return @parent.set(key, value)
 
 exports.Closure = Closure
 exports.Scope = Scope

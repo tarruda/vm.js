@@ -89,16 +89,7 @@ class Frame
       instructions[@ip++].exec(this, @evalStack, @scope)
     if (len = @evalStack.len()) != 0
       # debug assertion
-      throw new Error("evaluation evalStack has #{len} items after execution")
-
-  get: (object, key) ->
-    if object instanceof Scope then object.get(key)
-    else object[key]
-
-  set: (object, key, value) ->
-    if object instanceof Scope then object.set(key, value)
-    else object[key] = value
-    return value
+      throw new Error("Evaluation stack has #{len} items after execution")
 
   jump: (to) -> @ip = to
 

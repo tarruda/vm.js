@@ -70,9 +70,6 @@ Op = (name, fn, factorFn) -> OpcodeClassFactory(name, fn, factorFn)
 opcodes = [
   Op 'POP', (f, s, l) -> s.pop()                      # remove top
   Op 'DUP', (f, s, l) -> s.push(s.top())              # duplicate top
-  Op 'SCOPE', (f, s, l) -> s.push(f.scope)            # push local scope
-                                                      # reference
-
   Op 'RET', (f, s, l) -> f.ret()                      # return from function
   Op 'RETV', (f, s, l) -> f.retv(s.pop())             # return value from
                                                       # function
@@ -96,7 +93,7 @@ opcodes = [
   Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
     l.set('arguments', s.pop())                       # object
     # the fiber pushing the arguments object cancels
-    # this opcode pop call
+    # this opcode pop calL
   , -> 0
 
   Op 'REST', (f, s, l) ->                             # initialize 'rest' param
@@ -113,10 +110,16 @@ opcodes = [
   , -> 1 - (@args[0] + 1 + 1)
 
   Op 'GET', (f, s, l) ->                              # get property from
-    s.push(f.get(s.pop(), s.pop()))                   # object
+    s.push(s.pop()[s.pop()])                          # object
 
   Op 'SET', (f, s, l) ->                              # set property on
-    s.push(f.set(s.pop(), s.pop(), s.pop()))          # object
+    s.push(s.pop()[s.pop()] = s.pop())                # object
+
+  Op 'GETL', (f, s, l) ->                             # get local variable
+    s.push(l.get(@args[0]))
+
+  Op 'SETL', (f, s, l) ->                             # set local variable
+    s.push(l.set(@args[0], s.pop()))
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(!s.pop())            # logical NOT
