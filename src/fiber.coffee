@@ -75,7 +75,7 @@ class Fiber
 
 class Frame
   constructor: (@fiber, @script, @scope) ->
-    @evalStack = new EvaluationStack(512)
+    @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
     @paused = false
@@ -98,12 +98,11 @@ class Frame
   set: (object, key, value) ->
     if object instanceof Scope then object.set(key, value)
     else object[key] = value
-    @evalStack.push(value)
+    return value
 
   jump: (to) -> @ip = to
 
-  fn: (scriptIndex) ->
-    @evalStack.push(new Closure(@script.scripts[scriptIndex], @scope))
+  fn: (scriptIndex) -> new Closure(@script.scripts[scriptIndex], @scope)
 
   debug: ->
 
@@ -152,12 +151,12 @@ class EvaluationStack
     @idx = 0
     @rexp = null
 
-  push: (item) -> @array[@idx++] = item
+  push: (item) ->
+    if @idx == @array.length
+      throw new Error('maximum evaluation stack size exceeded')
+    @array[@idx++] = item
 
-  pop: ->
-    rv = @array[--@idx]
-    @array[@idx] = null
-    return rv
+  pop: -> @array[--@idx]
 
   top: -> @array[@idx - 1]
 

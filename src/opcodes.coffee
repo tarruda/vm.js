@@ -1,3 +1,6 @@
+esprima = require 'esprima'
+
+AstVisitor = require './ast_visitor'
 {PropertiesIterator} = require './engine/util'
 
 OpcodeClassFactory = (->
@@ -5,7 +8,7 @@ OpcodeClassFactory = (->
   # to represent serialized opcodes
   id = 0
 
-  classFactory = (name, fn) ->
+  classFactory = (name, fn, calculateFactor) ->
     # generate opcode class
     OpcodeClass = (->
       # this is ugly but its the only way I found to get nice opcode
@@ -15,13 +18,54 @@ OpcodeClassFactory = (->
       constructor::id = id++
       constructor::name = name
       constructor::exec = fn
+      if calculateFactor
+        constructor::calculateFactor = calculateFactor
+      else
+        constructor::factor = calculateOpcodeFactor(fn)
+        constructor::calculateFactor = -> @factor
       return constructor
     )()
     return OpcodeClass
   return classFactory
 )()
 
-Op = (name, fn) -> OpcodeClassFactory(name, fn)
+# Each opcode has a stack depth factor calculated with this formula:
+# factor = (number of items pushed) - (number of items popped)
+#
+# This factor is the effect that the opcode will have on the evaluation stack
+# size, and is used to determine the maximum stack size needed for running
+# a script
+#
+# In most cases this number is static and depends only on the opcode function
+# body. To avoid having to maintain the number manually, we parse the opcode
+# source and count the number of pushes - pops by transversing the ast. This
+# is hacky but seems to do the job
+class Counter extends AstVisitor
+  constructor: ->
+    @factor = 0
+
+  CallExpression: (node) ->
+    node = super(node)
+    if node.callee.type == 'MemberExpression'
+      if node.callee.property.type == 'Identifier'
+        name =  node.callee.property.name
+      else if node.callee.property.type == 'Literal'
+        name =  node.callee.property.value
+      else
+        throw new Error('assert error')
+      if name == 'push'
+        @factor++
+      else if name == 'pop'
+        @factor--
+    return node
+
+calculateOpcodeFactor = (opcodeFn) ->
+  ast = esprima.parse("(#{opcodeFn.toString()})")
+  counter = new Counter()
+  counter.visit(ast)
+  return counter.factor
+
+Op = (name, fn, factorFn) -> OpcodeClassFactory(name, fn, factorFn)
 
 opcodes = [
   Op 'POP', (f, s, l) -> s.pop()                      # remove top
@@ -49,20 +93,30 @@ opcodes = [
   Op 'ITER_PROPS', (f, s, l) ->                       # iterator that yields
     s.push(new PropertiesIterator(s.pop()))           # enumerable properties
 
+  Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
+    l.set('arguments', s.pop())                       # object
+    # the fiber pushing the arguments object cancels
+    # this opcode pop call
+  , -> 0
+
   Op 'REST', (f, s, l) ->                             # initialize 'rest' param
     f.rest(@args[0], @args[1])
 
   Op 'CALL', (f, s, l) ->                             # call function
     f.call(@args[0], s.pop())
+     # pop n arguments plus function and push return value
+  , -> 1 - (@args[0] + 1)
 
   Op 'CALLM', (f, s, l) ->                            # call method
     f.call(@args[0], s.pop(), s.pop())
+     # pop n arguments plus function plus target and push return value
+  , -> 1 - (@args[0] + 1 + 1)
 
   Op 'GET', (f, s, l) ->                              # get property from
     s.push(f.get(s.pop(), s.pop()))                   # object
 
   Op 'SET', (f, s, l) ->                              # set property on
-    f.set(s.pop(), s.pop(), s.pop())                  # object
+    s.push(f.set(s.pop(), s.pop(), s.pop()))          # object
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(!s.pop())            # logical NOT
@@ -107,6 +161,8 @@ opcodes = [
     while length--
       rv[s.pop()] = s.pop()
     s.push(rv)
+    # pops one item for each key/value and push the object
+  , -> 1 - (@args[0] * 2)
 
   Op 'ARRAY_LITERAL', (f, s, l) ->                    # array literal
     length = @args[0]
@@ -114,8 +170,10 @@ opcodes = [
     while length--
       rv[length] = s.pop()
     s.push(rv)
+     # pops each element and push the array
+  , -> 1 - @args[0]
 
-  Op 'FUNCTION', (f, s, l) -> f.fn(@args[0])          # push function reference
+  Op 'FUNCTION', (f, s, l) -> s.push(f.fn(@args[0]))  # push function reference
 ]
 
 module.exports = opcodes

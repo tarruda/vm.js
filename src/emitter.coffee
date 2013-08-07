@@ -50,7 +50,13 @@ class Emitter extends AstVisitor
       guard.handler = guard.handler.ip if guard.handler
       guard.finalizer = guard.finalizer.ip if guard.finalizer
       guard.end = guard.end.ip
-    return new Script(@instructions, @scripts, @vars, @guards)
+    # calculate the maximum evaluation stack size
+    max = 0
+    current = 0
+    for code in @instructions
+      current += code.calculateFactor()
+      max = Math.max(current, max)
+    return new Script(@instructions, @scripts, @vars, @guards, max)
 
   VmIterProperties: (node) ->
     @visit(node.object)
@@ -222,10 +228,7 @@ class Emitter extends AstVisitor
   VmFunction: (node) ->
     fn = new Emitter()
     # load the the 'arguments' object into the local scope
-    fn.LITERAL('arguments')
-    fn.SCOPE()
-    fn.SET()
-    fn.POP()
+    fn.ARGS()
     # emit function body
     fn.visit(node.body.body)
     script = fn.end()
@@ -480,7 +483,7 @@ class Label
 
 
 class Script
-  constructor: (@instructions, @scripts, @vars, @guards)->
+  constructor: (@instructions, @scripts, @vars, @guards, @stackSize)->
 
 
 (->
