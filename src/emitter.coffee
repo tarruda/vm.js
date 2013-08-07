@@ -38,6 +38,7 @@ class Emitter extends AstVisitor
       new opcodes.LITERAL([name])
       new opcodes.SCOPE([])
       new opcodes.SET([])
+      new opcodes.POP([])
     ]
     @instructions = codes.concat(@instructions)
 
@@ -272,15 +273,16 @@ class Emitter extends AstVisitor
   CallExpression: (node) ->
     @visit(node.arguments) # push arguments
     if isMethod = (node.callee.type == 'MemberExpression')
-      @visitProperty(node.callee) # push property
       @visit(node.callee.object) # push target
       @SR1() # save target
       @LR1() # load target
-      @GET() # get function
+      @visitProperty(node.callee) # push property
       @LR1() # load target
+      @GET() # get function
+      @CALLM(node.arguments.length)
     else
       @visit(node.callee)
-    @CALL(node.arguments.length, isMethod)
+      @CALL(node.arguments.length)
 
   visitProperty: (memberExpression) ->
     if memberExpression.computed

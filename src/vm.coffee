@@ -10,6 +10,6 @@ class Vm
     script = compile(string)
     fiber = new Fiber(@maxDepth, @global, script)
     fiber.run()
-    return fiber.stack.rexp
+    return fiber.evalStack.rexp
 
 module.exports = Vm

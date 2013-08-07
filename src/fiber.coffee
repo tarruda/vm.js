@@ -3,33 +3,32 @@
 
 class Fiber
   constructor: (maxDepth, global, script) ->
-    @stack = new OperandStack(512)
-    @frames = new Array(maxDepth)
-    @frames[0] = new Frame(this, @stack, script, global)
+    @callStack = new Array(maxDepth)
+    @callStack[0] = new Frame(this, script, global)
+    @evalStack = @callStack[0].evalStack
     @depth = 0
     @error = null
     @rv = undefined
 
   run: ->
-    frame = @frames[@depth]
+    frame = @callStack[@depth]
     while @depth >= 0 && frame
       if @error
         frame = @unwind()
       frame.run()
       if !frame.done()
-        frame = @frames[@depth] # function call
+        frame = @callStack[@depth] # function call
         continue
       # function returned
-      @stack.push(@rv)
-      @rv = undefined
       frame = @popFrame()
-    if !@depth && ((remaining = @stack.remaining()) != 0)
-      # debug
-      throw new Error("operand stack has #{remaining} items after execution")
+      if frame && !@error
+        # set the return value
+        frame.evalStack.push(@rv)
+        @rv = undefined
 
   unwind: ->
-    # unwind the stack searching for a guard set to handle this
-    frame = @frames[@depth]
+    # unwind the evalStack searching for a guard set to handle this
+    frame = @callStack[@depth]
     while frame
       # ip is always pointing to the next opcode, so subtract one
       ip = frame.ip - 1
@@ -60,20 +59,23 @@ class Fiber
       frame = @popFrame()
     throw @error
 
-  pushFrame: (closure) ->
+  pushFrame: (func, args) ->
     if @depth == @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
-    scope = new Scope(closure.parent, closure.script.vars)
-    @frames[++@depth] = new Frame(this, @stack, closure.script, scope)
+    scope = new Scope(func.parent, func.script.vars)
+    frame = new Frame(this, func.script, scope)
+    frame.evalStack.push(args)
+    @callStack[++@depth] = frame
 
   popFrame: ->
-    frame = @frames[--@depth]
+    frame = @callStack[--@depth]
     if frame
       frame.paused = false
     return frame
 
 class Frame
-  constructor: (@fiber, @stack, @script, @scope) ->
+  constructor: (@fiber, @script, @scope) ->
+    @evalStack = new EvaluationStack(512)
     @ip = 0
     @exitIp = @script.instructions.length
     @paused = false
@@ -84,7 +86,10 @@ class Frame
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp && !@paused
-      instructions[@ip++].exec(this, @stack, @scope)
+      instructions[@ip++].exec(this, @evalStack, @scope)
+    if (len = @evalStack.len()) != 0
+      # debug assertion
+      throw new Error("evaluation evalStack has #{len} items after execution")
 
   get: (object, key) ->
     if object instanceof Scope then object.get(key)
@@ -93,34 +98,30 @@ class Frame
   set: (object, key, value) ->
     if object instanceof Scope then object.set(key, value)
     else object[key] = value
-    @stack.push(value)
+    @evalStack.push(value)
 
   jump: (to) -> @ip = to
 
   fn: (scriptIndex) ->
-    @stack.push(new Closure(@script.scripts[scriptIndex], @scope))
+    @evalStack.push(new Closure(@script.scripts[scriptIndex], @scope))
 
   debug: ->
 
-  call: (length, isMethod) ->
-    if isMethod
-      target = @stack.pop()
-    closure = @stack.pop()
-    args = {length: length, callee: closure}
+  call: (length, func, target) ->
+    args = {length: length, callee: func}
     while length
-      args[--length] = @stack.pop()
-    if closure instanceof Function
-      # 'native' function, execute and push to the stack
+      args[--length] = @evalStack.pop()
+    if func instanceof Function
+      # 'native' function, execute and push to the evalStack
       try
-        @stack.push(closure.apply(target, Array::slice.call(args)))
+        @evalStack.push(func.apply(target, Array::slice.call(args)))
       catch e
         console.log "native function throws an error"
         throw e
     else
       # TODO set context
-      @stack.push(args)
       @paused = true
-      @fiber.pushFrame(closure)
+      @fiber.pushFrame(func, args)
 
   rest: (index, name) ->
     args = @scope.get('arguments')
@@ -145,7 +146,7 @@ class Frame
   done: -> @ip == @exitIp
 
 
-class OperandStack
+class EvaluationStack
   constructor: (size) ->
     @array = new Array(size)
     @idx = 0
@@ -160,7 +161,7 @@ class OperandStack
 
   top: -> @array[@idx - 1]
 
-  remaining: -> @idx
+  len: -> @idx
 
 
 module.exports = Fiber

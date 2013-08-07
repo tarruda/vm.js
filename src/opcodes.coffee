@@ -53,7 +53,10 @@ opcodes = [
     f.rest(@args[0], @args[1])
 
   Op 'CALL', (f, s, l) ->                             # call function
-    f.call(@args[0], @args[1])
+    f.call(@args[0], s.pop())
+
+  Op 'CALLM', (f, s, l) ->                            # call method
+    f.call(@args[0], s.pop(), s.pop())
 
   Op 'GET', (f, s, l) ->                              # get property from
     s.push(f.get(s.pop(), s.pop()))                   # object
