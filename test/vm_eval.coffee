@@ -55,6 +55,9 @@ tests =
   'false ? 1 : 2': [2]
   # assignments
   "x = {count: 28};x.count = 29": [29, {x: {count: 29}}]
+  "x = {count: 28};x.count++": [28, {x: {count: 29}}]
+  "x = {count: 30};--x.count": [29, {x: {count: 29}}]
+  "x = {count: 28};x.count += 10": [38, {x: {count: 38}}]
   "x = [1, 2, 3];x[2] = 5": [5, {x: [1, 2, 5]}]
   'x = 15': [15, {x: 15}]
   'x = 3;x += 8': [11, {x: 11}]

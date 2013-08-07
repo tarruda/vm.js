@@ -382,7 +382,7 @@ class Emitter extends AstVisitor
 
   UpdateExpression: (node) ->
     if node.argument.type == 'MemberExpression'
-      @visitProperty(node.argument.name)
+      @visitProperty(node.argument)
       @SR1()
       @visit(node.argument.object)
       @SR2()
@@ -391,14 +391,14 @@ class Emitter extends AstVisitor
       @GET() # get current
       @SR3() # save current
       @LR3() # load current
-      if node.operator == '++' then @INC() else @DEC()
+      if node.operator == '++' then @INC() else @DEC() # apply operator
       @LR1() # load property
       @LR2() # load object
       @SET()
     else
-      @GETL(node.argument.name) # get current
-      @SR3() # save current
-      @LR3() # load current
+      @GETL(node.argument.name)
+      @SR3()
+      @LR3()
       if node.operator == '++' then @INC() else @DEC()
       @SETL(node.argument.name)
     if !node.prefix
