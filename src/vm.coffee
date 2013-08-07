@@ -4,11 +4,11 @@ compile = require './compiler'
 
 class Vm
   constructor: (@maxDepth) ->
-    @global = new Scope()
+    @global = {}
 
   eval: (string) ->
     script = compile(string)
-    fiber = new Fiber(@maxDepth, @global, script)
+    fiber = new Fiber(@global, @maxDepth, script)
     fiber.run()
     return fiber.evalStack.rexp
 

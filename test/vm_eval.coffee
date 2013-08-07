@@ -142,7 +142,7 @@ tests =
     l.push(x); l.push(y);
   }
   l
-  """: [[1, 2, 3, 4], ((scope) ->)]
+  """: [[1, 2, 3, 4], ((global) ->)]
 
   """
   var i, j;
@@ -180,9 +180,9 @@ tests =
   test();
   function test() { i = 10; }
   i
-  """: [10, ((scope) ->
-    expect(scope.i).to.eql(10)
-    expect(scope.test.constructor.name).to.eql('Closure')
+  """: [10, ((global) ->
+    expect(global.i).to.eql(10)
+    expect(global.test.constructor.name).to.eql('Closure')
   )]
 
   """
@@ -190,28 +190,28 @@ tests =
     return a + b + c * d;
   }
   fn(4, 9, 10, 3);
-  """: [43, ((scope) -> expect(len(scope)).to.eql(1))]
+  """: [43, ((global) ->)]
 
   """
   fn = function(a, b=2, c=b*b, d=c) {
     return a + b + c + d;
   }
   fn(9);
-  """: [19, (scope) -> expect(len(scope)).to.eql(1)]
+  """: [19, (global) ->]
 
   """
   fn = function(a, b=2, c=b*b, d=c, ...f) {
     return f;
   }
   fn(1, 2, 3, 4, 5, 6);
-  """: [[5, 6], ((scope) -> expect(len(scope)).to.eql(1))]
+  """: [[5, 6], ((global) ->)]
 
   """
   fn = function([n1, n2], {key, value}) {
     return [n1 + n2, key, value];
   }
   fn([5, 4], {key: 'k', value: 'v'});
-  """: [[9, 'k', 'v'], ((scope) ->)]
+  """: [[9, 'k', 'v'], ((global) ->)]
 
   """
   function fn1() {
@@ -226,7 +226,7 @@ tests =
     throw 'error'
   }
   fn1();
-  """: [5, ((scope) ->)]
+  """: [5, ((global) ->)]
 
   """
   function fn1() {
@@ -236,7 +236,7 @@ tests =
     throw 'error'
   }
   fn1()
-  """: [5, ((scope) -> expect(scope.i).to.eql(10))]
+  """: [5, ((global) -> expect(global.i).to.eql(10))]
 
   """
   function fn1() {
@@ -264,34 +264,32 @@ tests =
     }
   }
   fn1();
-  """: [12, ((scope) ->
-    expect(scope.i).to.eql(11)
-    expect(scope.j).to.eql(10)
+  """: [12, ((global) ->
+    expect(global.i).to.eql(11)
+    expect(global.j).to.eql(10)
   )]
 len = (obj) -> Object.keys(obj).length
 
 describe 'vm eval', ->
   vm = null
-  scope = null
 
   beforeEach ->
     vm = new Vm(256)
-    scope = vm.global
 
   for k, v of tests
     do (k, v) ->
       fn = ->
-        result = vm.eval(k, scope)
+        result = vm.eval(k)
         expect(result).to.deep.eql expectedValue
-        if typeof expectedScope == 'function'
-          expectedScope(scope.keys)
-        else if typeof expectedScope == 'object'
-          expect(scope.keys).to.deep.eql expectedScope
+        if typeof expectedGlobal == 'function'
+          expectedGlobal(vm.global)
+        else if typeof expectedGlobal == 'object'
+          expect(vm.global).to.deep.eql expectedGlobal
         else
-          expect(scope.keys).to.deep.eql {}
+          expect(vm.global).to.deep.eql {}
       test = "\"#{k}\""
       expectedValue = v[0]
-      expectedScope = v[1]
-      if 1 in [expectedScope, v[2]] then it.only(test, fn)
-      else if 0 in [expectedScope, v[2]] then it.skip(test, fn)
+      expectedGlobal = v[1]
+      if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
+      else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
       else it(test, fn)

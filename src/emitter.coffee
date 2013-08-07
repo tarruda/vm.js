@@ -6,12 +6,37 @@ opcodes = require './opcodes'
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
 class Emitter extends AstVisitor
-  constructor: ->
+  constructor: (scopes) ->
     @instructions = []
     @labels = []
     @scripts = []
-    @vars = {}
+    @scopes = scopes || []
     @guards = []
+
+  scope: (name) ->
+    i = 0
+    for scope in @scopes
+      if name of scope
+        return [i, scope[name]]
+      i++
+    return null
+
+  scopeGet: (name) ->
+    scope = @scope(name)
+    if scope
+      return @GETL.apply(this, scope)
+    @GETG(name) # global object get
+
+  scopeSet: (name) ->
+    scope = @scope(name)
+    if scope
+      return @SETL.apply(this, scope)
+    @SETG(name) # global object set
+
+  declareVar: (name) ->
+    if @scopes.length && !@scopes[0][name]
+      @scopes[0][name] = @scopes[0]['*idx']++
+    # else this is a global variable
 
   newLabel: -> new Label(@instructions)
 
@@ -28,14 +53,18 @@ class Emitter extends AstVisitor
 
   popLabel: -> @labels.pop()
     
-  declareVar: (name) -> @vars[name] = null
-
   declareFunction: (name, index) ->
+    @declareVar(name)
+    scope = @scope(name)
+    if scope
+      opcode = new opcodes.SETL(scope)
+    else
+      opcode = new opcodes.SETG([name])
     # a function is declared by binding a name to the function ref
     # before other statements that are not function declarations
     codes = [
       new opcodes.FUNCTION([index])
-      new opcodes.SETL([name])
+      opcode
       new opcodes.POP()
     ]
     @instructions = codes.concat(@instructions)
@@ -54,7 +83,14 @@ class Emitter extends AstVisitor
     for code in @instructions
       current += code.calculateFactor()
       max = Math.max(current, max)
-    return new Script(@instructions, @scripts, @vars, @guards, max)
+    localLength = 0
+    localNames = @scopes[0]
+    if localNames
+      delete localNames['*idx']
+      for k of localNames
+        localLength++
+    return new Script(@instructions, @scripts, localNames, localLength,
+      @guards, max)
 
   VmIterProperties: (node) ->
     @visit(node.object)
@@ -221,10 +257,13 @@ class Emitter extends AstVisitor
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
 
-  VmRestParam: (node) -> @REST(node.index, node.name)
+  VmRestParam: (node) ->
+    @declareVar(node.name)
+    scope = @scope(node.name)
+    @REST(node.index, scope[1])
 
   VmFunction: (node) ->
-    fn = new Emitter()
+    fn = new Emitter([{'*idx': 1, 'arguments': 0}].concat(@scopes))
     # load the the 'arguments' object into the local scope
     fn.ARGS()
     # emit function body
@@ -370,7 +409,7 @@ class Emitter extends AstVisitor
         @SET()
     else
       if node.operator != '='
-        @GETL(node.left.name) # get current value
+        @scopeGet(node.left.name)
         @SR4() # save current value
         @LR3() # load new value
         @LR4() # load current value
@@ -378,7 +417,7 @@ class Emitter extends AstVisitor
         @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
       else
         @LR3() # load new value
-      @SETL(node.left.name) # set value
+      @scopeSet(node.left.name) # set value
 
   UpdateExpression: (node) ->
     if node.argument.type == 'MemberExpression'
@@ -396,11 +435,11 @@ class Emitter extends AstVisitor
       @LR2() # load object
       @SET()
     else
-      @GETL(node.argument.name)
+      @scopeGet(node.argument.name)
       @SR3()
       @LR3()
       if node.operator == '++' then @INC() else @DEC()
-      @SETL(node.argument.name)
+      @scopeSet(node.argument.name)
     if !node.prefix
       @POP()
       @LR3()
@@ -472,7 +511,7 @@ class Emitter extends AstVisitor
   Identifier: (node) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    @GETL(node.name)
+    @scopeGet(node.name)
 
   Literal: (node) ->
     @LITERAL(node.value)
@@ -486,7 +525,8 @@ class Label
 
 
 class Script
-  constructor: (@instructions, @scripts, @vars, @guards, @stackSize)->
+  constructor: (@instructions, @scripts, @localNames, @localLength,
+    @guards, @stackSize)->
 
 
 (->

@@ -1,10 +1,10 @@
-{Closure, Scope} = require './data'
+{Closure} = require './data'
 
 
 class Fiber
-  constructor: (maxDepth, global, script) ->
+  constructor: (@global, maxDepth, script) ->
     @callStack = new Array(maxDepth)
-    @callStack[0] = new Frame(this, script, global)
+    @callStack[0] = new Frame(this, script, null, global)
     @evalStack = @callStack[0].evalStack
     @depth = 0
     @error = null
@@ -62,8 +62,9 @@ class Fiber
   pushFrame: (func, args) ->
     if @depth == @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
-    scope = new Scope(func.parent, func.script.vars)
-    frame = new Frame(this, func.script, scope)
+    scope = new Scope(func.parent, func.script.localNames,
+      func.script.localLength)
+    frame = new Frame(this, func.script, scope, @global)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -73,8 +74,9 @@ class Fiber
       frame.paused = false
     return frame
 
+
 class Frame
-  constructor: (@fiber, @script, @scope) ->
+  constructor: (@fiber, @script, @scope, @global) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
@@ -86,7 +88,7 @@ class Frame
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp && !@paused
-      instructions[@ip++].exec(this, @evalStack, @scope)
+      instructions[@ip++].exec(this, @evalStack, @scope, @global)
     if (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
@@ -113,10 +115,10 @@ class Frame
       @paused = true
       @fiber.pushFrame(func, args)
 
-  rest: (index, name) ->
-    args = @scope.get('arguments')
+  rest: (index, varIndex) ->
+    args = @scope.get(0)
     if index < args.length
-      @scope.set(name, Array::slice.call(args, index))
+      @scope.set(varIndex, Array::slice.call(args, index))
 
   ret: ->
     if @finalizer
@@ -152,6 +154,15 @@ class EvaluationStack
   top: -> @array[@idx - 1]
 
   len: -> @idx
+
+
+class Scope
+  constructor: (@parent, @names, len) ->
+    @data = new Array(len)
+
+  get: (i) -> @data[i]
+
+  set: (i, value) -> @data[i] = value
 
 
 module.exports = Fiber

@@ -91,7 +91,7 @@ opcodes = [
     s.push(new PropertiesIterator(s.pop()))           # enumerable properties
 
   Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
-    l.set('arguments', s.pop())                       # object
+    l.set(0, s.pop())                                 # object
     # the fiber pushing the arguments object cancels
     # this opcode pop calL
   , -> 0
@@ -116,10 +116,26 @@ opcodes = [
     s.push(s.pop()[s.pop()] = s.pop())                # object
 
   Op 'GETL', (f, s, l) ->                             # get local variable
-    s.push(l.get(@args[0]))
+    scopeIndex = @args[0]
+    varIndex = @args[1]
+    scope = l
+    while scopeIndex--
+      scope = scope.parent
+    s.push(scope.get(varIndex))
 
   Op 'SETL', (f, s, l) ->                             # set local variable
-    s.push(l.set(@args[0], s.pop()))
+    scopeIndex = @args[0]
+    varIndex = @args[1]
+    scope = l
+    while scopeIndex--
+      scope = scope.parent
+    s.push(scope.set(varIndex, s.pop()))
+
+  Op 'GETG', (f, s, l, g) ->                          # get global variable
+    s.push(g[@args[0]])
+
+  Op 'SETG', (f, s, l, g) ->                          # set global variable
+    s.push(g[@args[0]] = s.pop())
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(!s.pop())            # logical NOT
