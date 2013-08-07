@@ -174,7 +174,7 @@ tests =
     return a + b + c * d;
   }
   fn(4, 9, 10, 3);
-  """: [43, (scope) -> expect(len(scope)).to.eql(1)]
+  """: [43, ((scope) -> expect(len(scope)).to.eql(1))]
 
   """
   fn = function(a, b=2, c=b*b, d=c) {

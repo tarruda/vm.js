@@ -33,7 +33,7 @@ class Normalizer extends AstVisitor
     if node.rest
       # initialize rest parameter
       declaration = parse("var #{node.rest.name};").body[0]
-      rest = {type: 'VmRestParamInit', name: node.rest.name, index: len}
+      rest = {type: 'VmRestParam', name: node.rest.name, index: len}
       node.body.body.unshift(@visit(declaration))
       node.body.body.unshift(rest)
     params = []

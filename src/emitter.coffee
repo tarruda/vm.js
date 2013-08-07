@@ -34,9 +34,9 @@ class Emitter extends AstVisitor
     # a function is declared by binding a name to the function ref
     # before other statements that are not function declarations
     codes = [
-      new opcodes.SCOPE([])
-      new opcodes.LITERAL([name])
       new opcodes.FUNCTION([index])
+      new opcodes.LITERAL([name])
+      new opcodes.SCOPE([])
       new opcodes.SET([])
     ]
     @instructions = codes.concat(@instructions)
@@ -207,24 +207,22 @@ class Emitter extends AstVisitor
   ObjectExpression: (node) ->
     for property in node.properties
       if property.kind == 'init' # object literal
+        @visit(property.value)
         if property.key.type == 'Literal'
           @visit(property.key)
         else # identifier. use the name to create a literal string
           @visit({type: 'Literal', value: property.key.name})
-        @visit(property.value)
       else
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
 
-  VmRestParamInit: (node) -> @REST_INIT(node.index, node.name)
+  VmRestParam: (node) -> @REST(node.index, node.name)
 
   VmFunction: (node) ->
     fn = new Emitter()
     # load the the 'arguments' object into the local scope
-    fn.SR1()
-    fn.SCOPE()
     fn.LITERAL('arguments')
-    fn.LR1()
+    fn.SCOPE()
     fn.SET()
     fn.POP()
     # emit function body
@@ -240,10 +238,10 @@ class Emitter extends AstVisitor
       @declareFunction(node.declare, functionIndex)
 
   SequenceExpression: (node) ->
-    for expression in node.expressions
-      @visit(expression)
-      @SR4()
-    @LR4()
+    for i in [0...node.expressions.length - 1]
+      @visit(node.expressions[i])
+      @POP()
+    @visit(node.expressions[i])
 
   UnaryExpression: (node) ->
     super(node)
@@ -272,32 +270,31 @@ class Emitter extends AstVisitor
     throw new Error('not implemented')
 
   CallExpression: (node) ->
+    @visit(node.arguments) # push arguments
     if isMethod = (node.callee.type == 'MemberExpression')
-      @visit(node.callee.object)
-      @SR1()
-      @LR1()
-      @visit(node.arguments)
-      @LR1()
-      if node.callee.property.computed
-        @visit(node.callee.property)
-      else
-        @LITERAL(node.callee.property.name)
-      @GET()
+      @visitProperty(node.callee) # push property
+      @visit(node.callee.object) # push target
+      @SR1() # save target
+      @LR1() # load target
+      @GET() # get function
+      @LR1() # load target
     else
-      super(node)
+      @visit(node.callee)
     @CALL(node.arguments.length, isMethod)
 
-  MemberExpression: (node) ->
-    if node.object
-      @visit(node.object)
-    if node.computed
-      @visit(node.property)
-    else if node.property.type == 'Identifier'
-      @LITERAL(node.property.name)
-    else if node.property.type == 'Literal'
-      @LITERAL(node.property.value)
+  visitProperty: (memberExpression) ->
+    if memberExpression.computed
+      @visit(memberExpression.property)
+    else if memberExpression.property.type == 'Identifier'
+      @LITERAL(memberExpression.property.name)
+    else if memberExpression.property.type == 'Literal'
+      @LITERAL(memberExpression.property.value)
     else
       throw new Error('invalid assert')
+
+  MemberExpression: (node) ->
+    @visitProperty(node)
+    @visit(node.object)
     @GET()
 
   AssignmentExpression: (node) ->
@@ -336,58 +333,63 @@ class Emitter extends AstVisitor
           @visit(childAssignment)
           @POP()
       return
-    @visit(node.right)
-    @SR3()
+    if node.right.type == 'MemberExpression' && !node.right.object
+      # destructuring pattern, need to adjust the stack before
+      # getting the value
+      @SR3()
+      @visitProperty(node.right)
+      @LR3()
+      @GET()
+    else
+      @visit(node.right)
+    @SR3() # save new value
     if node.left.type == 'MemberExpression'
-      @visit(node.left.object)
+      @visitProperty(node.left)
       @SR1()
-      if node.left.computed
-        @visit(node.left.property)
-      else if node.left.property.type == 'Identifier'
-        @LITERAL(node.left.property.name)
-      else if node.left.property.type == 'Literal'
-        @LITERAL(node.left.property.value)
-      else
-        throw new Error('invalid assert')
+      @visit(node.left.object)
       @SR2()
     else
-      @SCOPE()
-      @SR1()
       @LITERAL(node.left.name)
+      @SR1()
+      @SCOPE()
       @SR2()
-    @LR1()
-    @LR2()
     if node.operator != '='
-      @GET()
-      @SR4()
       @LR1()
       @LR2()
-      @LR3()
-      @LR4()
+      @GET() # get current value
+      @SR4() # save current value
+      @LR3() # load new value
+      @LR4() # load current value
+      # apply operator
       @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
+      @LR1() # load property
+      @LR2() # load object
+      @SET() # set
     else
-      @LR3()
-    @SET()
+      @LR3() # load value
+      @LR1() # load property
+      @LR2() # load object
+      @SET()
 
   UpdateExpression: (node) ->
     if node.argument.type == 'MemberExpression'
-      @visit(node.argument.object)
+      @visitProperty(node.left)
       @SR1()
-      @visit(node.argument.property)
+      @visit(node.left.object)
       @SR2()
     else
-      @SCOPE()
-      @SR1()
       @LITERAL(node.argument.name)
+      @SR1()
+      @SCOPE()
       @SR2()
     @LR1()
     @LR2()
-    @GET()
-    @SR3()
-    @LR1()
-    @LR2()
-    @LR3()
+    @GET() # get current
+    @SR3() # save current
+    @LR3() # load current
     if node.operator == '++' then @INC() else @DEC()
+    @LR1() # load property
+    @LR2() # load object
     @SET()
     if !node.prefix
       @POP()
@@ -460,8 +462,8 @@ class Emitter extends AstVisitor
   Identifier: (node) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
-    @SCOPE()
     @LITERAL(node.name)
+    @SCOPE()
     @GET()
 
   Literal: (node) ->

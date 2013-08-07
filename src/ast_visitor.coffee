@@ -156,8 +156,8 @@ class AstVisitor
 
   ObjectExpression: (node) ->
     for property in node.properties
-      property.key = @visit(property.key)
       property.value = @visit(property.value)
+      property.key = @visit(property.key)
     return node
 
   FunctionExpression: (node) ->

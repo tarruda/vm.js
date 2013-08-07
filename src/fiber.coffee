@@ -84,7 +84,7 @@ class Frame
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp && !@paused
-      instructions[@ip++].exec(this, @stack)
+      instructions[@ip++].exec(this, @stack, @scope)
 
   get: (object, key) ->
     if object instanceof Scope then object.get(key)
@@ -103,12 +103,12 @@ class Frame
   debug: ->
 
   call: (length, isMethod) ->
+    if isMethod
+      target = @stack.pop()
     closure = @stack.pop()
     args = {length: length, callee: closure}
     while length
       args[--length] = @stack.pop()
-    if isMethod
-      target = @stack.pop()
     if closure instanceof Function
       # 'native' function, execute and push to the stack
       try
@@ -122,7 +122,7 @@ class Frame
       @paused = true
       @fiber.pushFrame(closure)
 
-  restInit: (index, name) ->
+  rest: (index, name) ->
     args = @scope.get('arguments')
     if index < args.length
       @scope.set(name, Array::slice.call(args, index))
