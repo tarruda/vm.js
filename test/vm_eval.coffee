@@ -76,7 +76,7 @@ tests =
   # control flow
   "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
-  'i = 0; while(i++ < 10) { i++; }; i;': [11, {i: 11}]
+  'i = 0; while(i++ < 10) i++; i;': [11, {i: 11}]
 
   """
   i = 0;
@@ -138,7 +138,8 @@ tests =
         if (i == 1 && j == 1) continue loop1;
         else l.push(i), l.push(j);
   }
-  """: [undefined, {i: 3, j: 3, l: [0, 0, 0, 1, 0, 2, 1, 0, 2, 0, 2, 1, 2, 2]}]
+  i
+  """: [3, {i: 3, j: 3, l: [0, 0, 0, 1, 0, 2, 1, 0, 2, 0, 2, 1, 2, 2]}]
 
   """
   var i, j;
@@ -150,7 +151,8 @@ tests =
         if (i == 1 && j == 1) break loop1;
         else l.push(i), l.push(j);
   }
-  """: [undefined, {i: 1, j: 1, l: [0, 0, 0, 1, 0, 2, 1, 0]}]
+  j
+  """: [1, {i: 1, j: 1, l: [0, 0, 0, 1, 0, 2, 1, 0]}]
 
   'for (var i = 0, len = 6; i < len; i+=10) { }; i': [10, {i: 10, len: 6}]
   '(function() { return 10; })()': [10]
@@ -186,7 +188,7 @@ tests =
     return f;
   }
   fn(1, 2, 3, 4, 5, 6);
-  """: [[5, 6], (scope) -> expect(len(scope)).to.eql(1)]
+  """: [[5, 6], ((scope) -> expect(len(scope)).to.eql(1))]
 
   """
   function fn1() {
@@ -205,11 +207,21 @@ tests =
 
   """
   function fn1() {
+    try { fn2(); } catch (e) { i = 10; return 1; } finally { return 5; i = 2}
+  }
+  function fn2() {
+    throw 'error'
+  }
+  fn1()
+  """: [5, ((scope) -> expect(scope.i).to.eql(10))]
+
+  """
+  function fn1() {
     try {
       fn2();
       return 3;
     } catch (e) {
-      return i;
+      return i + 1;
     } finally {
       j = 10;
     }
@@ -229,7 +241,7 @@ tests =
     }
   }
   fn1();
-  """: [11, ((scope) ->
+  """: [12, ((scope) ->
     expect(scope.i).to.eql(11)
     expect(scope.j).to.eql(10)
   )]

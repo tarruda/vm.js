@@ -3,7 +3,7 @@
 
 class Fiber
   constructor: (maxDepth, global, script) ->
-    @stack = new OperandStack(64)
+    @stack = new OperandStack(512)
     @frames = new Array(maxDepth)
     @frames[0] = new Frame(this, @stack, script, global)
     @depth = 0
@@ -23,41 +23,41 @@ class Fiber
       @stack.push(@rv)
       @rv = undefined
       frame = @popFrame()
-    if !@depth && (remaining = @stack.remaining())
+    if !@depth && ((remaining = @stack.remaining()) != 0)
       # debug
       throw new Error("operand stack has #{remaining} items after execution")
 
   unwind: ->
     # unwind the stack searching for a guard set to handle this
-    current = @frames[@depth]
-    while current
+    frame = @frames[@depth]
+    while frame
       # ip is always pointing to the next opcode, so subtract one
-      ip = current.ip - 1
-      for guard in current.script.guards
+      ip = frame.ip - 1
+      for guard in frame.script.guards
         if guard.start <= ip <= guard.end
           if guard.handler != null
             # try/catch
             if ip <= guard.handler
               # thrown inside the guarded region
               @error = null
-              current.ip = guard.handler
+              frame.ip = guard.handler
               if guard.finalizer != null
                 # if the catch returns from the function, the finally
                 # block still must be executed, so adjust the exitIp
                 # to match the try/catch/finally block last ip.
-                current.exitIp = guard.end
+                frame.exitIp = guard.end
                 # warn the frame about finalization so the RET instruction
                 # will correctly jump to it
-                current.finalizer = guard.finalizer
+                frame.finalizer = guard.finalizer
             else
               # thrown outside the guarded region(eg: catch or finally block)
               continue
           else
             # try/finally
-            current.ip = guard.finalizer
-          current.paused = false
-          return current
-      current = @popFrame()
+            frame.ip = guard.finalizer
+          frame.paused = false
+          return frame
+      frame = @popFrame()
     throw @error
 
   pushFrame: (closure) ->
@@ -79,25 +79,12 @@ class Frame
     @paused = false
     @finalizer = null
     @rv = undefined
+    @r1 = @r2 = @r3 = @r4 = null
 
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp && !@paused
-      instructions[@ip++].exec(this)
-
-  pop: -> @stack.pop()
-
-  popn: (n) -> @stack.popn(n)
-
-  top: -> @stack.top()
-
-  push: (item) -> @stack.push(item)
-
-  save: (name) -> @stack.save(name)
-
-  load: (name) -> @stack.load(name)
-
-  pull: (name) -> @stack.pull(name)
+      instructions[@ip++].exec(this, @stack)
 
   get: (object, key) ->
     if object instanceof Scope then object.get(key)
@@ -143,6 +130,7 @@ class Frame
   ret: ->
     if @finalizer
       @ip = @finalizer
+      @finalizer = null
     else
       @ip = @exitIp
 
@@ -150,35 +138,24 @@ class Frame
     @fiber.rv = value
     @ret()
 
-  thrw: (obj) ->
+  throw: (obj) ->
     @paused = true
     @fiber.error = obj
 
   done: -> @ip == @exitIp
 
+
 class OperandStack
   constructor: (size) ->
     @array = new Array(size)
     @idx = 0
-    @tmp = {}
-
-  save: (name) -> @tmp[name] = @pop()
-
-  load: (name) -> @push(@tmp[name])
-
-  pull: (name) ->
-    value = @tmp[name]
-    delete @tmp[name]
-    @push(value)
+    @rexp = null
 
   push: (item) -> @array[@idx++] = item
 
-  pop: -> @array[--@idx]
-
-  popn: (n) ->
-    rv = []
-    while n--
-      rv.push(@array[--@idx])
+  pop: ->
+    rv = @array[--@idx]
+    @array[@idx] = null
     return rv
 
   top: -> @array[@idx - 1]

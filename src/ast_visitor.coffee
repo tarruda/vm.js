@@ -184,8 +184,8 @@ class AstVisitor
     return node
 
   BinaryExpression: (node) ->
-    node.left = @visit(node.left)
     node.right = @visit(node.right)
+    node.left = @visit(node.left)
     return node
 
   AssignmentExpression: (node) ->

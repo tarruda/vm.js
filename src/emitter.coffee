@@ -51,10 +51,50 @@ class Emitter extends AstVisitor
       guard.end = guard.end.ip
     return new Script(@instructions, @scripts, @vars, @guards)
 
+  VmIterProperties: (node) ->
+    @visit(node.object)
+    @ITER_PROPS()
+
+  VmLoop: (node) ->
+    currentLabel = @label()
+    start = @newLabel()
+    cont = @newLabel()
+    if currentLabel?.stmt == node
+      brk = currentLabel.brk
+      currentLabel.cont = cont
+    else
+      pop = true
+      brk = @newLabel()
+      @pushLabel(null, node, brk, cont)
+    if node.init
+      @visit(node.init)
+      if node.init.type != 'VariableDeclaration'
+        @POP()
+    if node.update
+      start.mark()
+    else
+      cont.mark()
+    if node.beforeTest
+      @visit(node.beforeTest)
+      @JMPF(brk)
+    @visit(node.body)
+    if node.update
+      cont.mark()
+      @visit(node.update)
+      @POP()
+      @JMP(start)
+    if node.afterTest
+      @visit(node.afterTest)
+      @JMPF(brk)
+    @JMP(cont)
+    if pop
+      brk.mark()
+      @popLabel()
+
   ExpressionStatement: (node) ->
     super(node)
     # remove the expression value from the stack and save it
-    @SAVE('_lastExpression')
+    @SREXP()
 
   IfStatement: (node) ->
     ifTrue = @newLabel()
@@ -106,7 +146,7 @@ class Emitter extends AstVisitor
 
   ThrowStatement: (node) ->
     super(node)
-    @THRW()
+    @THROW()
 
   TryStatement: (node) ->
     if node.handlers.length > 1
@@ -136,53 +176,25 @@ class Emitter extends AstVisitor
         @RET()
     end.mark()
 
-  VmIterProperties: (node) ->
-    @visit(node.object)
-    @ITER_PROPS()
-
-  VmLoop: (node) ->
-    currentLabel = @label()
-    start = @newLabel()
-    cont = @newLabel()
-    if currentLabel?.stmt == node
-      brk = currentLabel.brk
-      currentLabel.cont = cont
-    else
-      pop = true
-      brk = @newLabel()
-      @pushLabel(null, node, brk, cont)
-    if node.init
-      @visit(node.init)
-      if node.init.type != 'VmVariableDeclaration'
-        @POP()
-    if node.update
-      start.mark()
-    else
-      cont.mark()
-    if node.beforeTest
-      @visit(node.beforeTest)
-      @JMPF(brk)
-    @visit(node.body)
-    if node.update
-      cont.mark()
-      @visit(node.update)
-      @POP()
-      @JMP(start)
-    if node.afterTest
-      @visit(node.afterTest)
-      @JMPF(brk)
-    @JMP(cont)
-    if pop
-      brk.mark()
-      @popLabel()
-
   LetStatement: (node) ->
     # A let statement
     throw new Error('not implemented')
 
   DebuggerStatement: (node) -> @DEBUG()
 
-  VmVariableDeclaration: (node) -> @declareVar(node.name)
+  VariableDeclaration: (node) ->
+    for v in node.declarations
+      @declareVar(v.id.name)
+      if v.init
+        assign =
+          type: 'ExpressionStatement'
+          expression:
+            loc: v.loc
+            type: 'AssignmentExpression'
+            operator: '='
+            left: v.id
+            right: v.init
+        @visit(assign)
 
   ThisExpression: (node) ->
     # A this expression
@@ -209,10 +221,10 @@ class Emitter extends AstVisitor
   VmFunction: (node) ->
     fn = new Emitter()
     # load the the 'arguments' object into the local scope
-    fn.SAVE('_args')
+    fn.SR1()
     fn.SCOPE()
     fn.LITERAL('arguments')
-    fn.PULL('_args')
+    fn.LR1()
     fn.SET()
     fn.POP()
     # emit function body
@@ -230,8 +242,8 @@ class Emitter extends AstVisitor
   SequenceExpression: (node) ->
     for expression in node.expressions
       @visit(expression)
-      @SAVE('_lastExpression')
-    @PULL('_lastExpression')
+      @SR4()
+    @LR4()
 
   UnaryExpression: (node) ->
     super(node)
@@ -240,29 +252,6 @@ class Emitter extends AstVisitor
   BinaryExpression: (node) ->
     super(node)
     @[binaryOp[node.operator]]()
-
-  VmSaveStatement: (node) ->
-    @visit(node.value)
-    @SAVE(node.name)
-
-  VmLoadExpression: (node) -> @LOAD(node.name)
-
-  VmPullExpression: (node) -> @PULL(node.name)
-
-  VmAssignmentExpression: (node) ->
-    if node.left.type == 'MemberExpression'
-      # push property owner
-      @visit(node.left.object)
-      # push property key
-      if node.left.computed
-        @visit(node.left.property)
-      else
-        @LITERAL(node.left.property.name)
-    else
-      @SCOPE() # push local scope
-      @LITERAL(node.left.name) # push local variable name
-    @visit(node.right) # push property value
-    @SET()
 
   LogicalExpression: (node) ->
     evalEnd = @newLabel()
@@ -285,10 +274,10 @@ class Emitter extends AstVisitor
   CallExpression: (node) ->
     if isMethod = (node.callee.type == 'MemberExpression')
       @visit(node.callee.object)
-      @SAVE('_target')
-      @LOAD('_target')
+      @SR1()
+      @LR1()
       @visit(node.arguments)
-      @PULL('_target')
+      @LR1()
       if node.callee.property.computed
         @visit(node.callee.property)
       else
@@ -301,11 +290,108 @@ class Emitter extends AstVisitor
   MemberExpression: (node) ->
     if node.object
       @visit(node.object)
-    if node.computed # computed at runtime, eg: x[y]
+    if node.computed
       @visit(node.property)
-    else # static member eg: x.y
+    else if node.property.type == 'Identifier'
       @LITERAL(node.property.name)
+    else if node.property.type == 'Literal'
+      @LITERAL(node.property.value)
+    else
+      throw new Error('invalid assert')
     @GET()
+
+  AssignmentExpression: (node) ->
+    if node.left.type in ['ArrayPattern', 'ObjectPattern']
+      @visit(node.right)
+      if node.left.type == 'ArrayPattern'
+        index = 0
+        for element in node.left.elements
+          if element
+            @DUP()
+            # get the nth-item from the array
+            childAssignment =
+              operator: node.operator
+              type: 'AssignmentExpression'
+              left: element
+              right:
+                type: 'MemberExpression'
+                # omit the object since its already loaded on stack
+                property: {type: 'Literal', value: index}
+            @visit(childAssignment)
+            @POP()
+          index++
+      else
+        for property in node.left.properties
+          @DUP()
+          source = property.key
+          target = property.value
+          childAssignment =
+            operator: node.operator
+            type: 'AssignmentExpression'
+            left: target
+            right:
+              type: 'MemberExpression'
+              computed: true
+              property: {type: 'Literal', value: source.name}
+          @visit(childAssignment)
+          @POP()
+      return
+    @visit(node.right)
+    @SR3()
+    if node.left.type == 'MemberExpression'
+      @visit(node.left.object)
+      @SR1()
+      if node.left.computed
+        @visit(node.left.property)
+      else if node.left.property.type == 'Identifier'
+        @LITERAL(node.left.property.name)
+      else if node.left.property.type == 'Literal'
+        @LITERAL(node.left.property.value)
+      else
+        throw new Error('invalid assert')
+      @SR2()
+    else
+      @SCOPE()
+      @SR1()
+      @LITERAL(node.left.name)
+      @SR2()
+    @LR1()
+    @LR2()
+    if node.operator != '='
+      @GET()
+      @SR4()
+      @LR1()
+      @LR2()
+      @LR3()
+      @LR4()
+      @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
+    else
+      @LR3()
+    @SET()
+
+  UpdateExpression: (node) ->
+    if node.argument.type == 'MemberExpression'
+      @visit(node.argument.object)
+      @SR1()
+      @visit(node.argument.property)
+      @SR2()
+    else
+      @SCOPE()
+      @SR1()
+      @LITERAL(node.argument.name)
+      @SR2()
+    @LR1()
+    @LR2()
+    @GET()
+    @SR3()
+    @LR1()
+    @LR2()
+    @LR3()
+    if node.operator == '++' then @INC() else @DEC()
+    @SET()
+    if !node.prefix
+      @POP()
+      @LR3()
 
   YieldExpression: (node) ->
     # A yield expression
@@ -400,13 +486,16 @@ class Script
       opcodes[opcode::name] = opcode
       # also add a method for resolving label addresses
       opcode::normalizeLabels = ->
-        for i in [0...@argc]
-          if @args[i] instanceof Label
-            if @args[i].ip == null
-              throw new Error('label has not been marked')
-            # its a label, replace with the instruction pointer
-            @args[i] = @args[i].ip
+        if @args
+          for i in [0...@args.length]
+            if @args[i] instanceof Label
+              if @args[i].ip == null
+                throw new Error('label has not been marked')
+              # its a label, replace with the instruction pointer
+              @args[i] = @args[i].ip
       Emitter::[opcode::name] = (args...) ->
+        if !args.length
+          args = null
         @instructions.push(new opcode(args))
 )()
 
