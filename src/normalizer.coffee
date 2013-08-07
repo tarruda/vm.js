@@ -40,9 +40,9 @@ class Normalizer extends AstVisitor
     for i in [0...len]
       param = node.params[i]
       def = node.defaults[i]
-      if param.type != 'Identifier' then throw new Error('assert error')
-      declaration = parse("var #{param.name} = arguments[#{i}] || 0;").body[0]
+      declaration = parse("var placeholder = arguments[#{i}] || 0;").body[0]
       declarator = declaration.declarations[0]
+      declarator.id = param
       if def then declarator.init.right = def
       else declarator.init = declarator.init.left
       params.push(@visit(declaration))

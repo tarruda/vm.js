@@ -7,6 +7,8 @@ tests =
   "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
   # unary
   '-{count: 2}.count': [-2]
+  "x = {count: 28};x.count++": [28, {x: {count: 29}}]
+  "x = {count: 30};--x.count": [29, {x: {count: 29}}]
   'x = 4; --x': [3, {x: 3}]
   'x = 4; ++x': [5, {x: 5}]
   'x = 4; x--': [4, {x: 3}]
@@ -55,8 +57,6 @@ tests =
   'false ? 1 : 2': [2]
   # assignments
   "x = {count: 28};x.count = 29": [29, {x: {count: 29}}]
-  "x = {count: 28};x.count++": [28, {x: {count: 29}}]
-  "x = {count: 30};--x.count": [29, {x: {count: 29}}]
   "x = {count: 28};x.count += 10": [38, {x: {count: 38}}]
   "x = [1, 2, 3];x[2] = 5": [5, {x: [1, 2, 5]}]
   'x = 15': [15, {x: 15}]
@@ -74,8 +74,11 @@ tests =
   'x = 0xf0;x ^= 8': [0xf8, {x: 0xf8}]
   # destructuring assignments
   '[x, y] = [1, 2]': [[1, 2], {x: 1, y: 2}]
+  'var [x, y] = [1, 2]': [[1, 2], {x: 1, y: 2}]
   '[,,y] = [1, 2, 3 ,4]': [[1, 2, 3, 4], {y: 3}]
   '({x: X, y: Y} = {x: 1, y: 2})': [{x: 1, y: 2}, {X: 1, Y: 2}]
+  '({x, y} = {x: 1, y: 2})': [{x: 1, y: 2}, {x: 1, y: 2}]
+  'var {x, y} = {x: 1, y: 2}': [{x: 1, y: 2}, {x: 1, y: 2}]
   # control flow
   "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
@@ -131,6 +134,16 @@ tests =
   for (var k in obj) l.push(k)
   l
   """: [1, 0]
+
+  """
+  obj = [[1, 2], [3, 4], [5, 6]];
+  l = []
+  for (var [x,y] = obj[0], i = 1; i < obj.length; [x,y] = obj[i++]) {
+    l.push(x); l.push(y);
+  }
+  l
+  """: [[1, 2, 3, 4], ((scope) ->)]
+
   """
   var i, j;
   var l = [];
@@ -192,6 +205,13 @@ tests =
   }
   fn(1, 2, 3, 4, 5, 6);
   """: [[5, 6], ((scope) -> expect(len(scope)).to.eql(1))]
+
+  """
+  fn = function([n1, n2], {key, value}) {
+    return [n1 + n2, key, value];
+  }
+  fn([5, 4], {key: 'k', value: 'v'});
+  """: [[9, 'k', 'v'], ((scope) ->)]
 
   """
   function fn1() {
