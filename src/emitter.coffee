@@ -2,6 +2,7 @@ esprima = require 'esprima'
 
 AstVisitor = require './ast_visitor'
 opcodes = require './opcodes'
+    
 
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
@@ -11,6 +12,8 @@ class Emitter extends AstVisitor
     @labels = []
     @scripts = []
     @scopes = scopes || []
+    @localNames = {}
+    @varIndex = 1
     @guards = []
 
   scope: (name) ->
@@ -33,11 +36,31 @@ class Emitter extends AstVisitor
       return @SETL.apply(this, scope)
     @SETG(name) # global object set
 
+  enterScope: ->
+    @scopes.unshift({})
+
+  exitScope: ->
+    @scopes.shift()
+
   declareVar: (name) ->
     if @scopes.length && !@scopes[0][name]
-      @scopes[0][name] = @scopes[0]['*idx']++
+      @localNames[@varIndex] = name
+      @scopes[0][name] = @varIndex++
     # else this is a global variable
 
+  declarePattern: (node) ->
+    if node.type in ['ArrayPattern', 'ArrayExpression']
+      for el in node.elements
+        if el
+          @declarePattern(el)
+    else if node.type in ['ObjectPattern', 'ObjectExpression']
+      for prop in node.properties
+        @declarePattern(prop.value)
+    else if node.type == 'Identifier'
+      @declareVar(node.name)
+    else
+      throw new Error('assertion error')
+     
   newLabel: -> new Label(@instructions)
 
   label: (name) ->
@@ -84,11 +107,12 @@ class Emitter extends AstVisitor
       current += code.calculateFactor()
       max = Math.max(current, max)
     localLength = 0
-    localNames = @scopes[0]
-    if localNames
-      delete localNames['*idx']
-      for k of localNames
+    if @scopes[0]
+      localNames = {}
+      for k of @scopes[0]
         localLength++
+        localNames[@scopes[0][k]] = k
+
     return new Script(@instructions, @scripts, localNames, localLength,
       @guards, max)
 
@@ -207,7 +231,20 @@ class Emitter extends AstVisitor
     @JMP(finalizer)
     handler.mark()
     if node.handlers.length
+      @enterScope()
+      # bind error to the declared pattern
+      param = node.handlers[0].param
+      @declarePattern(param)
+      assign =
+        type: 'ExpressionStatement'
+        expression:
+          loc: param.loc
+          type: 'AssignmentExpression'
+          operator: '='
+          left: param
+      @visit(assign)
       @visit(node.handlers[0].body)
+      @exitScope()
     finalizer.mark()
     if node.finalizer
       @visit(node.finalizer)
@@ -223,19 +260,18 @@ class Emitter extends AstVisitor
 
   DebuggerStatement: (node) -> @DEBUG()
 
-  VariableDeclaration: (node) ->
-    for v in node.declarations
-      @declareVar(v.id.name)
-      if v.init
-        assign =
-          type: 'ExpressionStatement'
-          expression:
-            loc: v.loc
-            type: 'AssignmentExpression'
-            operator: '='
-            left: v.id
-            right: v.init
-        @visit(assign)
+  VariableDeclarator: (node) ->
+    @declarePattern(node.id)
+    if node.init
+      assign =
+        type: 'ExpressionStatement'
+        expression:
+          loc: node.loc
+          type: 'AssignmentExpression'
+          operator: '='
+          left: node.id
+          right: node.init
+      @visit(assign)
 
   ThisExpression: (node) ->
     # A this expression
@@ -263,7 +299,7 @@ class Emitter extends AstVisitor
     @REST(node.index, scope[1])
 
   VmFunction: (node) ->
-    fn = new Emitter([{'*idx': 1, 'arguments': 0}].concat(@scopes))
+    fn = new Emitter([{'arguments': 0}].concat(@scopes))
     # load the the 'arguments' object into the local scope
     fn.ARGS()
     # emit function body
@@ -340,9 +376,20 @@ class Emitter extends AstVisitor
     @GET()
 
   AssignmentExpression: (node) ->
-    if node.left.type in ['ArrayPattern', 'ObjectPattern']
-      @visit(node.right)
-      if node.left.type == 'ArrayPattern'
+    if node.right
+      if node.right.type == 'MemberExpression' && !node.right.object
+        # destructuring pattern, need to adjust the stack before
+        # getting the value
+        @SR3()
+        @visitProperty(node.right)
+        @LR3()
+        @GET()
+      else
+        @visit(node.right)
+    # else, assume value is already on the stack
+    if node.left.type in ['ArrayPattern', 'ArrayExpression',
+      'ObjectPattern', 'ObjectExpression']
+      if node.left.type in ['ArrayPattern', 'ArrayExpression']
         index = 0
         for element in node.left.elements
           if element
@@ -375,15 +422,6 @@ class Emitter extends AstVisitor
           @visit(childAssignment)
           @POP()
       return
-    if node.right.type == 'MemberExpression' && !node.right.object
-      # destructuring pattern, need to adjust the stack before
-      # getting the value
-      @SR3()
-      @visitProperty(node.right)
-      @LR3()
-      @GET()
-    else
-      @visit(node.right)
     @SR3() # save new value
     if node.left.type == 'MemberExpression'
       @visitProperty(node.left)

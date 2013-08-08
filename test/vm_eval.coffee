@@ -79,6 +79,10 @@ tests =
   '({x: X, y: Y} = {x: 1, y: 2})': [{x: 1, y: 2}, {X: 1, Y: 2}]
   '({x, y} = {x: 1, y: 2})': [{x: 1, y: 2}, {x: 1, y: 2}]
   'var {x, y} = {x: 1, y: 2}': [{x: 1, y: 2}, {x: 1, y: 2}]
+  # nested destructuring
+  'var [a,,[b,,[c]]] = [1,0,[2,0,[3]]];': [[1,0,[2,0,[3]]], {a:1,b:2,c:3}]
+  'var {op: a, lhs: {op: b}, rhs: c} = {op: 1, lhs: {op: 2}, rhs: 3};':
+    [{op: 1, lhs: {op: 2}, rhs: 3}, {a:1,b:2,c:3}]
   # control flow
   "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
@@ -219,6 +223,7 @@ tests =
       fn2();
       return 3;
     } catch (e) {
+      a = e
       return 5;
     }
   }
@@ -226,24 +231,39 @@ tests =
     throw 'error'
   }
   fn1();
-  """: [5, ((global) ->)]
+  """: [5, ((global) ->
+    expect(global.e).to.not.exist # 'e' should be local to the catch block
+    expect(global.a).to.eql('error'))]
+    # ((global) -> expect(global.a).to.eql('error')), 1]
 
   """
   function fn1() {
-    try { fn2(); } catch (e) { i = 10; return 1; } finally { return 5; i = 2}
+    try {
+      fn2();
+    } catch ([a,,[b,,[c]]]) {
+      ex = [a, b, c];
+      i = 10; return 1;
+    } finally { return 5; i = 2}
   }
   function fn2() {
-    throw 'error'
+    throw [1,0,[2,0,[3]]];
   }
   fn1()
-  """: [5, ((global) -> expect(global.i).to.eql(10))]
+  """: [5, ((global) ->
+    expect(global.i).to.eql(10)
+    expect(global.a).to.not.exist
+    expect(global.b).to.not.exist
+    expect(global.c).to.not.exist
+    expect(global.ex).to.eql([1, 2, 3])
+  )]
 
   """
   function fn1() {
     try {
       fn2();
       return 3;
-    } catch (e) {
+    } catch ({op: a, lhs: {op: b}, rhs: c}) {
+      ex = [a, b, c];
       return i + 1;
     } finally {
       j = 10;
@@ -260,13 +280,17 @@ tests =
     try {
       throw 'error'
     } catch (e) {
-      throw 'error2'
+      throw {op: 1, lhs: {op: 2}, rhs: 3};
     }
   }
   fn1();
   """: [12, ((global) ->
     expect(global.i).to.eql(11)
     expect(global.j).to.eql(10)
+    expect(global.a).to.not.exist
+    expect(global.b).to.not.exist
+    expect(global.c).to.not.exist
+    expect(global.ex).to.eql([1, 2, 3])
   )]
 len = (obj) -> Object.keys(obj).length
 

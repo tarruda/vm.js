@@ -32,9 +32,9 @@ OpcodeClassFactory = (->
 # Each opcode has a stack depth factor calculated with this formula:
 # factor = (number of items pushed) - (number of items popped)
 #
-# This factor is the effect that the opcode will have on the evaluation stack
-# size, and is used to determine the maximum stack size needed for running
-# a script
+# This factor is the maximum size that the opcode needs to grow the
+# evaluation stack size, and is used later to determine the maximum stack
+# size needed for running a script
 #
 # In most cases this number is static and depends only on the opcode function
 # body. To avoid having to maintain the number manually, we parse the opcode
@@ -43,6 +43,7 @@ OpcodeClassFactory = (->
 class Counter extends AstVisitor
   constructor: ->
     @factor = 0
+    @current = 0
 
   CallExpression: (node) ->
     node = super(node)
@@ -54,9 +55,10 @@ class Counter extends AstVisitor
       else
         throw new Error('assert error')
       if name == 'push'
-        @factor++
+        @current++
       else if name == 'pop'
-        @factor--
+        @current--
+      @factor = Math.max(@factor, @current)
     return node
 
 calculateOpcodeFactor = (opcodeFn) ->

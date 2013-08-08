@@ -27,7 +27,7 @@ class Fiber
         @rv = undefined
 
   unwind: ->
-    # unwind the evalStack searching for a guard set to handle this
+    # unwind the call stack searching for a guard set to handle this
     frame = @callStack[@depth]
     while frame
       # ip is always pointing to the next opcode, so subtract one
@@ -38,6 +38,7 @@ class Fiber
             # try/catch
             if ip <= guard.handler
               # thrown inside the guarded region
+              frame.evalStack.push(@error)
               @error = null
               frame.ip = guard.handler
               if guard.finalizer != null
@@ -104,7 +105,7 @@ class Frame
     while length
       args[--length] = @evalStack.pop()
     if func instanceof Function
-      # 'native' function, execute and push to the evalStack
+      # 'native' function, execute and push to the evaluation stack
       try
         @evalStack.push(func.apply(target, Array::slice.call(args)))
       catch e
