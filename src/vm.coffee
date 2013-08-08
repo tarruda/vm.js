@@ -6,9 +6,12 @@ class Vm
   constructor: (@maxDepth) ->
     @global = {}
 
-  eval: (string) ->
-    script = compile(string)
-    fiber = new Fiber(@global, @maxDepth, script)
+  eval: (string) -> @run(@compile(string))
+
+  compile: (source) -> compile(source)
+
+  run: (compiled) ->
+    fiber = new Fiber(@global, @maxDepth, compiled)
     fiber.run()
     return fiber.evalStack.rexp
 

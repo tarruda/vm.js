@@ -86,6 +86,12 @@ class Frame
     @rv = undefined
     @r1 = @r2 = @r3 = @r4 = null
 
+  enterScope: ->
+    @scope = new Scope(@scope, @script.localNames, @script.localLength)
+
+  exitScope: ->
+    @scope = @scope.parent
+
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp && !@paused

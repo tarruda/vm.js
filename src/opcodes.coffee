@@ -139,6 +139,9 @@ opcodes = [
   Op 'SETG', (f, s, l, g) ->                          # set global variable
     s.push(g[@args[0]] = s.pop())
 
+  Op 'ENTER_SCOPE', (f) -> f.enterScope()             # enter nested scope
+  Op 'EXIT_SCOPE', (f) -> f.exitScope()               # exit nested scope
+
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(!s.pop())            # logical NOT
   Op 'NOT', (f, s, l) -> s.push(~s.pop())             # bitwise NOT

@@ -37,9 +37,11 @@ class Emitter extends AstVisitor
     @SETG(name) # global object set
 
   enterScope: ->
+    @ENTER_SCOPE()
     @scopes.unshift({})
 
   exitScope: ->
+    @EXIT_SCOPE()
     @scopes.shift()
 
   declareVar: (name) ->
@@ -107,13 +109,10 @@ class Emitter extends AstVisitor
       current += code.calculateFactor()
       max = Math.max(current, max)
     localLength = 0
-    if @scopes[0]
-      localNames = {}
-      for k of @scopes[0]
-        localLength++
-        localNames[@scopes[0][k]] = k
+    for k of @localNames
+      localLength++
 
-    return new Script(@instructions, @scripts, localNames, localLength,
+    return new Script(@instructions, @scripts, @localNames, localLength,
       @guards, max)
 
   VmIterProperties: (node) ->
