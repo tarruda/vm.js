@@ -87,7 +87,9 @@ class Frame
     @r1 = @r2 = @r3 = @r4 = null
 
   enterScope: ->
-    @scope = new Scope(@scope, @script.localNames, @script.localLength)
+    if !@scope
+      # block inside global scope
+      @scope = new Scope(null, @script.localNames, @script.localLength)
 
   exitScope: ->
     @scope = @scope.parent

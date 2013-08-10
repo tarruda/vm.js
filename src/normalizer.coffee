@@ -1,4 +1,4 @@
-{parse} = require 'esprima'
+{parse} = esprima
 
 AstVisitor = require './ast_visitor'
 

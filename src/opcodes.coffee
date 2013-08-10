@@ -1,5 +1,3 @@
-esprima = require 'esprima'
-
 AstVisitor = require './ast_visitor'
 {PropertiesIterator} = require './engine/util'
 

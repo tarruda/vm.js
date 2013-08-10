@@ -22,9 +22,9 @@
       disconnected = true;
     });
   </script>
-  <script src="../build/vm.js"></script>
+  <script src="../node_modules/esprima/esprima.js"></script>
+  <script src="../build/browser_test.js"></script>
   <script>
-  window.vm.require('test/vm_eval')
   mocha.checkLeaks();
   mocha.globals(['expect']);
   mocha.run();

@@ -1,35 +1,13 @@
 {spawn} = require 'child_process'
 path = require 'path'
-{SourceMapConsumer, SourceMapGenerator} = require 'source-map'
 
 module.exports = (grunt) ->
-  # load some browser dependencies
-  commonjs = grunt.file.read('./app/components/commonjs/common.js')
-  esprima = grunt.file.read('./node_modules/esprima/esprima.js')
-  esprima = commonjsWrap('esprima', esprima)
-
   data =
     # map used to store files with the debugger statement
     # used to automatically turn debugging on/off
     debug: null
     # current test runner process
     child: null
-
-  coffeeOpts = (prefix, src = '**/*.coffee') ->
-    expand: true
-    flatten: false
-    src: src
-    ext: '.js'
-    cwd: prefix
-    dest: "tmp/#{prefix}"
-
-  commonjsOpts = (prefix, src = '**/*.js') ->
-    expand: true
-    flatten: false
-    prefix: prefix
-    cwd: "tmp/#{prefix}"
-    src: src
-    dest: "tmp/#{prefix}"
 
   grunt.initConfig
     pkg: grunt.file.readJSON('package.json')
@@ -45,32 +23,40 @@ module.exports = (grunt) ->
       test:
         src: 'test/**/*.coffee'
 
-    coffee:
-      options:
-        bare: true
-        sourceMap: true
-      src: coffeeOpts('src')
-      test: coffeeOpts('test')
+    coffee_build:
+        options:
+          wrap: true
+          sourceMap: true
+        browser:
+          files: [{
+            src: [
+              'src/**/*.coffee'
+            ]
+            dest: 'build/browser_dist.js'
+          }, {
+            src: 'test/**/*.coffee'
+            dest: 'build/browser_test.js'
+          }]
+        nodejs:
+          options:
+            disableModuleWrap: [
+              'platform/node_init.coffee'
+            ]
+          files: [{
+            src: [
+              'platform/node_init.coffee'
+              'src/**/*.coffee'
+            ]
+            dest: 'build/node_dist.js'
+          }, {
+            src: [
+              'platform/node_init.coffee'
+              'test/**/*.coffee'
+            ]
+            dest: 'build/node_test.js'
+          }]
 
-    commonjs:
-      src: commonjsOpts('src')
-      test: commonjsOpts('test')
-
-    mapcat:
-      all:
-        prepend:
-          """
-          (function(global) {
-          var window; // undefine window so commonjs will be contained
-          #{commonjs}
-          #{esprima}
-          """.split('\n')
-        append: ['})(window.vm = {});']
-        cwd: 'tmp'
-        src: '**/*.js'
-        dest: 'build/vm.js'
-
-    'check-debug':
+    check_debug:
       all: [
         'src/**/*.coffee'
         'test/**/*.coffee'
@@ -79,7 +65,7 @@ module.exports = (grunt) ->
     test:
       all: [
         'test/index.js'
-        'tmp/test/**/*.js'
+        'build/node_test.js'
       ]
 
     watch:
@@ -91,9 +77,8 @@ module.exports = (grunt) ->
           'test/**/*.coffee'
         ]
         tasks: [
-          'common-changed'
-          'commonjs:changed'
-          'mapcat'
+          'coffeelint:changed'
+          'coffee_build:browser'
           'livereload'
         ]
       nodejs:
@@ -102,8 +87,9 @@ module.exports = (grunt) ->
           'test/**/*.coffee'
         ]
         tasks: [
-          'common-changed'
-          'check-debug:changed'
+          'coffeelint:changed'
+          'coffee_build:nodejs'
+          'check_debug:changed'
           'test'
         ]
 
@@ -123,12 +109,12 @@ module.exports = (grunt) ->
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-livereload'
-  grunt.loadNpmTasks 'grunt-contrib-coffee'
   grunt.loadNpmTasks 'grunt-contrib-connect'
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
+  grunt.loadNpmTasks 'grunt-coffee-build'
 
-  grunt.registerMultiTask 'check-debug', ->
+  grunt.registerMultiTask 'check_debug', ->
     data.debug = {}
     files = @filesSrc
     for file in files
@@ -147,88 +133,28 @@ module.exports = (grunt) ->
       data.child = null
       done(code == 0)
 
-  grunt.registerMultiTask 'mapcat', ->
-    dest = @data.dest
-    sourceMappingURL = "#{path.basename(dest)}.map"
-    buffer = @data.prepend || []
-    lineOffset = buffer.length
-    cwd = @data.cwd
-    gen = new SourceMapGenerator { file: dest, sourceRoot: '../' }
-    @filesSrc.forEach (file) ->
-      filepath = path.join(cwd, file)
-      sourceMapPath = filepath + ".map"
-      src = grunt.file.read(filepath)
-      src = src.replace(/\/\/@\ssourceMappingURL[^\r\n]*/g, '//')
-      buffer = buffer.concat(src.split('\n'))
-      orig = new SourceMapConsumer grunt.file.read(sourceMapPath)
-      orig.eachMapping (m) ->
-        gen.addMapping
-          generated:
-              line: m.generatedLine + lineOffset
-              column: m.generatedColumn
-          original:
-              line: m.originalLine
-              column: m.originalColumn
-          source: path.join(path.dirname(filepath), m.source)
-      lineOffset = buffer.length
-    if @data.prepend
-      buffer = buffer.concat(@data.append)
-    buffer.push("//@ sourceMappingURL=#{sourceMappingURL}")
-    grunt.file.write(dest, buffer.join('\n'))
-    grunt.file.write("#{dest}.map", gen.toString())
-
-  grunt.registerMultiTask 'commonjs', ->
-    prefix = @data.prefix
-    # wraps each file into a commonjs module while adjusting the source map
-    @files.forEach (file) ->
-      lead = new RegExp("^#{file.orig.cwd}/")
-      filepath = file.src[0]
-      original = grunt.file.read filepath
-      definePath = filepath.replace lead, ''
-      definePath = definePath.replace /\.js$/, ''
-      definePath = "#{prefix}/#{definePath}"
-      wrapped = commonjsWrap(definePath, original)
-      grunt.file.write(filepath, wrapped)
-      sourceMapPath = filepath + ".map"
-      if not grunt.file.exists(sourceMapPath)
-        return
-      map = new SourceMapConsumer grunt.file.read(sourceMapPath)
-      gen = new SourceMapGenerator
-        file: map.file
-      map.eachMapping (m) ->
-        gen.addMapping
-          generated: {line: m.generatedLine + 1, column: m.generatedColumn}
-          original: {line: m.originalLine, column: m.originalColumn}
-          source: m.source
-      grunt.file.write(sourceMapPath, gen.toString())
-
-  grunt.registerTask 'common-changed', ->
-    grunt.task.run [
-      'coffeelint:changed'
-      'coffee:changed'
-    ]
-
   grunt.registerTask 'common-rebuild', ->
     grunt.task.run [
       'clean'
       'connect'
       'coffeelint'
-      'coffee'
     ]
 
   grunt.registerTask 'debug-browser', ->
     grunt.task.run [
+      'clean'
       'livereload-start'
       'common-rebuild'
-      'commonjs'
-      'mapcat'
+      'coffee_build:browser'
       'watch:browser'
     ]
 
   grunt.registerTask 'debug-nodejs', ->
     grunt.task.run [
+      'clean'
       'common-rebuild'
-      'check-debug'
+      'coffee_build:nodejs'
+      'check_debug'
       'test'
       'watch:nodejs'
     ]
@@ -238,29 +164,11 @@ module.exports = (grunt) ->
   ]
 
   grunt.event.on 'watch', (action, filepath) ->
-    changed = (prefix) ->
-      code = grunt.file.read(filepath)
-      rel = path.relative(coffee[prefix].cwd, filepath)
-      coffee.changed = coffeeOpts(prefix, rel)
-      commonjs.changed = commonjsOpts(prefix, rel.replace(/coffee$/, 'js'))
-
     coffeelint = grunt.config.getRaw('coffeelint')
-    coffee = grunt.config.getRaw('coffee')
-    commonjs = grunt.config.getRaw('commonjs')
-    checkDebug = grunt.config.getRaw('check-debug')
+    checkDebug = grunt.config.getRaw('check_debug')
     if /\.coffee$/.test filepath
       checkDebug.changed = [filepath]
       coffeelint.changed = src: filepath
       grunt.regarde = changed: ['test.js']
-      if /^src/.test filepath then changed('src')
-      else changed('test')
       if data.child
         data.child.kill('SIGTERM')
-
-
-commonjsWrap = (definePath, code) ->
-  """
-  global.require.define({"#{definePath}": function(exports, require, module) {
-  #{code}
-  }});
-  """

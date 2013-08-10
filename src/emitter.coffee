@@ -1,8 +1,7 @@
-esprima = require 'esprima'
-
 AstVisitor = require './ast_visitor'
 opcodes = require './opcodes'
     
+class ScopeBuilder extends AstVisitor
 
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm

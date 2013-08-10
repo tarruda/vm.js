@@ -1,5 +1,3 @@
-esprima = require 'esprima'
-
 opcodes = require './opcodes'
 ConstantFolder = require './constant_folder'
 Normalizer = require './normalizer'

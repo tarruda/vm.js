@@ -1,4 +1,3 @@
-{Scope} = require './data'
 Fiber = require './fiber'
 compile = require './compiler'
 
