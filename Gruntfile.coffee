@@ -128,14 +128,16 @@ module.exports = (grunt) ->
     files = @filesSrc
     for file in files
       code = grunt.file.read(file)
-      if /^\s*debugger\s*/gm.test(code) then data.debug[file] = true
+      if /^\s*debugger\s*/gm.test(code)
+        data.debug[file] = true
       else delete data.debug[file]
 
   grunt.registerMultiTask 'test', ->
     done = @async()
     args = @filesSrc
     args.unshift('--check-leaks')
-    if Object.keys(data.debug).length then args.unshift('--debug-brk')
+    if data.debug and Object.keys(data.debug).length
+      args.unshift('--debug-brk')
     opts = stdio: 'inherit'
     data.child = spawn('./node_modules/.bin/mocha', args, opts)
     data.child.on 'close', (code) ->
