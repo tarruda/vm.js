@@ -5,9 +5,9 @@ class ConstantFolder extends AstVisitor
 
   UnaryExpression: (node) ->
     node = super(node)
-    if node.operator == '+'
+    if node.operator is '+'
       return node.argument
-    if node.argument.type == 'Literal'
+    if node.argument.type is 'Literal'
       if node.prefix
         result = eval("#{node.operator}#{node.argument.raw}")
       else
@@ -17,7 +17,7 @@ class ConstantFolder extends AstVisitor
 
   BinaryExpression: (node) ->
     node = super(node)
-    if node.left.type == 'Literal' && node.right.type == 'Literal'
+    if node.left.type is 'Literal' and node.right.type == 'Literal'
       result = eval("#{node.left.raw} #{node.operator} #{node.right.raw}")
       return {type: 'Literal', value: result, loc: node.left.loc}
     return node

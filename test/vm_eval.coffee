@@ -305,9 +305,9 @@ describe 'vm eval', ->
       fn = ->
         result = vm.eval(k)
         expect(result).to.deep.eql expectedValue
-        if typeof expectedGlobal == 'function'
+        if typeof expectedGlobal is 'function'
           expectedGlobal(vm.global)
-        else if typeof expectedGlobal == 'object'
+        else if typeof expectedGlobal is 'object'
           expect(vm.global).to.deep.eql expectedGlobal
         else
           expect(vm.global).to.deep.eql {}

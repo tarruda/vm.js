@@ -14,6 +14,9 @@ module.exports = (grunt) ->
 
     coffeelint:
       options:
+        arrow_spacing: 'error'
+        empty_constructor_needs_parens: 'error'
+        non_empty_constructor_needs_parens: 'error'
         no_trailing_whitespace: level: 'error'
         no_empty_param_list: level: 'error'
         no_stand_alone_at: level: 'error'
@@ -142,7 +145,7 @@ module.exports = (grunt) ->
     data.child = spawn('./node_modules/.bin/mocha', args, opts)
     data.child.on 'close', (code) ->
       data.child = null
-      done(code == 0)
+      done(code is 0)
 
   grunt.registerTask 'common-rebuild', ->
     grunt.task.run [

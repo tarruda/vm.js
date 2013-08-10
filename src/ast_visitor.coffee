@@ -7,7 +7,7 @@ class AstVisitor
   visit: (node) ->
     if node instanceof Array
       return @visitArray(node)
-    if node && node.type
+    if node and node.type
       return @[node.type](node)
     if node
       console.log node
@@ -17,7 +17,7 @@ class AstVisitor
   visitArray: (array) ->
     i = 0
     while i < array.length
-      if !array[i]
+      if not array[i]
         i++
         continue
       result = @visit(array[i])

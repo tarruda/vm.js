@@ -1,4 +1,5 @@
 AstVisitor = require './ast_visitor'
+console.log AstVisitor
 {PropertiesIterator} = require './engine/util'
 
 OpcodeClassFactory = (->
@@ -45,16 +46,16 @@ class Counter extends AstVisitor
 
   CallExpression: (node) ->
     node = super(node)
-    if node.callee.type == 'MemberExpression'
-      if node.callee.property.type == 'Identifier'
+    if node.callee.type is 'MemberExpression'
+      if node.callee.property.type is 'Identifier'
         name =  node.callee.property.name
-      else if node.callee.property.type == 'Literal'
+      else if node.callee.property.type is 'Literal'
         name =  node.callee.property.value
       else
         throw new Error('assert error')
-      if name == 'push'
+      if name is 'push'
         @current++
-      else if name == 'pop'
+      else if name is 'pop'
         @current--
       @factor = Math.max(@factor, @current)
     return node
@@ -141,7 +142,7 @@ opcodes = [
   Op 'EXIT_SCOPE', (f) -> f.exitScope()               # exit nested scope
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
-  Op 'LNOT', (f, s, l) -> s.push(!s.pop())            # logical NOT
+  Op 'LNOT', (f, s, l) -> s.push(not s.pop())         # logical NOT
   Op 'NOT', (f, s, l) -> s.push(~s.pop())             # bitwise NOT
   Op 'INC', (f, s, l) -> s.push(s.pop() + 1)          # increment
   Op 'DEC', (f, s, l) -> s.push(s.pop() - 1)          # decrement
@@ -160,8 +161,8 @@ opcodes = [
 
   Op 'CEQ', (f, s, l) -> s.push(`s.pop() == s.pop()`) # equals
   Op 'CNEQ', (f, s, l) -> s.push(`s.pop() != s.pop()`)# not equals
-  Op 'CID', (f, s, l) -> s.push(s.pop() == s.pop())   # same
-  Op 'CNID', (f, s, l) -> s.push(s.pop() != s.pop())  # not same
+  Op 'CID', (f, s, l) -> s.push(s.pop() is s.pop())   # same
+  Op 'CNID', (f, s, l) -> s.push(s.pop() isnt s.pop())# not same
   Op 'LT', (f, s, l) -> s.push(s.pop() < s.pop())     # less than
   Op 'LTE', (f, s, l) -> s.push(s.pop() <= s.pop())   # less or equal than
   Op 'GT', (f, s, l) -> s.push(s.pop() > s.pop())     # greater than
@@ -172,7 +173,7 @@ opcodes = [
 
   Op 'JMP', (f, s, l) -> f.jump(@args[0])             # unconditional jump
   Op 'JMPT', (f, s, l) -> f.jump(@args[0]) if s.pop() # jump if true
-  Op 'JMPF', (f, s, l) -> f.jump(@args[0]) if !s.pop()# jump if false
+  Op 'JMPF', (f, s, l) -> f.jump(@args[0]) if not s.pop()# jump if false
 
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])

@@ -10,7 +10,7 @@ class Emitter extends AstVisitor
     @instructions = []
     @labels = []
     @scripts = []
-    @scopes = scopes || []
+    @scopes = scopes or []
     @localNames = {}
     @varIndex = 1
     @guards = []
@@ -44,7 +44,7 @@ class Emitter extends AstVisitor
     @scopes.shift()
 
   declareVar: (name) ->
-    if @scopes.length && !@scopes[0][name]
+    if @scopes.length and not @scopes[0][name]
       @localNames[@varIndex] = name
       @scopes[0][name] = @varIndex++
     # else this is a global variable
@@ -57,7 +57,7 @@ class Emitter extends AstVisitor
     else if node.type in ['ObjectPattern', 'ObjectExpression']
       for prop in node.properties
         @declarePattern(prop.value)
-    else if node.type == 'Identifier'
+    else if node.type is 'Identifier'
       @declareVar(node.name)
     else
       throw new Error('assertion error')
@@ -65,10 +65,10 @@ class Emitter extends AstVisitor
   newLabel: -> new Label(@instructions)
 
   label: (name) ->
-    if !name
+    if not name
       return @labels[@labels.length - 1]
     for label in @labels
-      if label.name == name
+      if label.name is name
         return label
     return null
 
@@ -122,7 +122,7 @@ class Emitter extends AstVisitor
     currentLabel = @label()
     start = @newLabel()
     cont = @newLabel()
-    if currentLabel?.stmt == node
+    if currentLabel?.stmt is node
       brk = currentLabel.brk
       currentLabel.cont = cont
     else
@@ -246,7 +246,7 @@ class Emitter extends AstVisitor
     finalizer.mark()
     if node.finalizer
       @visit(node.finalizer)
-      if !node.handlers.length
+      if not node.handlers.length
         # return from the function so the next frame can be checked
         # for a guard
         @RET()
@@ -281,9 +281,9 @@ class Emitter extends AstVisitor
 
   ObjectExpression: (node) ->
     for property in node.properties
-      if property.kind == 'init' # object literal
+      if property.kind is 'init' # object literal
         @visit(property.value)
-        if property.key.type == 'Literal'
+        if property.key.type is 'Literal'
           @visit(property.key)
         else # identifier. use the name to create a literal string
           @visit({type: 'Literal', value: property.key.name})
@@ -330,7 +330,7 @@ class Emitter extends AstVisitor
     evalEnd = @newLabel()
     @visit(node.left)
     @DUP()
-    if node.operator == '||'
+    if node.operator is '||'
       @JMPT(evalEnd)
     else
       @JMPF(evalEnd)
@@ -346,7 +346,7 @@ class Emitter extends AstVisitor
 
   CallExpression: (node) ->
     @visit(node.arguments) # push arguments
-    if isMethod = (node.callee.type == 'MemberExpression')
+    if isMethod = (node.callee.type is 'MemberExpression')
       @visit(node.callee.object) # push target
       @SR1() # save target
       @LR1() # load target
@@ -361,9 +361,9 @@ class Emitter extends AstVisitor
   visitProperty: (memberExpression) ->
     if memberExpression.computed
       @visit(memberExpression.property)
-    else if memberExpression.property.type == 'Identifier'
+    else if memberExpression.property.type is 'Identifier'
       @LITERAL(memberExpression.property.name)
-    else if memberExpression.property.type == 'Literal'
+    else if memberExpression.property.type is 'Literal'
       @LITERAL(memberExpression.property.value)
     else
       throw new Error('invalid assert')
@@ -375,7 +375,7 @@ class Emitter extends AstVisitor
 
   AssignmentExpression: (node) ->
     if node.right
-      if node.right.type == 'MemberExpression' && !node.right.object
+      if node.right.type is 'MemberExpression' and not node.right.object
         # destructuring pattern, need to adjust the stack before
         # getting the value
         @SR3()
@@ -421,12 +421,12 @@ class Emitter extends AstVisitor
           @POP()
       return
     @SR3() # save new value
-    if node.left.type == 'MemberExpression'
+    if node.left.type is 'MemberExpression'
       @visitProperty(node.left)
       @SR1()
       @visit(node.left.object)
       @SR2()
-      if node.operator != '='
+      if node.operator isnt '='
         @LR1()
         @LR2()
         @GET() # get current value
@@ -456,7 +456,7 @@ class Emitter extends AstVisitor
       @scopeSet(node.left.name) # set value
 
   UpdateExpression: (node) ->
-    if node.argument.type == 'MemberExpression'
+    if node.argument.type is 'MemberExpression'
       @visitProperty(node.argument)
       @SR1()
       @visit(node.argument.object)
@@ -466,7 +466,7 @@ class Emitter extends AstVisitor
       @GET() # get current
       @SR3() # save current
       @LR3() # load current
-      if node.operator == '++' then @INC() else @DEC() # apply operator
+      if node.operator is '++' then @INC() else @DEC() # apply operator
       @LR1() # load property
       @LR2() # load object
       @SET()
@@ -474,9 +474,9 @@ class Emitter extends AstVisitor
       @scopeGet(node.argument.name)
       @SR3()
       @LR3()
-      if node.operator == '++' then @INC() else @DEC()
+      if node.operator is '++' then @INC() else @DEC()
       @scopeSet(node.argument.name)
-    if !node.prefix
+    if not node.prefix
       @POP()
       @LR3()
 
@@ -575,12 +575,12 @@ class Script
         if @args
           for i in [0...@args.length]
             if @args[i] instanceof Label
-              if @args[i].ip == null
+              if @args[i].ip is null
                 throw new Error('label has not been marked')
               # its a label, replace with the instruction pointer
               @args[i] = @args[i].ip
       Emitter::[opcode::name] = (args...) ->
-        if !args.length
+        if not args.length
           args = null
         @instructions.push(new opcode(args))
 )()

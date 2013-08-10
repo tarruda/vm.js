@@ -12,16 +12,16 @@ class Fiber
 
   run: ->
     frame = @callStack[@depth]
-    while @depth >= 0 && frame
+    while @depth >= 0 and frame
       if @error
         frame = @unwind()
       frame.run()
-      if !frame.done()
+      if not frame.done()
         frame = @callStack[@depth] # function call
         continue
       # function returned
       frame = @popFrame()
-      if frame && !@error
+      if frame and not @error
         # set the return value
         frame.evalStack.push(@rv)
         @rv = undefined
@@ -61,7 +61,7 @@ class Fiber
     throw @error
 
   pushFrame: (func, args) ->
-    if @depth == @maxDepth - 1
+    if @depth is @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
@@ -87,7 +87,7 @@ class Frame
     @r1 = @r2 = @r3 = @r4 = null
 
   enterScope: ->
-    if !@scope
+    if not @scope
       # block inside global scope
       @scope = new Scope(null, @script.localNames, @script.localLength)
 
@@ -96,7 +96,7 @@ class Frame
 
   run: ->
     instructions = @script.instructions
-    while @ip != @exitIp && !@paused
+    while @ip != @exitIp and not @paused
       instructions[@ip++].exec(this, @evalStack, @scope, @global)
     if (len = @evalStack.len()) != 0
       # debug assertion
@@ -144,7 +144,7 @@ class Frame
     @paused = true
     @fiber.error = obj
 
-  done: -> @ip == @exitIp
+  done: -> @ip is @exitIp
 
 
 class EvaluationStack
@@ -154,7 +154,7 @@ class EvaluationStack
     @rexp = null
 
   push: (item) ->
-    if @idx == @array.length
+    if @idx is @array.length
       throw new Error('maximum evaluation stack size exceeded')
     @array[@idx++] = item
 
