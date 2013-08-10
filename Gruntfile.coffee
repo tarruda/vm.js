@@ -27,21 +27,26 @@ module.exports = (grunt) ->
         options:
           wrap: true
           sourceMap: true
+          disableModuleWrap: ['node_modules/esprima/esprima.js']
+          disableSourceMap: ['node_modules/esprima/esprima.js']
         browser:
           files: [{
             src: [
+              'node_modules/esprima/esprima.js'
               'src/**/*.coffee'
             ]
             dest: 'build/browser_dist.js'
           }, {
-            src: 'test/**/*.coffee'
+            src: [
+              'node_modules/esprima/esprima.js'
+              'test/**/*.coffee'
+            ]
             dest: 'build/browser_test.js'
           }]
         nodejs:
           options:
-            disableModuleWrap: [
-              'platform/node_init.coffee'
-            ]
+            disableModuleWrap: ['platform/node_init.coffee']
+            disableSourceMap: ['platform/node_init.coffee']
           files: [{
             src: [
               'platform/node_init.coffee'
@@ -58,8 +63,12 @@ module.exports = (grunt) ->
 
     check_debug:
       all: [
+        'platform/**/*.js'
+        'platform/**/*.coffee'
         'src/**/*.coffee'
         'test/**/*.coffee'
+        'src/**/*.js'
+        'test/**/*.js'
       ]
 
     test:
