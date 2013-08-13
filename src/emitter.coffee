@@ -10,6 +10,9 @@ class Emitter extends AstVisitor
     @instructions = []
     @labels = []
     @scripts = []
+    # Stack of scopes. Each scope maintains a name -> index association
+    # where index is unique per script(function or code executing in global
+    # scope)
     @scopes = scopes or []
     @localNames = {}
     @varIndex = 1
@@ -114,11 +117,7 @@ class Emitter extends AstVisitor
     return new Script(@instructions, @scripts, @localNames, localLength,
       @guards, max)
 
-  VmIterProperties: (node) ->
-    @visit(node.object)
-    @ITER_PROPS()
-
-  VmLoop: (node) ->
+  VmLoop: (node, emitInit, emitBeforeTest, emitUpdate, emitAfterTest) ->
     currentLabel = @label()
     start = @newLabel()
     cont = @newLabel()
@@ -129,35 +128,95 @@ class Emitter extends AstVisitor
       pop = true
       brk = @newLabel()
       @pushLabel(null, node, brk, cont)
-    if node.init
-      @visit(node.init)
-      if node.init.type != 'VariableDeclaration'
-        @POP()
-    if node.update
+    if emitInit
+      emitInit(brk)
+    if emitUpdate
       start.mark()
     else
       cont.mark()
-    if node.beforeTest
-      @visit(node.beforeTest)
+    if emitBeforeTest
+      emitBeforeTest()
       @JMPF(brk)
     @visit(node.body)
-    if node.update
+    if emitUpdate
       cont.mark()
-      @visit(node.update)
+      emitUpdate()
       @POP()
       @JMP(start)
-    if node.afterTest
-      @visit(node.afterTest)
+    if emitAfterTest
+      emitAfterTest()
       @JMPF(brk)
     @JMP(cont)
     if pop
       brk.mark()
       @popLabel()
 
+  WhileStatement: (node) ->
+    emitBeforeTest = =>
+      @visit(node.test)
+
+    @VmLoop(node, null, emitBeforeTest)
+
+  DoWhileStatement: (node) ->
+    emitAfterTest = =>
+      @visit(node.test)
+
+    @VmLoop(node, null, null, null, emitAfterTest)
+
+  ForStatement: (node) ->
+    emitInit = =>
+      @visit(node.init)
+      if node.init.type != 'VariableDeclaration'
+        @POP()
+
+    emitBeforeTest = =>
+      @visit(node.test)
+
+    emitUpdate = =>
+      @visit(node.update)
+
+    @VmLoop(node, emitInit, emitBeforeTest, emitUpdate)
+
+  ForInStatement: (node) ->
+    emitInit = (brk) =>
+      @ITER_PUSH(brk)
+      @visit(node.right)
+      @ITER_PROPS()
+      emitUpdate()
+      @POP()
+
+    emitUpdate = =>
+      @DUP()
+      @SR1() # save iterator
+      @LITERAL('next')
+      @LR1() # load iterator
+      @GET() # get function
+      @SR2() # save function
+      @LR1() # load iterator
+      @LR2() # load function
+      @CALLM(0) # call 'next'
+      @visit(assignNext()) # assign to the variable
+
+    assignNext = ->
+      loc: node.left.loc
+      type: 'AssignmentExpression'
+      operator: '='
+      left: assignTarget
+
+    assignTarget = node.left
+    if assignTarget.type == 'VariableDeclaration'
+      assignTarget = node.left.declarations[0].id
+      @visit(node.left)
+
+    @VmLoop(node, emitInit, null, emitUpdate)
+    @ITER_POP()
+    @POP()
+
   ExpressionStatement: (node) ->
     super(node)
     # remove the expression value from the stack and save it
     @SREXP()
+    return node
 
   IfStatement: (node) ->
     ifTrue = @newLabel()

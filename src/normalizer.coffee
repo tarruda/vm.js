@@ -47,34 +47,5 @@ class Normalizer extends AstVisitor
     node.body.body = params.concat(node.body.body)
     return node
 
-  WhileStatement: (node) ->
-    node = super(node)
-    vmLoop =
-      type: 'VmLoop'
-      beforeTest: node.test
-      body: node.body
-    return vmLoop
-
-  DoWhileStatement: (node) ->
-    node = super(node)
-    vmLoop =
-      type: 'VmLoop'
-      afterTest: node.test
-      body: node.body
-    return vmLoop
-
-  ForStatement: (node) ->
-    node = super(node)
-    vmLoop =
-      type: 'VmLoop'
-      init: node.init
-      update: node.update
-      beforeTest: node.test
-      body: node.body
-    return vmLoop
-
-  ForOfStatement: (node) ->
-    # A for/of statement
-    throw new Error('not implemented')
 
 module.exports = Normalizer

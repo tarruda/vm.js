@@ -1,7 +1,6 @@
-
 class VmError
 
-class StopIteration extends VmError
+StopIteration = new VmError()
 
 exports.VmError = VmError
 exports.StopIteration = StopIteration

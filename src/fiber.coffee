@@ -1,4 +1,5 @@
 {Closure} = require './data'
+{StopIteration} = require './builtins/errors'
 
 
 class Fiber
@@ -82,6 +83,7 @@ class Frame
     @ip = 0
     @exitIp = @script.instructions.length
     @paused = false
+    @iterBreaks = []
     @finalizer = null
     @rv = undefined
     @r1 = @r2 = @r3 = @r4 = null
@@ -98,9 +100,18 @@ class Frame
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
       instructions[@ip++].exec(this, @evalStack, @scope, @global)
+      if @fiber.error == StopIteration and @iterBreaks.length
+        # breaking out of an iterator loop, so no need to unwind the stack
+        @fiber.error = null
+        @paused = false
+        @ip = @iterBreaks[@iterBreaks.length - 1]
     if (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
+
+  iterPush: (to) -> @iterBreaks.push(to)
+
+  iterPop: (to) -> @iterBreaks.pop()
 
   jump: (to) -> @ip = to
 
@@ -116,9 +127,9 @@ class Frame
       # 'native' function, execute and push to the evaluation stack
       try
         @evalStack.push(func.apply(target, Array::slice.call(args)))
-      catch e
-        console.log "native function throws an error"
-        throw e
+      catch nativeError
+        @paused = true
+        @fiber.error = nativeError
     else
       # TODO set context
       @paused = true

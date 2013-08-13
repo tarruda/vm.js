@@ -1,5 +1,4 @@
 AstVisitor = require './ast_visitor'
-console.log AstVisitor
 {PropertiesIterator} = require './engine/util'
 
 OpcodeClassFactory = (->
@@ -90,6 +89,12 @@ opcodes = [
 
   Op 'ITER_PROPS', (f, s, l) ->                       # iterator that yields
     s.push(new PropertiesIterator(s.pop()))           # enumerable properties
+
+  Op 'ITER_PUSH', (f, s, l) ->                        # push iterator break
+    f.iterPush(@args[0])                              # break jump
+
+  Op 'ITER_POP', (f, s, l) ->                         # pop iterator break jump
+    f.iterPop()
 
   Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
     l.set(0, s.pop())                                 # object

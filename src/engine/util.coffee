@@ -7,7 +7,7 @@ class IndexIterator
 
   next: ->
     if @index >= @elements.length
-      throw new StopIteration()
+      throw StopIteration
     return @elements[@index++]
 
 

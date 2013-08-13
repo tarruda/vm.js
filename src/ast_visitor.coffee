@@ -10,7 +10,6 @@ class AstVisitor
     if node and node.type
       return @[node.type](node)
     if node
-      console.log node
       throw new Error('unexpected node')
     return null
 

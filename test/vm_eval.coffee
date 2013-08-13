@@ -136,8 +136,11 @@ tests =
   obj = {name: '1', address: 2, email: 3};
   l = []
   for (var k in obj) l.push(k)
-  l
-  """: [1, 0]
+  l.sort()
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql(['address', 'email', 'name'])
+  )]
 
   """
   obj = [[1, 2], [3, 4], [5, 6]];
@@ -291,6 +294,17 @@ tests =
     expect(global.b).to.not.exist
     expect(global.c).to.not.exist
     expect(global.ex).to.eql([1, 2, 3])
+  )]
+
+  """
+  try {
+    throw 'err'
+  } catch (e) {
+    ex = e;
+  }
+  """: ['err', ((global) ->
+    expect(global.e).to.not.exist
+    expect(global.ex).to.eql('err')
   )]
 len = (obj) -> Object.keys(obj).length
 
