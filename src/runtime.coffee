@@ -120,14 +120,9 @@ class Frame
 
   debug: ->
 
-  getPrototype: (obj) ->
-    if obj instanceof Array
-      return @global.Array.get('prototype')
-    return undefined
-
   get: (obj, property) ->
     while obj and (property not of obj) and not (obj instanceof NativeProxy)
-      obj = @getPrototype(obj)
+      obj = @global.Object.include.getPrototypeOf(obj)
     if obj instanceof NativeProxy
       return obj.get(property)
     if obj

@@ -343,5 +343,20 @@ describe 'vm eval', ->
 
 
   strip = (global) ->
+    delete global.Object
+    delete global.Number
+    delete global.Boolean
+    delete global.String
     delete global.Array
+    delete global.Date
+    delete global.RegExp
+    delete global.Error
+    delete global.EvalError
+    delete global.RangeError
+    delete global.ReferenceError
+    delete global.SyntaxError
+    delete global.TypeError
+    delete global.URIError
+    delete global.Math
+    delete global.JSON
     return global
