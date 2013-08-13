@@ -143,6 +143,15 @@ tests =
   )]
 
   """
+  l = [];
+  fruits = ['orange', 'apple', 'lemon'];
+  for (var k of fruits) l.push(k)
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
+  )]
+
+  """
   obj = [[1, 2], [3, 4], [5, 6]];
   l = []
   for (var [x,y] = obj[0], i = 1; i < obj.length; [x,y] = obj[i++]) {
@@ -189,7 +198,7 @@ tests =
   i
   """: [10, ((global) ->
     expect(global.i).to.eql(10)
-    expect(global.test.constructor.name).to.eql('Closure')
+    expect(global.test.constructor.name).to.eql('VmFunction')
   )]
 
   """
@@ -204,7 +213,7 @@ tests =
     return a + b + c + d;
   }
   fn(9);
-  """: [19, (global) ->]
+  """: [19, ((global) ->)]
 
   """
   fn = function(a, b=2, c=b*b, d=c, ...f) {
@@ -322,12 +331,17 @@ describe 'vm eval', ->
         if typeof expectedGlobal is 'function'
           expectedGlobal(vm.global)
         else if typeof expectedGlobal is 'object'
-          expect(vm.global).to.deep.eql expectedGlobal
+          expect(strip(vm.global)).to.deep.eql expectedGlobal
         else
-          expect(vm.global).to.deep.eql {}
+          expect(strip(vm.global)).to.deep.eql {}
       test = "\"#{k}\""
       expectedValue = v[0]
       expectedGlobal = v[1]
       if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
       else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
       else it(test, fn)
+
+
+  strip = (global) ->
+    delete global.Array
+    return global

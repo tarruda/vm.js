@@ -1,5 +1,6 @@
 AstVisitor = require './ast_visitor'
-{PropertiesIterator} = require './engine/util'
+{PropertiesIterator} = require './builtin/native'
+{StopIteration} = require './builtin/errors'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -27,12 +28,9 @@ OpcodeClassFactory = (->
   return classFactory
 )()
 
-# Each opcode has a stack depth factor calculated with this formula:
-# factor = (number of items pushed) - (number of items popped)
-#
-# This factor is the maximum size that the opcode needs to grow the
-# evaluation stack size, and is used later to determine the maximum stack
-# size needed for running a script
+# Each opcode has a stack depth factor which is the maximum size that the
+# opcode will take the evaluation stack to, and is used later to
+# determine the maximum stack size needed for running a script
 #
 # In most cases this number is static and depends only on the opcode function
 # body. To avoid having to maintain the number manually, we parse the opcode
@@ -84,17 +82,22 @@ opcodes = [
   Op 'LR2', (f, s, l) -> s.push(f.r2)                 # load from register 2
   Op 'LR3', (f, s, l) -> s.push(f.r3)                 # load from register 3
   Op 'LR4', (f, s, l) -> s.push(f.r4)                 # load from register 4
-  Op 'SREXP', (f, s, l) -> s.rexp = s.pop()           # save to on the
+  Op 'SREXP', (f, s, l) -> s.rexp = s.pop()           # save to the
                                                       # expression register
+
+  Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
+    target = s.pop()
+    f.callm(0, 'iterator', target)
 
   Op 'ITER_PROPS', (f, s, l) ->                       # iterator that yields
     s.push(new PropertiesIterator(s.pop()))           # enumerable properties
 
-  Op 'ITER_PUSH', (f, s, l) ->                        # push iterator break
-    f.iterPush(@args[0])                              # break jump
-
-  Op 'ITER_POP', (f, s, l) ->                         # pop iterator break jump
-    f.iterPop()
+  Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
+    target = s.pop()
+    f.callm(0, 'next', target)
+    if f.fiber.error == StopIteration
+      f.paused = false
+      f.jump(@args[0])
 
   Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
     l.set(0, s.pop())                                 # object
@@ -111,15 +114,18 @@ opcodes = [
   , -> 1 - (@args[0] + 1)
 
   Op 'CALLM', (f, s, l) ->                            # call method
-    f.call(@args[0], s.pop(), s.pop())
+    f.callm(@args[0], s.pop(), s.pop())
      # pop n arguments plus function plus target and push return value
   , -> 1 - (@args[0] + 1 + 1)
 
   Op 'GET', (f, s, l) ->                              # get property from
-    s.push(s.pop()[s.pop()])                          # object
+    s.push(f.get(s.pop(), s.pop()))                   # object
 
   Op 'SET', (f, s, l) ->                              # set property on
-    s.push(s.pop()[s.pop()] = s.pop())                # object
+    s.push(f.set(s.pop(), s.pop(), s.pop()))          # object
+
+  Op 'DEL', (f, s, l) ->                              # del property on
+    f.del(s.pop(), s.pop())                           # object
 
   Op 'GETL', (f, s, l) ->                             # get local variable
     scopeIndex = @args[0]

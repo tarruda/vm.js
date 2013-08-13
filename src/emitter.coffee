@@ -140,7 +140,7 @@ class Emitter extends AstVisitor
     @visit(node.body)
     if emitUpdate
       cont.mark()
-      emitUpdate()
+      emitUpdate(brk)
       @POP()
       @JMP(start)
     if emitAfterTest
@@ -150,6 +150,32 @@ class Emitter extends AstVisitor
     if pop
       brk.mark()
       @popLabel()
+
+  VmIteratorLoop: (node, pushIterator) ->
+    emitInit = (brk) =>
+      @visit(node.right)
+      pushIterator()
+      emitUpdate(brk)
+      @POP()
+
+    emitUpdate = (brk) =>
+      @DUP()
+      @NEXT(brk)
+      @visit(assignNext()) # assign next to the iteration variable
+
+    assignNext = ->
+      loc: node.left.loc
+      type: 'AssignmentExpression'
+      operator: '='
+      left: assignTarget
+
+    assignTarget = node.left
+    if assignTarget.type == 'VariableDeclaration'
+      assignTarget = node.left.declarations[0].id
+      @visit(node.left)
+
+    @VmLoop(node, emitInit, null, emitUpdate)
+    @POP()
 
   WhileStatement: (node) ->
     emitBeforeTest = =>
@@ -178,39 +204,16 @@ class Emitter extends AstVisitor
     @VmLoop(node, emitInit, emitBeforeTest, emitUpdate)
 
   ForInStatement: (node) ->
-    emitInit = (brk) =>
-      @ITER_PUSH(brk)
-      @visit(node.right)
+    pushIterator = =>
       @ITER_PROPS()
-      emitUpdate()
-      @POP()
 
-    emitUpdate = =>
-      @DUP()
-      @SR1() # save iterator
-      @LITERAL('next')
-      @LR1() # load iterator
-      @GET() # get function
-      @SR2() # save function
-      @LR1() # load iterator
-      @LR2() # load function
-      @CALLM(0) # call 'next'
-      @visit(assignNext()) # assign to the variable
+    @VmIteratorLoop(node, pushIterator)
 
-    assignNext = ->
-      loc: node.left.loc
-      type: 'AssignmentExpression'
-      operator: '='
-      left: assignTarget
+  ForOfStatement: (node) ->
+    pushIterator = =>
+      @ITER()
 
-    assignTarget = node.left
-    if assignTarget.type == 'VariableDeclaration'
-      assignTarget = node.left.declarations[0].id
-      @visit(node.left)
-
-    @VmLoop(node, emitInit, null, emitUpdate)
-    @ITER_POP()
-    @POP()
+    @VmIteratorLoop(node, pushIterator)
 
   ExpressionStatement: (node) ->
     super(node)
@@ -405,13 +408,11 @@ class Emitter extends AstVisitor
 
   CallExpression: (node) ->
     @visit(node.arguments) # push arguments
-    if isMethod = (node.callee.type is 'MemberExpression')
+    if node.callee.type is 'MemberExpression'
       @visit(node.callee.object) # push target
       @SR1() # save target
       @LR1() # load target
       @visitProperty(node.callee) # push property
-      @LR1() # load target
-      @GET() # get function
       @CALLM(node.arguments.length)
     else
       @visit(node.callee)

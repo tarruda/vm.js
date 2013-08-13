@@ -1,5 +1,6 @@
-{Closure} = require './data'
-{StopIteration} = require './builtins/errors'
+{VmFunction} = require './builtin/types'
+{NativeProxy} = require './builtin/native'
+{VmTypeError} = require './builtin/errors'
 
 
 class Fiber
@@ -100,11 +101,11 @@ class Frame
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
       instructions[@ip++].exec(this, @evalStack, @scope, @global)
-      if @fiber.error == StopIteration and @iterBreaks.length
-        # breaking out of an iterator loop, so no need to unwind the stack
-        @fiber.error = null
-        @paused = false
-        @ip = @iterBreaks[@iterBreaks.length - 1]
+      # if @fiber.error == StopIteration and @iterBreaks.length
+      #   # breaking out of an iterator loop, so no need to unwind the stack
+      #   @fiber.error = null
+      #   @paused = false
+      #   @ip = @iterBreaks[@iterBreaks.length - 1]
     if (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
@@ -115,14 +116,45 @@ class Frame
 
   jump: (to) -> @ip = to
 
-  fn: (scriptIndex) -> new Closure(@script.scripts[scriptIndex], @scope)
+  fn: (scriptIndex) -> new VmFunction(@script.scripts[scriptIndex], @scope)
 
   debug: ->
 
+  getPrototype: (obj) ->
+    if obj instanceof Array
+      return @global.Array.get('prototype')
+    return undefined
+
+  get: (obj, property) ->
+    while obj and (property not of obj) and not (obj instanceof NativeProxy)
+      obj = @getPrototype(obj)
+    if obj instanceof NativeProxy
+      return obj.get(property)
+    if obj
+      return obj[property]
+    return undefined
+
+  set: (obj, property, value) ->
+    if obj instanceof NativeProxy
+      return obj.set(property, value)
+    obj[property] = value
+
+  del: (obj, property, value) ->
+    if obj instanceof NativeProxy
+      return obj.del(property)
+    delete obj[property]
+
   call: (length, func, target) ->
+    if not (func instanceof VmFunction) and not (func instanceof Function)
+      @fiber.error = new VmTypeError("Object #{func} is not a function")
+      @paused = true
+      return
+
     args = {length: length, callee: func}
+
     while length
       args[--length] = @evalStack.pop()
+
     if func instanceof Function
       # 'native' function, execute and push to the evaluation stack
       try
@@ -134,6 +166,19 @@ class Frame
       # TODO set context
       @paused = true
       @fiber.pushFrame(func, args)
+
+  callm: (length, property, target) ->
+    func = @get(target, property)
+    if func == undefined
+      err = new VmTypeError("Object #{target} has no method '#{property}'")
+    else if not (func instanceof VmFunction) and not (func instanceof Function)
+      err = new VmTypeError(
+        "Property '#{property}' of object #{target} is not a function")
+    if err
+      @fiber.error = err
+      @paused = true
+      return
+    @call(length, func, target)
 
   rest: (index, varIndex) ->
     args = @scope.get(0)
@@ -185,4 +230,4 @@ class Scope
   set: (i, value) -> @data[i] = value
 
 
-module.exports = Fiber
+exports.Fiber = Fiber
