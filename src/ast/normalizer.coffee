@@ -1,6 +1,6 @@
 {parse} = esprima
 
-AstVisitor = require './ast_visitor'
+AstVisitor = require './visitor'
 
 # Visitor that performs normalization of ast nodes that can be expressed as
 # special cases or combination of other nodes

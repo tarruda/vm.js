@@ -1,4 +1,4 @@
-AstVisitor = require './ast_visitor'
+AstVisitor = require './visitor'
 
 # very simple optimizer that folds constant expressions in the AST
 class ConstantFolder extends AstVisitor

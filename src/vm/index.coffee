@@ -1,12 +1,15 @@
-compile = require './compiler'
-{Fiber} = require './runtime'
-{createGlobal, NativeProxy} = require './builtin/native'
-{VmObject} = require './builtin/internal'
-{ArrayIterator} = require './builtin/util'
+Compiler = require '../compiler'
+ConstantFolder = require '../ast/constant_folder'
+Normalizer = require '../ast/normalizer'
+Emitter = require './emitter'
+{Fiber} = require './fiber'
+{createGlobal, NativeProxy} = require '../runtime/native'
+{VmObject} = require '../runtime/internal'
+{ArrayIterator} = require '../runtime/util'
 {
   VmError, VmEvalError, VmRangeError, VmReferenceError, VmSyntaxError,
   VmTypeError, VmURIError, StopIteration
-} = require './builtin/errors'
+} = require '../runtime/errors'
 
 
 class Vm
@@ -200,5 +203,11 @@ class Vm
     fiber.run()
     return fiber.evalStack.rexp
 
+
+compile = (code) ->
+  emitter = new Emitter()
+  compiler = new Compiler(new ConstantFolder(), new Normalizer(), emitter)
+  compiler.compile(code)
+  return emitter.end()
 
 module.exports = Vm

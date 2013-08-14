@@ -1,5 +1,5 @@
-AstVisitor = require './ast_visitor'
-{StopIteration} = require './builtin/errors'
+AstVisitor = require '../ast/visitor'
+{StopIteration} = require '../runtime/errors'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used

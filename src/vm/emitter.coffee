@@ -1,5 +1,5 @@
-AstVisitor = require './ast_visitor'
 opcodes = require './opcodes'
+AstVisitor = require '../ast/visitor'
     
 class ScopeBuilder extends AstVisitor
 

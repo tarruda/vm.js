@@ -1,5 +1,5 @@
-{VmFunction, VmObject} = require './builtin/internal'
-{VmTypeError} = require './builtin/errors'
+{VmFunction, VmObject} = require '../runtime/internal'
+{VmTypeError} = require '../runtime/errors'
 
 
 class Fiber
