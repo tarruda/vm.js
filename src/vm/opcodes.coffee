@@ -1,5 +1,8 @@
 Visitor = require '../ast/visitor'
-{StopIteration} = require '../runtime/util'
+{StopIteration, ArrayIterator} = require '../runtime/util'
+{VmTypeError} = require '../runtime/errors'
+{VmObject} = require '../runtime/internal'
+{Closure, Scope} = require './fiber'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -70,12 +73,16 @@ Op = (name, fn, factorFn) -> OpcodeClassFactory(name, fn, factorFn)
 opcodes = [
   Op 'POP', (f, s, l) -> s.pop()                      # remove top
   Op 'DUP', (f, s, l) -> s.push(s.top())              # duplicate top
-  Op 'RET', (f, s, l) -> f.ret()                      # return from function
-  Op 'RETV', (f, s, l) -> f.retv(s.pop())             # return value from
-                                                      # function
+  Op 'RET', (f, s, l) -> ret(f)                       # return from function
+  Op 'RETV', (f, s, l) ->                             # return value from
+    f.fiber.rv = s.pop()                              # function
+    ret(f)
 
-  Op 'THROW', (f, s, l) -> f.throw(s.pop())           # throw something
-  Op 'DEBUG', (f, s, l) -> f.debug()                  # pause execution
+  Op 'THROW', (f, s, l) ->                            # throw something
+    f.fiber.error = s.pop()
+    f.paused = true
+
+  Op 'DEBUG', (f, s, l) -> debug()                    # pause execution
   Op 'SR1', (f, s, l) -> f.r1 = s.pop()               # save to register 1
   Op 'SR2', (f, s, l) -> f.r2 = s.pop()               # save to register 2
   Op 'SR3', (f, s, l) -> f.r3 = s.pop()               # save to register 3
@@ -88,17 +95,24 @@ opcodes = [
                                                       # expression register
 
   Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
-    f.invoke(0, 'iterator', s.pop())
+    callm(f, s, 0, 'iterator', s.pop())
 
   Op 'ENUMERATE', (f, s, l, c) ->                     # push iterator that
-    s.push(c.createObject(s.pop().enumerate()))       # yields the object
-                                                      # enumerable properties
+    target = s.pop()                                  # yields the object
+    if target instanceof VmObject                     # enumerable properties
+      iterator = target.enumerate()
+    else
+      keys = []
+      for k of target
+        keys.push(k)
+      iterator = new ArrayIterator(keys)
+    s.push(c.createObject(iterator))
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
-    f.invoke(0, 'next', s.pop())
+    callm(f, s, 0, 'next', s.pop())
     if f.fiber.error == StopIteration
       f.paused = false
-      f.jump(@args[0])
+      f.ip = @args[0]
 
   Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
     l.set(0, s.pop())                                 # object
@@ -107,26 +121,72 @@ opcodes = [
   , -> 0
 
   Op 'REST', (f, s, l) ->                             # initialize 'rest' param
-    f.rest(@args[0], @args[1])
+    index = @args[0]
+    varIndex = @args[1]
+    args = l.get(0)
+    if index < args.length
+      l.set(varIndex, Array::slice.call(args, index))
 
   Op 'CALL', (f, s, l) ->                             # call function
-    f.call(@args[0], s.pop())
+    call(f, s, @args[0], s.pop())
      # pop n arguments plus function and push return value
   , -> 1 - (@args[0] + 1)
 
   Op 'CALLM', (f, s, l) ->                            # call method
-    f.invoke(@args[0], s.pop(), s.pop())
+    callm(f, s, @args[0], s.pop(), s.pop())
      # pop n arguments plus function plus target and push return value
   , -> 1 - (@args[0] + 1 + 1)
 
-  Op 'GET', (f, s, l) ->                              # get property from
-    s.push(f.get(s.pop(), s.pop()))                   # object
+  Op 'GET', (f, s, l, c) ->                           # get property from
+    obj = s.pop()                                     # object
+    key = s.pop()
+    type = typeof obj
+    switch type
+      when 'number', 'boolean', 'string'
+        proto = c.getPrimitivePrototype(type)
+        val = proto.get(key, obj)
+      when 'object'
+        if obj instanceof VmObject
+          val = obj.get(key)
+        else # normal host vm object
+          val = obj[key]
+      else
+        throw new Error('assert error')
+    s.push(val)
 
-  Op 'SET', (f, s, l) ->                              # set property on
-    s.push(f.set(s.pop(), s.pop(), s.pop()))          # object
+  Op 'SET', (f, s, l, c) ->                           # set property on
+    obj = s.pop()                                     # object
+    key = s.pop()
+    val = s.pop()
+    type = typeof obj
+    switch type
+      when 'number', 'boolean', 'string'
+        proto = c.getPrimitivePrototype(type)
+        proto.set(key, val, obj)
+      when 'object'
+        if obj instanceof VmObject
+          obj.set(key, val)
+        else
+          obj[key] = val
+      else
+        throw new Error('assert error')
+    s.push(val)
 
   Op 'DEL', (f, s, l) ->                              # del property on
-    f.del(s.pop(), s.pop())                           # object
+    obj = s.pop()                                     # object
+    type = typeof obj
+    switch type
+      when 'number', 'boolean', 'string'
+        proto = c.getPrimitivePrototype(type)
+        proto.del(key)
+      when 'object'
+        if obj instanceof VmObject
+          obj.del(key)
+        else
+          delete obj[key]
+      else
+        throw new Error('assert error')
+    s.push(true) #  when should we push something else?
 
   Op 'GETL', (f, s, l) ->                             # get local variable
     scopeIndex = @args[0]
@@ -150,8 +210,12 @@ opcodes = [
   Op 'SETG', (f, s, l, c) ->                          # set global variable
     s.push(c.global[@args[0]] = s.pop())
 
-  Op 'ENTER_SCOPE', (f) -> f.enterScope()             # enter nested scope
-  Op 'EXIT_SCOPE', (f) -> f.exitScope()               # exit nested scope
+  Op 'ENTER_SCOPE', (f) ->                            # enter nested scope
+    if not f.scope
+      # block inside global scope
+      f.scope = new Scope(null, f.script.localNames, f.script.localLength)
+
+  Op 'EXIT_SCOPE', (f) -> f.scope = f.scope.parent    # exit nested scope
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(not s.pop())         # logical NOT
@@ -183,9 +247,9 @@ opcodes = [
   Op 'INSTANCE_OF', (f, s, l) ->                      # instance of
     s.push(s.pop() instanceof s.pop())
 
-  Op 'JMP', (f, s, l) -> f.jump(@args[0])             # unconditional jump
-  Op 'JMPT', (f, s, l) -> f.jump(@args[0]) if s.pop() # jump if true
-  Op 'JMPF', (f, s, l) -> f.jump(@args[0]) if not s.pop()# jump if false
+  Op 'JMP', (f, s, l) -> f.ip = @args[0]              # unconditional jump
+  Op 'JMPT', (f, s, l) -> f.ip = @args[0] if s.pop()  # jump if true
+  Op 'JMPF', (f, s, l) -> f.ip = @args[0] if not s.pop()# jump if false
 
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
@@ -208,7 +272,61 @@ opcodes = [
      # pops each element and push the array
   , -> 1 - @args[0]
 
-  Op 'FUNCTION', (f, s, l) -> s.push(f.fn(@args[0]))  # push function reference
+  Op 'FUNCTION', (f, s, l) ->                         # push function reference
+    # get the index of the script with function code
+    scriptIndex = @args[0]
+    # create a new closure, passing the current local scope
+    fn = new Closure(f.script.scripts[scriptIndex], l)
+    s.push(fn)
 ]
+
+
+# Helpers shared between some opcodes
+callm = (frame, stack, length, key, target) ->
+  if target instanceof VmObject
+    func = target.get(key)
+    if func instanceof Closure
+      return call(frame, stack, length, func, target)
+    if func instanceof Function
+      return call(frame, stack, length, func, target.container)
+    if not func?
+      err = new VmTypeError("Object #{@container} has no method '#{key}'")
+    else
+      err = new VmTypeError(
+        "Property '#{key}' of object #{@container} is not a function")
+      frame.fiber.error = err
+      frame.paused = true
+  else
+    call(frame, stack, length, target[key], target)
+
+call = (frame, stack, length, func, target) ->
+  if not (func instanceof Closure) and not (func instanceof Function)
+    frame.fiber.error = new VmTypeError("Object #{func} is not a function")
+    frame.paused = true
+    return
+  args = {length: length, callee: func}
+  while length
+    args[--length] = stack.pop()
+  if func instanceof Function
+    # 'native' function, execute and push to the evaluation stack
+    try
+      stack.push(func.apply(target, Array::slice.call(args)))
+    catch nativeError
+      frame.paused = true
+      frame.fiber.error = nativeError
+  else
+    # TODO set context
+    frame.paused = true
+    frame.fiber.pushFrame(func, args)
+
+
+ret = (frame) ->
+  if frame.finalizer
+    frame.ip = frame.finalizer
+    frame.finalizer = null
+  else
+    frame.ip = frame.exitIp
+
+debug = ->
 
 module.exports = opcodes

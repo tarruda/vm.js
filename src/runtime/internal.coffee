@@ -110,7 +110,6 @@ class VmObject
         keys.push(k)
     return keys
 
-
   unwrap: ->
     rv = {}
     for k, v of @container
@@ -119,24 +118,6 @@ class VmObject
         rv[k] = v.unwrap()
     return rv
 
-  invoke: (frame, key, length) ->
-    fiber = frame.fiber
-    func = @get(key)
-    if func instanceof VmFunction
-      return frame.call(length, func, this)
-    if func instanceof Function # native function
-      return frame.call(length, func, @container)
-    if not func?
-      err = new VmTypeError("Object #{@container} has no method '#{key}'")
-    else
-      err = new VmTypeError(
-        "Property '#{key}' of object #{@container} is not a function")
-    fiber.error = err
-    frame.paused = true
 
-
-class VmFunction extends VmObject
-  constructor: (@script, @parent) ->
 
 exports.VmObject = VmObject
-exports.VmFunction = VmFunction

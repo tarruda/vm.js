@@ -22,7 +22,7 @@ class Vm
 compile = (code) ->
   emitter = new Emitter()
   transformer = new Transformer(new ConstantFolder(), emitter)
-  transformer.visit(esprima.parse(code, loc: false))
+  transformer.transform(esprima.parse(code, loc: false))
   return emitter.end()
 
 

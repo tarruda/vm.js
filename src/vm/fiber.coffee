@@ -1,5 +1,4 @@
-{VmFunction, VmObject} = require '../runtime/internal'
-{VmTypeError} = require '../runtime/errors'
+{VmObject} = require '../runtime/internal'
 
 
 class Fiber
@@ -83,18 +82,10 @@ class Frame
     @ip = 0
     @exitIp = @script.instructions.length
     @paused = false
-    @iterBreaks = []
     @finalizer = null
     @rv = undefined
+    # frame-specific registers
     @r1 = @r2 = @r3 = @r4 = null
-
-  enterScope: ->
-    if not @scope
-      # block inside global scope
-      @scope = new Scope(null, @script.localNames, @script.localLength)
-
-  exitScope: ->
-    @scope = @scope.parent
 
   run: ->
     instructions = @script.instructions
@@ -103,105 +94,6 @@ class Frame
     if (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
-
-  iterPush: (to) -> @iterBreaks.push(to)
-
-  iterPop: (to) -> @iterBreaks.pop()
-
-  jump: (to) -> @ip = to
-
-  fn: (scriptIndex) -> new VmFunction(@script.scripts[scriptIndex], @scope)
-
-  debug: ->
-
-  get: (obj, property) ->
-    type = typeof obj
-    switch type
-      when 'number', 'boolean', 'string'
-        proto = @global['*getPrimitivePrototype'](type)
-        return proto.get(property, obj)
-      when 'object'
-        if obj instanceof VmObject
-          return obj.get(property)
-        return obj[property]
-      else
-        throw new Error('assert error')
-
-  set: (obj, property, value) ->
-    type = typeof obj
-    switch type
-      when 'number', 'boolean', 'string'
-        proto = @global['*getPrimitivePrototype'](type)
-        proto.set(property, value, obj)
-      when 'object'
-        if obj instanceof VmObject
-          obj.set(property, value)
-        obj[property] = value
-      else
-        throw new Error('assert error')
-    return value
-
-  del: (obj, property, value) ->
-    type = typeof obj
-    switch type
-      when 'number', 'boolean', 'string'
-        proto = @global['*getPrimitivePrototype'](type)
-        return proto.del(property)
-      when 'object'
-        if obj instanceof VmObject
-          return obj.del(property)
-        delete obj[property]
-      else
-        throw new Error('assert error')
-
-  invoke: (length, property, target) ->
-    if target instanceof VmObject
-      target.invoke(this, property, length)
-    else
-      @call(length, target[property], target)
-
-  call: (length, func, target) ->
-    if not (func instanceof VmFunction) and not (func instanceof Function)
-      @fiber.error = new VmTypeError("Object #{func} is not a function")
-      @paused = true
-      return
-
-    args = {length: length, callee: func}
-
-    while length
-      args[--length] = @evalStack.pop()
-
-    if func instanceof Function
-      # 'native' function, execute and push to the evaluation stack
-      try
-        @evalStack.push(func.apply(target, Array::slice.call(args)))
-      catch nativeError
-        @paused = true
-        @fiber.error = nativeError
-    else
-      # TODO set context
-      @paused = true
-      @fiber.pushFrame(func, args)
-
-  rest: (index, varIndex) ->
-    args = @scope.get(0)
-    if index < args.length
-      @scope.set(varIndex, Array::slice.call(args, index))
-
-  ret: ->
-    if @finalizer
-      @ip = @finalizer
-      @finalizer = null
-    else
-      @ip = @exitIp
-
-  retv: (value) ->
-    @fiber.rv = value
-    @ret()
-
-  throw: (obj) ->
-    @paused = true
-    @fiber.error = obj
 
   done: -> @ip is @exitIp
 
@@ -233,4 +125,10 @@ class Scope
   set: (i, value) -> @data[i] = value
 
 
+class Closure
+  constructor: (@script, @parent) ->
+
+
 exports.Fiber = Fiber
+exports.Scope = Scope
+exports.Closure = Closure

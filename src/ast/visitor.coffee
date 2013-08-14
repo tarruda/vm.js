@@ -26,18 +26,6 @@ class Visitor
         array.splice(i, 1)
     return array
 
-  VmSaveStatement: (node) ->
-    node.value = @visit(node.value)
-    return node
-
-  VmLoadExpression: (node) -> node
-
-  VmPullExpression: (node) -> node
-
-  VmIterProperties: (node) ->
-    node.object = @visit(node.object)
-    return node
-
   Program: (node) -> @BlockStatement(node)
 
   EmptyStatement: (node) -> null

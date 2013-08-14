@@ -1,11 +1,9 @@
-Visitor = require './visitor'
-
-
-class Transformer extends Visitor
+class Transformer
   constructor: (@visitors...) ->
 
-  visit: (node) ->
+  transform: (ast) ->
     for visitor in @visitors
-      node = visitor.visit(node)
+      ast = visitor.visit(ast)
+    return ast
 
 module.exports = Transformer

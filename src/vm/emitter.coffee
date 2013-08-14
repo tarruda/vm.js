@@ -352,11 +352,6 @@ class Emitter extends Visitor
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
 
-  VmRestParam: (node) ->
-    @declareVar(node.name)
-    scope = @scope(node.name)
-    @REST(node.index, scope[1])
-
   VmFunction: (node) ->
     fn = new Emitter([{arguments: 0}].concat(@scopes))
     # load the the 'arguments' object into the local scope
