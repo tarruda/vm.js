@@ -1,5 +1,5 @@
 Transformer = require '../ast/transformer'
-Context = require '../runtime/context'
+Realm = require '../runtime/realm'
 ConstantFolder = require '../ast/constant_folder'
 Emitter = require './emitter'
 {Fiber} = require './thread'
@@ -7,7 +7,7 @@ Emitter = require './emitter'
 
 class Vm
   constructor: (@maxDepth, merge) ->
-    @context = new Context(merge)
+    @context = new Realm(merge)
 
   eval: (string) -> @run(@compile(string))
 

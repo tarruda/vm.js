@@ -7,8 +7,7 @@
 {ArrayIterator, StopIteration} = require './util'
 
 
-# Execution context, global object + some helper methods
-class Context
+class Realm
   constructor: (merge) ->
     global = {
       Object: Object
@@ -95,4 +94,4 @@ class Context
     @global = global
 
 
-module.exports = Context
+module.exports = Realm
