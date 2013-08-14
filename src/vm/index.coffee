@@ -2,7 +2,7 @@ Transformer = require '../ast/transformer'
 Context = require '../runtime/context'
 ConstantFolder = require '../ast/constant_folder'
 Emitter = require './emitter'
-{Fiber} = require './fiber'
+{Fiber} = require './thread'
 
 
 class Vm
