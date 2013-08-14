@@ -205,7 +205,7 @@ class Emitter extends AstVisitor
 
   ForInStatement: (node) ->
     pushIterator = =>
-      @ITER_PROPS()
+      @ENUMERATE()
 
     @VmIteratorLoop(node, pushIterator)
 

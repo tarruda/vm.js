@@ -1,12 +1,11 @@
-{VmFunction} = require './builtin/types'
-{NativeProxy} = require './builtin/native'
+{VmFunction, VmObject} = require './builtin/internal'
 {VmTypeError} = require './builtin/errors'
 
 
 class Fiber
-  constructor: (@global, maxDepth, script) ->
+  constructor: (@vm, @global, maxDepth, script) ->
     @callStack = new Array(maxDepth)
-    @callStack[0] = new Frame(this, script, null, global)
+    @callStack[0] = new Frame(this, script, null, global, vm)
     @evalStack = @callStack[0].evalStack
     @depth = 0
     @error = null
@@ -67,7 +66,7 @@ class Fiber
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
-    frame = new Frame(this, func.script, scope, @global)
+    frame = new Frame(this, func.script, scope, @global, @vm)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -79,7 +78,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @global) ->
+  constructor: (@fiber, @script, @scope, @global, @vm) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
@@ -100,12 +99,7 @@ class Frame
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
-      instructions[@ip++].exec(this, @evalStack, @scope, @global)
-      # if @fiber.error == StopIteration and @iterBreaks.length
-      #   # breaking out of an iterator loop, so no need to unwind the stack
-      #   @fiber.error = null
-      #   @paused = false
-      #   @ip = @iterBreaks[@iterBreaks.length - 1]
+      instructions[@ip++].exec(this, @evalStack, @scope, @global, @vm)
     if (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
@@ -121,23 +115,50 @@ class Frame
   debug: ->
 
   get: (obj, property) ->
-    while obj and (property not of obj) and not (obj instanceof NativeProxy)
-      obj = @global.Object.include.getPrototypeOf(obj)
-    if obj instanceof NativeProxy
-      return obj.get(property)
-    if obj
-      return obj[property]
-    return undefined
+    type = typeof obj
+    switch type
+      when 'number', 'boolean', 'string'
+        proto = @global['*getPrimitivePrototype'](type)
+        return proto.get(property, obj)
+      when 'object'
+        if obj instanceof VmObject
+          return obj.get(property)
+        return obj[property]
+      else
+        throw new Error('assert error')
 
   set: (obj, property, value) ->
-    if obj instanceof NativeProxy
-      return obj.set(property, value)
-    obj[property] = value
+    type = typeof obj
+    switch type
+      when 'number', 'boolean', 'string'
+        proto = @global['*getPrimitivePrototype'](type)
+        proto.set(property, value, obj)
+      when 'object'
+        if obj instanceof VmObject
+          obj.set(property, value)
+        obj[property] = value
+      else
+        throw new Error('assert error')
+    return value
 
   del: (obj, property, value) ->
-    if obj instanceof NativeProxy
-      return obj.del(property)
-    delete obj[property]
+    type = typeof obj
+    switch type
+      when 'number', 'boolean', 'string'
+        proto = @global['*getPrimitivePrototype'](type)
+        return proto.del(property)
+      when 'object'
+        if obj instanceof VmObject
+          return obj.del(property)
+        delete obj[property]
+      else
+        throw new Error('assert error')
+
+  invoke: (length, property, target) ->
+    if target instanceof VmObject
+      target.invoke(this, property, length)
+    else
+      @call(length, target[property], target)
 
   call: (length, func, target) ->
     if not (func instanceof VmFunction) and not (func instanceof Function)
@@ -161,19 +182,6 @@ class Frame
       # TODO set context
       @paused = true
       @fiber.pushFrame(func, args)
-
-  callm: (length, property, target) ->
-    func = @get(target, property)
-    if func == undefined
-      err = new VmTypeError("Object #{target} has no method '#{property}'")
-    else if not (func instanceof VmFunction) and not (func instanceof Function)
-      err = new VmTypeError(
-        "Property '#{property}' of object #{target} is not a function")
-    if err
-      @fiber.error = err
-      @paused = true
-      return
-    @call(length, func, target)
 
   rest: (index, varIndex) ->
     args = @scope.get(0)

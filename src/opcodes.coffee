@@ -1,5 +1,4 @@
 AstVisitor = require './ast_visitor'
-{PropertiesIterator} = require './builtin/native'
 {StopIteration} = require './builtin/errors'
 
 OpcodeClassFactory = (->
@@ -86,15 +85,14 @@ opcodes = [
                                                       # expression register
 
   Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
-    target = s.pop()
-    f.callm(0, 'iterator', target)
+    f.invoke(0, 'iterator', s.pop())
 
-  Op 'ITER_PROPS', (f, s, l) ->                       # iterator that yields
-    s.push(new PropertiesIterator(s.pop()))           # enumerable properties
+  Op 'ENUMERATE', (f, s, l, g, v) ->                  # push iterator that
+    s.push(v.createObject(s.pop().enumerate()))       # yields the object
+                                                      # enumerable properties
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
-    target = s.pop()
-    f.callm(0, 'next', target)
+    f.invoke(0, 'next', s.pop())
     if f.fiber.error == StopIteration
       f.paused = false
       f.jump(@args[0])
@@ -114,7 +112,7 @@ opcodes = [
   , -> 1 - (@args[0] + 1)
 
   Op 'CALLM', (f, s, l) ->                            # call method
-    f.callm(@args[0], s.pop(), s.pop())
+    f.invoke(@args[0], s.pop(), s.pop())
      # pop n arguments plus function plus target and push return value
   , -> 1 - (@args[0] + 1 + 1)
 
@@ -189,21 +187,21 @@ opcodes = [
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
 
-  Op 'OBJECT_LITERAL', (f, s, l) ->                   # object literal
+  Op 'OBJECT_LITERAL', (f, s, l, g, v) ->             # object literal
     length = @args[0]
     rv = {}
     while length--
       rv[s.pop()] = s.pop()
-    s.push(rv)
+    s.push(v.createObject(rv))
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)
 
-  Op 'ARRAY_LITERAL', (f, s, l) ->                    # array literal
+  Op 'ARRAY_LITERAL', (f, s, l, g, v) ->              # array literal
     length = @args[0]
     rv = new Array(length)
     while length--
       rv[length] = s.pop()
-    s.push(rv)
+    s.push(v.createArray(rv))
      # pops each element and push the array
   , -> 1 - @args[0]
 
