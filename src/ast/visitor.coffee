@@ -26,7 +26,9 @@ class Visitor
         array.splice(i, 1)
     return array
 
-  Program: (node) -> @BlockStatement(node)
+  Program: (node) ->
+    node.body = @visit(node.body)
+    return node
 
   EmptyStatement: (node) -> null
 

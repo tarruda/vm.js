@@ -13,6 +13,8 @@ class Emitter extends Visitor
     # where index is unique per script(function or code executing in global
     # scope)
     @scopes = scopes or []
+    if scopes
+      @scriptScope = scopes[0]
     @localNames = {}
     @varIndex = 1
     @guards = []
@@ -45,22 +47,26 @@ class Emitter extends Visitor
     @EXIT_SCOPE()
     @scopes.shift()
 
-  declareVar: (name) ->
-    if @scopes.length and not @scopes[0][name]
+  declareVar: (name, kind) ->
+    if kind in ['const', 'var']
+      scope = @scriptScope
+    else
+      scope = @scopes[0]
+    if scope and not scope[name]
       @localNames[@varIndex] = name
-      @scopes[0][name] = @varIndex++
+      scope[name] = @varIndex++
     # else this is a global variable
 
-  declarePattern: (node) ->
+  declarePattern: (node, kind) ->
     if node.type in ['ArrayPattern', 'ArrayExpression']
       for el in node.elements
         if el
-          @declarePattern(el)
+          @declarePattern(el, kind)
     else if node.type in ['ObjectPattern', 'ObjectExpression']
       for prop in node.properties
-        @declarePattern(prop.value)
+        @declarePattern(prop.value, kind)
     else if node.type is 'Identifier'
-      @declareVar(node.name)
+      @declareVar(node.name, kind)
     else
       throw new Error('assertion error')
      
@@ -116,6 +122,14 @@ class Emitter extends Visitor
     return new Script(@instructions, @scripts, @localNames, localLength,
       @guards, max)
 
+  BlockStatement: (node) ->
+    if node.disableScope
+      @visit(node.body)
+    else
+      @enterScope()
+      @visit(node.body)
+      @exitScope()
+
   VmLoop: (node, emitInit, emitBeforeTest, emitUpdate, emitAfterTest) ->
     currentLabel = @label()
     start = @newLabel()
@@ -127,6 +141,9 @@ class Emitter extends Visitor
       pop = true
       brk = @newLabel()
       @pushLabel(null, node, brk, cont)
+    if not node.body.disableScope
+      node.body.disableScope = true
+      @enterScope()
     if emitInit
       emitInit(brk)
     if emitUpdate
@@ -146,6 +163,8 @@ class Emitter extends Visitor
       emitAfterTest()
       @JMPF(brk)
     @JMP(cont)
+    if not node.body.disableScope
+      @exitScope()
     if pop
       brk.mark()
       @popLabel()
@@ -168,12 +187,15 @@ class Emitter extends Visitor
       operator: '='
       left: assignTarget
 
+    @enterScope()
+    node.body.disableScope = true
     assignTarget = node.left
     if assignTarget.type == 'VariableDeclaration'
       assignTarget = node.left.declarations[0].id
       @visit(node.left)
 
     @VmLoop(node, emitInit, null, emitUpdate)
+    @exitScope()
     @POP()
 
   WhileStatement: (node) ->
@@ -290,6 +312,7 @@ class Emitter extends Visitor
     @JMP(finalizer)
     handler.mark()
     if node.handlers.length
+      node.handlers[0].body.disableScope = true
       @enterScope()
       # bind error to the declared pattern
       param = node.handlers[0].param
@@ -319,8 +342,13 @@ class Emitter extends Visitor
 
   DebuggerStatement: (node) -> @DEBUG()
 
+  VariableDeclaration: (node) ->
+    for decl in node.declarations
+      decl.kind = node.kind
+    @visit(node.declarations)
+
   VariableDeclarator: (node) ->
-    @declarePattern(node.id)
+    @declarePattern(node.id, node.kind)
     if node.init
       assign =
         type: 'ExpressionStatement'

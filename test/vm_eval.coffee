@@ -149,6 +149,17 @@ tests =
   null
   """: [null, ((global) ->
     expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
+    expect('k' of global).to.be.true
+  )]
+
+  """
+  l = [];
+  fruits = ['orange', 'apple', 'lemon'];
+  for (let k of fruits) l.push(k)
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
+    expect('k' of global).to.be.false
   )]
 
   """
@@ -186,7 +197,7 @@ tests =
   j
   """: [1, {i: 1, j: 1, l: [0, 0, 0, 1, 0, 2, 1, 0]}]
 
-  'for (var i = 0, len = 6; i < len; i+=10) { }; i': [10, {i: 10, len: 6}]
+  'for (var i = 0, len = 6; i < len; i+=10) {}; i': [10, {i: 10, len: 6}]
   '(function() { return 10; })()': [10]
   '(function() { var i = 4; return i * i; })()': [16]
   '(function named() { var i = 4; return i * i; })()': [16]

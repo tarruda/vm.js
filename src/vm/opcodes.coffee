@@ -184,6 +184,8 @@ opcodes = [
     if not f.scope
       # block inside global scope
       f.scope = new Scope(null, f.script.localNames, f.script.localLength)
+    # else we are already inside a function scope and variable unique
+    # indexing will ensure nested scopes are isolated
 
   Op 'EXIT_SCOPE', (f) -> f.scope = f.scope.parent    # exit nested scope
 
