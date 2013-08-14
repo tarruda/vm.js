@@ -331,11 +331,11 @@ describe 'vm eval', ->
           result = result.unwrap()
         expect(result).to.deep.eql expectedValue
         if typeof expectedGlobal is 'function'
-          expectedGlobal(vm.global)
+          expectedGlobal(vm.context.global)
         else if typeof expectedGlobal is 'object'
-          expect(strip(vm.global)).to.deep.eql expectedGlobal
+          expect(strip(vm.context.global)).to.deep.eql expectedGlobal
         else
-          expect(strip(vm.global)).to.deep.eql {}
+          expect(strip(vm.context.global)).to.deep.eql {}
       test = "\"#{k}\""
       expectedValue = v[0]
       expectedGlobal = v[1]

@@ -1,7 +1,7 @@
-AstVisitor = require './visitor'
+Visitor = require './visitor'
 
 # very simple optimizer that folds constant expressions in the AST
-class ConstantFolder extends AstVisitor
+class ConstantFolder extends Visitor
 
   UnaryExpression: (node) ->
     node = super(node)

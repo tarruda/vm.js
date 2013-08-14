@@ -1,4 +1,4 @@
-AstVisitor = require '../ast/visitor'
+Visitor = require '../ast/visitor'
 {StopIteration} = require '../runtime/util'
 
 OpcodeClassFactory = (->
@@ -35,7 +35,7 @@ OpcodeClassFactory = (->
 # body. To avoid having to maintain the number manually, we parse the opcode
 # source and count the number of pushes - pops by transversing the ast. This
 # is hacky but seems to do the job
-class Counter extends AstVisitor
+class Counter extends Visitor
   constructor: ->
     @factor = 0
     @current = 0
@@ -90,8 +90,8 @@ opcodes = [
   Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
     f.invoke(0, 'iterator', s.pop())
 
-  Op 'ENUMERATE', (f, s, l, g, v) ->                  # push iterator that
-    s.push(v.createObject(s.pop().enumerate()))       # yields the object
+  Op 'ENUMERATE', (f, s, l, c) ->                     # push iterator that
+    s.push(c.createObject(s.pop().enumerate()))       # yields the object
                                                       # enumerable properties
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
@@ -144,11 +144,11 @@ opcodes = [
       scope = scope.parent
     s.push(scope.set(varIndex, s.pop()))
 
-  Op 'GETG', (f, s, l, g) ->                          # get global variable
-    s.push(g[@args[0]])
+  Op 'GETG', (f, s, l, c) ->                          # get global variable
+    s.push(c.global[@args[0]])
 
-  Op 'SETG', (f, s, l, g) ->                          # set global variable
-    s.push(g[@args[0]] = s.pop())
+  Op 'SETG', (f, s, l, c) ->                          # set global variable
+    s.push(c.global[@args[0]] = s.pop())
 
   Op 'ENTER_SCOPE', (f) -> f.enterScope()             # enter nested scope
   Op 'EXIT_SCOPE', (f) -> f.exitScope()               # exit nested scope
@@ -190,21 +190,21 @@ opcodes = [
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
 
-  Op 'OBJECT_LITERAL', (f, s, l, g, v) ->             # object literal
+  Op 'OBJECT_LITERAL', (f, s, l, c) ->                # object literal
     length = @args[0]
     rv = {}
     while length--
       rv[s.pop()] = s.pop()
-    s.push(v.createObject(rv))
+    s.push(c.createObject(rv))
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)
 
-  Op 'ARRAY_LITERAL', (f, s, l, g, v) ->              # array literal
+  Op 'ARRAY_LITERAL', (f, s, l, c) ->                 # array literal
     length = @args[0]
     rv = new Array(length)
     while length--
       rv[length] = s.pop()
-    s.push(v.createArray(rv))
+    s.push(c.createArray(rv))
      # pops each element and push the array
   , -> 1 - @args[0]
 

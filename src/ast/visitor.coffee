@@ -2,7 +2,7 @@
 # Base class for classes that perform ast transformation
 # Any subclass must return a node on the type-specific methods
 # or null to delete that node
-class AstVisitor
+class Visitor
 
   visit: (node) ->
     if node instanceof Array
@@ -279,4 +279,5 @@ class AstVisitor
 
   Literal: (node) -> node
 
-module.exports = AstVisitor
+
+module.exports = Visitor

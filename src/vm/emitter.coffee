@@ -1,12 +1,10 @@
 {parse} = esprima
 opcodes = require './opcodes'
-AstVisitor = require '../ast/visitor'
+Visitor = require '../ast/visitor'
     
-class ScopeBuilder extends AstVisitor
-
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
-class Emitter extends AstVisitor
+class Emitter extends Visitor
   constructor: (scopes) ->
     @instructions = []
     @labels = []

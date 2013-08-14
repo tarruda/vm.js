@@ -3,9 +3,9 @@
 
 
 class Fiber
-  constructor: (@vm, @global, maxDepth, script) ->
+  constructor: (@context, @global, maxDepth, script) ->
     @callStack = new Array(maxDepth)
-    @callStack[0] = new Frame(this, script, null, global, vm)
+    @callStack[0] = new Frame(this, script, null, global, @context)
     @evalStack = @callStack[0].evalStack
     @depth = 0
     @error = null
@@ -66,7 +66,7 @@ class Fiber
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
-    frame = new Frame(this, func.script, scope, @global, @vm)
+    frame = new Frame(this, func.script, scope, @global, @context)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -78,7 +78,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @global, @vm) ->
+  constructor: (@fiber, @script, @scope, @global, @context) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
@@ -99,7 +99,7 @@ class Frame
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
-      instructions[@ip++].exec(this, @evalStack, @scope, @global, @vm)
+      instructions[@ip++].exec(this, @evalStack, @scope, @context)
     if (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
