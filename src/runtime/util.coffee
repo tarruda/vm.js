@@ -1,4 +1,5 @@
-{StopIteration} = require './errors'
+{VmError} = require './errors'
+
 
 class ArrayIterator
   constructor: (@elements) ->
@@ -10,4 +11,8 @@ class ArrayIterator
     return @elements[@index++]
 
 
+StopIteration = new VmError()
+
+
 exports.ArrayIterator = ArrayIterator
+exports.StopIteration = StopIteration

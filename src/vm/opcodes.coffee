@@ -1,5 +1,5 @@
 AstVisitor = require '../ast/visitor'
-{StopIteration} = require '../runtime/errors'
+{StopIteration} = require '../runtime/util'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -56,13 +56,16 @@ class Counter extends AstVisitor
       @factor = Math.max(@factor, @current)
     return node
 
+
 calculateOpcodeFactor = (opcodeFn) ->
   ast = esprima.parse("(#{opcodeFn.toString()})")
   counter = new Counter()
   counter.visit(ast)
   return counter.factor
 
+
 Op = (name, fn, factorFn) -> OpcodeClassFactory(name, fn, factorFn)
+
 
 opcodes = [
   Op 'POP', (f, s, l) -> s.pop()                      # remove top

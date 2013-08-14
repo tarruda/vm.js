@@ -13,7 +13,6 @@ class VmTypeError extends VmError
 
 class VmURIError extends VmError
 
-StopIteration = new VmError()
 
 exports.VmError = VmError
 exports.VmEvalError = VmEvalError
@@ -22,4 +21,3 @@ exports.VmReferenceError = VmReferenceError
 exports.VmSyntaxError = VmSyntaxError
 exports.VmTypeError = VmTypeError
 exports.VmURIError = VmURIError
-exports.StopIteration = StopIteration

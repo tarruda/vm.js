@@ -1,6 +1,5 @@
 Compiler = require '../compiler'
 ConstantFolder = require '../ast/constant_folder'
-Normalizer = require '../ast/normalizer'
 Emitter = require './emitter'
 {Fiber} = require './fiber'
 {createGlobal, NativeProxy} = require '../runtime/native'
@@ -206,7 +205,7 @@ class Vm
 
 compile = (code) ->
   emitter = new Emitter()
-  compiler = new Compiler(new ConstantFolder(), new Normalizer(), emitter)
+  compiler = new Compiler(new ConstantFolder(), emitter)
   compiler.compile(code)
   return emitter.end()
 

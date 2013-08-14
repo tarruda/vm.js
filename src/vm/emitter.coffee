@@ -1,3 +1,4 @@
+{parse} = esprima
 opcodes = require './opcodes'
 AstVisitor = require '../ast/visitor'
     
@@ -359,9 +360,25 @@ class Emitter extends AstVisitor
     @REST(node.index, scope[1])
 
   VmFunction: (node) ->
-    fn = new Emitter([{'arguments': 0}].concat(@scopes))
+    fn = new Emitter([{arguments: 0}].concat(@scopes))
     # load the the 'arguments' object into the local scope
     fn.ARGS()
+    len = node.params.length
+    if node.rest
+      # initialize rest parameter
+      fn.declareVar(node.rest.name)
+      scope = fn.scope(node.rest.name)
+      fn.REST(len, scope[1])
+    # initialize parameters
+    for i in [0...len]
+      param = node.params[i]
+      def = node.defaults[i]
+      declaration = parse("var placeholder = arguments[#{i}] || 0;").body[0]
+      declarator = declaration.declarations[0]
+      declarator.id = param
+      if def then declarator.init.right = def
+      else declarator.init = declarator.init.left
+      fn.visit(declaration)
     # emit function body
     fn.visit(node.body.body)
     script = fn.end()
@@ -373,6 +390,16 @@ class Emitter extends AstVisitor
     if node.declare
       # declare so the function will be bound at the beginning of the context
       @declareFunction(node.declare, functionIndex)
+
+  FunctionDeclaration: (node) ->
+    node.isExpression = false
+    node.declare = node.id.name
+    @VmFunction(node)
+
+  FunctionExpression: (node) ->
+    node.isExpression = true
+    node.declare = false
+    @VmFunction(node)
 
   SequenceExpression: (node) ->
     for i in [0...node.expressions.length - 1]
