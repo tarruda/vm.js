@@ -170,20 +170,30 @@ class Context
         prototype: uriErrorProto
     }
 
+    nativePrototypes = {
+      Number: numberProto
+      String: stringProto
+      Boolean: booleanProto
+      Object: objectProto
+      Array: arrayProto
+      Date: dateProto
+      RegExp: regExpProto
+      Error: errorProto
+      EvalError: evalErrorProto
+      RangeError: rangeErrorProto
+      ReferenceError: referenceErrorProto
+      SyntaxError: syntaxErrorProto
+      TypeError: typeErrorProto
+      URIError: uriErrorProto
+    }
+
     @createObject = (container) -> new VmObject(objectProto, container)
 
     @createArray = (container) -> new VmObject(arrayProto, container)
 
-    @getPrimitivePrototype = (type) ->
-      switch type
-        when 'number'
-          return numberProto
-        when 'boolean'
-          return booleanProto
-        when 'string'
-          return stringProto
-        else
-          throw new Error('assert error')
+    @getNativePrototype = (obj) ->
+      type = /\[object\s(\w+)]/.exec(Object.prototype.toString.call(obj))[1]
+      return nativePrototypes[type]
 
     for own k, v of merge
       global[k] = v

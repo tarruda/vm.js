@@ -120,12 +120,12 @@ opcodes = [
     # this opcode pop calL
   , -> 0
 
-  Op 'REST', (f, s, l) ->                             # initialize 'rest' param
+  Op 'REST', (f, s, l, c) ->                          # initialize 'rest' param
     index = @args[0]
     varIndex = @args[1]
-    args = l.get(0)
+    args = l.get(0).container
     if index < args.length
-      l.set(varIndex, Array::slice.call(args, index))
+      l.set(varIndex, c.createArray(Array::slice.call(args, index)))
 
   Op 'CALL', (f, s, l) ->                             # call function
     call(f, s, @args[0], s.pop())
@@ -140,53 +140,38 @@ opcodes = [
   Op 'GET', (f, s, l, c) ->                           # get property from
     obj = s.pop()                                     # object
     key = s.pop()
-    type = typeof obj
-    switch type
-      when 'number', 'boolean', 'string'
-        proto = c.getPrimitivePrototype(type)
-        val = proto.get(key, obj)
-      when 'object'
-        if obj instanceof VmObject
-          val = obj.get(key)
-        else # normal host vm object
-          val = obj[key]
-      else
+    if obj instanceof VmObject
+      val = obj.get(key)
+    else
+      proto = c.getNativePrototype(obj)
+      if not proto
         throw new Error('assert error')
+      val = proto.get(key, obj)
     s.push(val)
 
   Op 'SET', (f, s, l, c) ->                           # set property on
     obj = s.pop()                                     # object
     key = s.pop()
     val = s.pop()
-    type = typeof obj
-    switch type
-      when 'number', 'boolean', 'string'
-        proto = c.getPrimitivePrototype(type)
-        proto.set(key, val, obj)
-      when 'object'
-        if obj instanceof VmObject
-          obj.set(key, val)
-        else
-          obj[key] = val
-      else
+    if obj instanceof VmObject
+      obj.set(key, val)
+    else
+      proto = c.getNativePrototype(obj)
+      if not proto
         throw new Error('assert error')
+      proto.set(key, val, obj)
     s.push(val)
 
   Op 'DEL', (f, s, l) ->                              # del property on
     obj = s.pop()                                     # object
-    type = typeof obj
-    switch type
-      when 'number', 'boolean', 'string'
-        proto = c.getPrimitivePrototype(type)
-        proto.del(key)
-      when 'object'
-        if obj instanceof VmObject
-          obj.del(key)
-        else
-          delete obj[key]
-      else
+    if obj instanceof VmObject
+      obj.del(key)
+    else
+      proto = c.getNativePrototype(obj)
+      if not proto
         throw new Error('assert error')
-    s.push(true) #  when should we push something else?
+      proto.del(key, obj)
+    s.push(true) # is this correct?
 
   Op 'GETL', (f, s, l) ->                             # get local variable
     scopeIndex = @args[0]
@@ -317,7 +302,7 @@ call = (frame, stack, length, func, target) ->
   else
     # TODO set context
     frame.paused = true
-    frame.fiber.pushFrame(func, args)
+    frame.fiber.pushFrame(func, frame.context.createObject(args))
 
 
 ret = (frame) ->
