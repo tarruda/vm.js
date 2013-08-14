@@ -139,7 +139,7 @@ tests =
   l.sort()
   null
   """: [null, ((global) ->
-    expect(global.l.unwrap()).to.deep.eql(['address', 'email', 'name'])
+    expect(global.l).to.deep.eql(['address', 'email', 'name'])
   )]
 
   """
@@ -148,7 +148,7 @@ tests =
   for (var k of fruits) l.push(k)
   null
   """: [null, ((global) ->
-    expect(global.l.unwrap()).to.deep.eql(['orange', 'apple', 'lemon'])
+    expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
   )]
 
   """
@@ -266,7 +266,7 @@ tests =
     expect(global.a).to.not.exist
     expect(global.b).to.not.exist
     expect(global.c).to.not.exist
-    expect(global.ex.unwrap()).to.eql([1, 2, 3])
+    expect(global.ex).to.eql([1, 2, 3])
   )]
 
   """
@@ -302,7 +302,7 @@ tests =
     expect(global.a).to.not.exist
     expect(global.b).to.not.exist
     expect(global.c).to.not.exist
-    expect(global.ex.unwrap()).to.eql([1, 2, 3])
+    expect(global.ex).to.eql([1, 2, 3])
   )]
 
   """
@@ -327,8 +327,6 @@ describe 'vm eval', ->
     do (k, v) ->
       fn = ->
         result = vm.eval(k)
-        if result and result.unwrap
-          result = result.unwrap()
         expect(result).to.deep.eql expectedValue
         if typeof expectedGlobal is 'function'
           expectedGlobal(vm.context.global)
@@ -345,6 +343,7 @@ describe 'vm eval', ->
 
 
   strip = (global) ->
+    # strip builtins for easy assertion of global object state
     delete global.Object
     delete global.Number
     delete global.Boolean
@@ -361,10 +360,6 @@ describe 'vm eval', ->
     delete global.URIError
     delete global.Math
     delete global.JSON
-    for k, v of global
-      if /^\*/.test(k)
-        delete global[k]
-      if v.unwrap
-        global[k] = v.unwrap()
+    delete global.StopIteration
 
     return global

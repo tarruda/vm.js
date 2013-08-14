@@ -1,199 +1,93 @@
 {
   VmError, VmEvalError, VmRangeError, VmReferenceError, VmSyntaxError,
-  VmTypeError, VmURIError, StopIteration
+  VmTypeError, VmURIError
 } = require './errors'
-{NativeProxy} = require './native'
+{NativeProxy, nativeBuiltins} = require './native'
 {VmObject} = require './internal'
-{ArrayIterator} = require './util'
+{ArrayIterator, StopIteration} = require './util'
 
 
 # Execution context, global object + some helper methods
 class Context
   constructor: (merge) ->
-    global = {}
-
-    objectProto = new NativeProxy {
-      proto: null
-      object: Object.prototype
+    global = {
+      Object: Object
+      Number: Number
+      Boolean: Boolean
+      String: String
+      Array: Array
+      Date: Date
+      RegExp: RegExp
+      Error: VmError
+      EvalError: VmEvalError
+      RangeError: VmRangeError
+      ReferenceError: VmReferenceError
+      SyntaxError: VmSyntaxError
+      TypeError: VmTypeError
+      URIError: VmURIError
+      StopIteration: StopIteration
+      Math: Math
+      JSON: JSON
     }
 
-    numberProto = new NativeProxy {
-      proto: objectProto
-      object: Number.prototype
-    }
+    # Populate native proxies
+    nativeProxies = {}
 
-    booleanProto = new NativeProxy {
-      proto: objectProto
-      object: Boolean.prototype
-    }
+    for builtin in nativeBuiltins
+      if builtin
+        nativeProxies[builtin.vmjsNativeBuiltinId] = new NativeProxy {
+          object: builtin
+        }
 
-    stringProto = new NativeProxy {
-      proto: objectProto
-      object: String.prototype
-    }
-
-    arrayProto = new NativeProxy {
-      proto: objectProto
-      object: Array.prototype
-      include:
-        iterator: -> new ArrayIterator(this)
-    }
-
-    dateProto = new NativeProxy {
-      proto: objectProto
-      object: Date.prototype
-    }
-
-    regExpProto = new NativeProxy {
-      proto: objectProto
-      object: RegExp.prototype
-    }
-
-    errorProto = new VmObject(objectProto, {})
-
-    evalErrorProto = new VmObject(errorProto, {})
-
-    rangeErrorProto = new VmObject(errorProto, {})
-
-    referenceErrorProto = new VmObject(errorProto, {})
-
-    syntaxErrorProto = new VmObject(errorProto, {})
-
-    typeErrorProto = new VmObject(errorProto, {})
-
-    uriErrorProto = new VmObject(errorProto, {})
-
-    global.Math = new NativeProxy {
-      proto: objectProto
-      object: Math
-    }
-
-    global.JSON = new NativeProxy {
-      proto: objectProto
-      object: JSON
-    }
-
-    global.Object = new NativeProxy {
-      object: Object
-      include:
-        prototype: objectProto
-
-        getPrototypeOf: (obj) ->
-          if not obj?
-            throw new Error('Object.prototypeOf called on non-object')
-          switch typeof obj
-            when 'number'
-              return numberProto
-            when 'boolean'
-              return booleanProto
-            when 'string'
-              return stringProto
-            else
-              return obj.proto
-    }
-
-    global.Number = new NativeProxy {
-      object: Number
-      include:
-        prototype: numberProto
-    }
-
-    global.Boolean = new NativeProxy {
-      object: Boolean
-      include:
-        prototype: booleanProto
-    }
-
-    global.String = new NativeProxy {
-      object: String
-      include:
-        prototype: stringProto
-    }
-
-    global.Array = new NativeProxy {
-      object: Array
-      include:
-        prototype: arrayProto
-    }
-
-    global.Date = new NativeProxy {
-      object: Date
-      include:
-        prototype: dateProto
-    }
-
-    global.RegExp = new NativeProxy {
-      object: RegExp
-      include:
-        prototype: regExpProto
-    }
-
-    global.Error = new NativeProxy {
-      object: VmError
-      include:
-        prototype: errorProto
-    }
-
-    global.EvalError = new NativeProxy {
-      object: VmEvalError
-      include:
-        prototype: evalErrorProto
-    }
-
-    global.RangeError = new NativeProxy {
-      object: VmRangeError
-      include:
-        prototype: rangeErrorProto
-    }
-
-    global.ReferenceError = new NativeProxy {
-      object: VmReferenceError
-      include:
-        prototype: referenceErrorProto
-    }
-
-    global.SyntaxError = new NativeProxy {
-      object: VmSyntaxError
-      include:
-        prototype: syntaxErrorProto
-    }
-
-    global.TypeError = new NativeProxy {
-      object: VmTypeError
-      include:
-        prototype: typeErrorProto
-    }
-
-    global.URIError = new NativeProxy {
-      object: VmURIError
-      include:
-        prototype: uriErrorProto
+    nativeProxies[Array.prototype.vmjsNativeBuiltinId].include = {
+      iterator: -> new ArrayIterator(this)
     }
 
     nativePrototypes = {
-      Number: numberProto
-      String: stringProto
-      Boolean: booleanProto
-      Object: objectProto
-      Array: arrayProto
-      Date: dateProto
-      RegExp: regExpProto
-      Error: errorProto
-      EvalError: evalErrorProto
-      RangeError: rangeErrorProto
-      ReferenceError: referenceErrorProto
-      SyntaxError: syntaxErrorProto
-      TypeError: typeErrorProto
-      URIError: uriErrorProto
+      Number: nativeProxies[Number.prototype.vmjsNativeBuiltinId]
+      String: nativeProxies[String.prototype.vmjsNativeBuiltinId]
+      Boolean: nativeProxies[Boolean.prototype.vmjsNativeBuiltinId]
+      Object: nativeProxies[Object.prototype.vmjsNativeBuiltinId]
+      Array: nativeProxies[Array.prototype.vmjsNativeBuiltinId]
+      Date: nativeProxies[Date.prototype.vmjsNativeBuiltinId]
+      RegExp: nativeProxies[RegExp.prototype.vmjsNativeBuiltinId]
     }
 
-    @createObject = (container) -> new VmObject(objectProto, container)
-
-    @createArray = (container) -> new VmObject(arrayProto, container)
+    objectProto = nativePrototypes.Object
 
     @getNativePrototype = (obj) ->
       type = /\[object\s(\w+)]/.exec(Object.prototype.toString.call(obj))[1]
       return nativePrototypes[type]
+
+    @get = (obj, key) ->
+      if obj instanceof VmObject
+        rv = obj.get(key)
+      else if (id = obj.vmjsNativeBuiltinId)
+        rv = nativeBuiltins[id].get(key, obj)
+      else if key of obj
+        rv = obj[key]
+      else
+        proto = @getNativePrototype(obj)
+        rv = proto.get(key, obj)
+      return rv
+
+    @set = (obj, key, val) ->
+      if obj instanceof VmObject
+        obj.set(key, val)
+      else if (id = obj.vmjsNativeBuiltinId)
+        nativeBuiltins[id].set(key, val)
+      else
+        obj[key] = val
+      return val
+
+    @del = (obj, key) ->
+      if obj instanceof VmObject
+        obj.del(key)
+      else if (id = obj.vmjsNativeBuiltinId)
+        nativeBuiltins[id].del(key)
+      else
+        delete obj[key]
+      return true
 
     for own k, v of merge
       global[k] = v

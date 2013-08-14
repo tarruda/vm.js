@@ -39,7 +39,7 @@
 # global object, it also let us safely run untrusted code inside the vm.
 class NativeProxy extends VmObject
   constructor: (opts) ->
-    super(opts.proto, opts.object)
+    super(null, opts.object)
     # included properties
     @include = opts.include or {}
     # excluded properties
@@ -83,5 +83,163 @@ class NativeProxy extends VmObject
     return keys
 
 
+nativeBuiltins = [
+  Object
+  Object.prototype
+  Object.prototype.isPrototypeOf
+  Function
+  Function.prototype
+  Function.prototype.apply
+  Function.prototype.call
+  Function.prototype.toString
+  Number
+  Number.isNaN
+  Number.isFinite
+  Number.prototype
+  Number.prototype.toExponential
+  Number.prototype.toFixed
+  Number.prototype.toLocaleString
+  Number.prototype.toPrecision
+  Number.prototype.toString
+  Number.prototype.valueOf
+  Boolean
+  Boolean.prototype
+  Boolean.prototype.toString
+  Boolean.prototype.valueOf
+  String
+  String.fromCharCode
+  String.prototype
+  String.prototype.charAt
+  String.prototype.charCodeAt
+  String.prototype.concat
+  String.prototype.contains
+  String.prototype.indexOf
+  String.prototype.lastIndexOf
+  String.prototype.match
+  String.prototype.replace
+  String.prototype.search
+  String.prototype.slice
+  String.prototype.split
+  String.prototype.substr
+  String.prototype.substring
+  String.prototype.toLowerCase
+  String.prototype.toString
+  String.prototype.toUpperCase
+  String.prototype.valueOf
+  Array
+  Array.isArray
+  Array.every
+  Array.prototype
+  Array.prototype.join
+  Array.prototype.reverse
+  Array.prototype.sort
+  Array.prototype.push
+  Array.prototype.pop
+  Array.prototype.shift
+  Array.prototype.unshift
+  Array.prototype.splice
+  Array.prototype.concat
+  Array.prototype.slice
+  Array.prototype.indexOf
+  Array.prototype.lastIndexOf
+  Array.prototype.forEach
+  Array.prototype.map
+  Array.prototype.reduce
+  Array.prototype.reduceRight
+  Array.prototype.filter
+  Array.prototype.some
+  Array.prototype.every
+  Date
+  Date.now
+  Date.parse
+  Date.UTC
+  Date.prototype
+  Date.prototype.getDate
+  Date.prototype.getDay
+  Date.prototype.getFullYear
+  Date.prototype.getHours
+  Date.prototype.getMilliseconds
+  Date.prototype.getMinutes
+  Date.prototype.getMonth
+  Date.prototype.getSeconds
+  Date.prototype.getTime
+  Date.prototype.getTimezoneOffset
+  Date.prototype.getUTCDate
+  Date.prototype.getUTCDay
+  Date.prototype.getUTCFullYear
+  Date.prototype.getUTCHours
+  Date.prototype.getUTCMilliseconds
+  Date.prototype.getUTCMinutes
+  Date.prototype.getUTCSeconds
+  Date.prototype.setDate
+  Date.prototype.setFullYear
+  Date.prototype.setHours
+  Date.prototype.setMilliseconds
+  Date.prototype.setMinutes
+  Date.prototype.setMonth
+  Date.prototype.setSeconds
+  Date.prototype.setUTCDate
+  Date.prototype.setUTCDay
+  Date.prototype.setUTCFullYear
+  Date.prototype.setUTCHours
+  Date.prototype.setUTCMilliseconds
+  Date.prototype.setUTCMinutes
+  Date.prototype.setUTCSeconds
+  Date.prototype.toDateString
+  Date.prototype.toISOString
+  Date.prototype.toJSON
+  Date.prototype.toLocaleDateString
+  Date.prototype.toLocaleString
+  Date.prototype.toLocaleTimeString
+  Date.prototype.toString
+  Date.prototype.toTimeString
+  Date.prototype.toUTCString
+  Date.prototype.valueOf
+  RegExp
+  RegExp.prototype
+  RegExp.prototype.exec
+  RegExp.prototype.test
+  RegExp.prototype.toString
+  Math
+  Math.abs
+  Math.acos
+  Math.asin
+  Math.atan
+  Math.atan2
+  Math.ceil
+  Math.cos
+  Math.exp
+  Math.floor
+  Math.imul
+  Math.log
+  Math.max
+  Math.min
+  Math.pow
+  Math.random
+  Math.round
+  Math.sin
+  Math.sqrt
+  Math.tan
+  JSON
+  JSON.parse
+  JSON.stringify
+]
+
+
+# Every builtin object exposed by the VM must have a unique id so the runtime
+# can quickly decide whether an object is a builtin object and retrieve
+# the NativeProxy instance associated with it. Modifying global objects is not
+# pretty but I couldn't figure out a better way to do this(unless there's
+# a way to have hashtables with object references as keys)
+(->
+  i = 0
+  for builtin in nativeBuiltins
+    if builtin
+      builtin.vmjsNativeBuiltinId = i
+    i++
+)
+
+
 exports.ArrayIterator = ArrayIterator
 exports.NativeProxy = NativeProxy
+exports.nativeBuiltins = nativeBuiltins

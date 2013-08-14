@@ -78,10 +78,7 @@ opcodes = [
     f.fiber.rv = s.pop()                              # function
     ret(f)
 
-  Op 'THROW', (f, s, l) ->                            # throw something
-    f.fiber.error = s.pop()
-    f.paused = true
-
+  Op 'THROW', (f, s, l) -> throwErr(f, s.pop())       # throw something
   Op 'DEBUG', (f, s, l) -> debug()                    # pause execution
   Op 'SR1', (f, s, l) -> f.r1 = s.pop()               # save to register 1
   Op 'SR2', (f, s, l) -> f.r2 = s.pop()               # save to register 2
@@ -95,7 +92,7 @@ opcodes = [
                                                       # expression register
 
   Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
-    callm(f, s, 0, 'iterator', s.pop())
+    callm(f, 0, 'iterator', s.pop())
 
   Op 'ENUMERATE', (f, s, l, c) ->                     # push iterator that
     target = s.pop()                                  # yields the object
@@ -106,10 +103,10 @@ opcodes = [
       for k of target
         keys.push(k)
       iterator = new ArrayIterator(keys)
-    s.push(c.createObject(iterator))
+    s.push(iterator)
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
-    callm(f, s, 0, 'next', s.pop())
+    callm(f, 0, 'next', s.pop())
     if f.fiber.error == StopIteration
       f.paused = false
       f.ip = @args[0]
@@ -123,55 +120,43 @@ opcodes = [
   Op 'REST', (f, s, l, c) ->                          # initialize 'rest' param
     index = @args[0]
     varIndex = @args[1]
-    args = l.get(0).container
+    args = l.get(0)
     if index < args.length
-      l.set(varIndex, c.createArray(Array::slice.call(args, index)))
+      l.set(varIndex, Array::slice.call(args, index))
 
   Op 'CALL', (f, s, l) ->                             # call function
-    call(f, s, @args[0], s.pop())
+    call(f, @args[0], s.pop())
      # pop n arguments plus function and push return value
   , -> 1 - (@args[0] + 1)
 
   Op 'CALLM', (f, s, l) ->                            # call method
-    callm(f, s, @args[0], s.pop(), s.pop())
+    callm(f, @args[0], s.pop(), s.pop())
      # pop n arguments plus function plus target and push return value
   , -> 1 - (@args[0] + 1 + 1)
 
   Op 'GET', (f, s, l, c) ->                           # get property from
     obj = s.pop()                                     # object
     key = s.pop()
-    if obj instanceof VmObject
-      val = obj.get(key)
-    else
-      proto = c.getNativePrototype(obj)
-      if not proto
-        throw new Error('assert error')
-      val = proto.get(key, obj)
-    s.push(val)
+    if not obj?
+      return throwErr(f, new VmTypeError(
+        "Cannot read property '#{key}' of #{obj}"))
+    s.push(c.get(obj, key))
 
   Op 'SET', (f, s, l, c) ->                           # set property on
     obj = s.pop()                                     # object
     key = s.pop()
     val = s.pop()
-    if obj instanceof VmObject
-      obj.set(key, val)
-    else
-      proto = c.getNativePrototype(obj)
-      if not proto
-        throw new Error('assert error')
-      proto.set(key, val, obj)
-    s.push(val)
+    if not obj?
+      return throwErr(f, new VmTypeError(
+        "Cannot set property '#{key}' of #{obj}"))
+    s.push(c.set(obj, key, val))
 
   Op 'DEL', (f, s, l) ->                              # del property on
     obj = s.pop()                                     # object
-    if obj instanceof VmObject
-      obj.del(key)
-    else
-      proto = c.getNativePrototype(obj)
-      if not proto
-        throw new Error('assert error')
-      proto.del(key, obj)
-    s.push(true) # is this correct?
+    key = s.pop()
+    if not obj?
+      return throwErr(f, new VmTypeError('Cannot convert null to object'))
+    s.push(c.del(obj, key))
 
   Op 'GETL', (f, s, l) ->                             # get local variable
     scopeIndex = @args[0]
@@ -244,7 +229,7 @@ opcodes = [
     rv = {}
     while length--
       rv[s.pop()] = s.pop()
-    s.push(c.createObject(rv))
+    s.push(rv)
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)
 
@@ -253,7 +238,7 @@ opcodes = [
     rv = new Array(length)
     while length--
       rv[length] = s.pop()
-    s.push(c.createArray(rv))
+    s.push(rv)
      # pops each element and push the array
   , -> 1 - @args[0]
 
@@ -266,29 +251,32 @@ opcodes = [
 ]
 
 
-# Helpers shared between some opcodes
-callm = (frame, stack, length, key, target) ->
-  if target instanceof VmObject
-    func = target.get(key)
-    if func instanceof Closure
-      return call(frame, stack, length, func, target)
-    if func instanceof Function
-      return call(frame, stack, length, func, target.container)
-    if not func?
-      err = new VmTypeError("Object #{@container} has no method '#{key}'")
-    else
-      err = new VmTypeError(
-        "Property '#{key}' of object #{@container} is not a function")
-      frame.fiber.error = err
-      frame.paused = true
-  else
-    call(frame, stack, length, target[key], target)
+throwErr = (frame, err) ->
+  frame.fiber.error = err
+  frame.paused = true
 
-call = (frame, stack, length, func, target) ->
+
+# Helpers shared between some opcodes
+callm = (frame, length, key, target) ->
+  stack = frame.evalStack
+  context = frame.context
+  func = context.get(target, key)
+  if func instanceof Closure
+    return call(frame, length, func, target)
+  if func instanceof Function
+    return call(frame, length, func, target)
+  if not func?
+    throwErr(frame, new VmTypeError("Object #{target} has no method '#{key}'"))
+  else
+    throwErr(frame, new VmTypeError(
+      "Property '#{key}' of object #{target} is not a function"))
+
+
+call = (frame, length, func, target) ->
+  stack = frame.evalStack
+  context = frame.context
   if not (func instanceof Closure) and not (func instanceof Function)
-    frame.fiber.error = new VmTypeError("Object #{func} is not a function")
-    frame.paused = true
-    return
+    return throwErr(frame, new VmTypeError("Object #{func} is not a function"))
   args = {length: length, callee: func}
   while length
     args[--length] = stack.pop()
@@ -297,12 +285,11 @@ call = (frame, stack, length, func, target) ->
     try
       stack.push(func.apply(target, Array::slice.call(args)))
     catch nativeError
-      frame.paused = true
-      frame.fiber.error = nativeError
+      throwErr(frame, nativeError)
   else
     # TODO set context
     frame.paused = true
-    frame.fiber.pushFrame(func, frame.context.createObject(args))
+    frame.fiber.pushFrame(func, args)
 
 
 ret = (frame) ->
