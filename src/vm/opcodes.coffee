@@ -181,11 +181,7 @@ opcodes = [
     s.push(c.global[@args[0]] = s.pop())
 
   Op 'ENTER_SCOPE', (f) ->                            # enter nested scope
-    if not f.scope
-      # block inside global scope
-      f.scope = new Scope(null, f.script.localNames, f.script.localLength)
-    # else we are already inside a function scope and variable unique
-    # indexing will ensure nested scopes are isolated
+    f.scope = new Scope(f.scope, f.script.localNames, f.script.localLength)
 
   Op 'EXIT_SCOPE', (f) -> f.scope = f.scope.parent    # exit nested scope
 

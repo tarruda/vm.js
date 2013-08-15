@@ -244,17 +244,207 @@ tests =
   x = '10'
   switch (x) {
     case 9:
-      z = 1;
+      z = 4;
       break
     case '10':
-      z = 2;
+      z = 5;
       break;
     default:
-      z = 3;
+      z = 6;
       break
   }
   z
+  """: [5, ((global) ->)]
+
+  """
+  x = 10
+  z = 0
+  switch (x) {
+    case 10:
+    case 9:
+    case 8:
+      z = 2;
+      break
+    default:
+      z = 3;
+  }
+  z
   """: [2, ((global) ->)]
+
+  """
+  x = 9
+  z = 0
+  switch (x) {
+    case 10:
+    case 9:
+      z = 2;
+    case 8:
+      break
+    default:
+      z = 10;
+  }
+  z
+  """: [2, ((global) ->)]
+
+  """
+  x = 8
+  z = 0
+  switch (x) {
+    case 10:
+    case 9:
+      z = 2;
+    case 8:
+      break
+    default:
+      z = 10;
+  }
+  z
+  """: [0, ((global) ->)]
+
+  """
+  z = 0
+  grandparent:
+  switch (10) {
+    case 9:
+    case 10:
+      parent:
+      switch (3 + 3) {
+        case 7:
+          z += 1
+          break;
+        case 6:
+          child:
+          switch (4+1) {
+            case 5:
+              z += 50
+              break grandparent;
+            case 10:
+              z += 100;
+          }
+          z += 10;
+      }
+      z += 2;
+  }
+  z
+  """: [50, ((global) ->)]
+
+  """
+  z = 0
+  grandparent:
+  switch (10) {
+    case 9:
+    case 10:
+      parent:
+      switch (3 + 3) {
+        case 7:
+          z += 1
+          break;
+        case 6:
+          child:
+          switch (4+1) {
+            case 5:
+              z += 50
+              break parent;
+            case 10:
+              z += 100;
+          }
+          z += 10;
+      }
+      z += 2;
+  }
+  z
+  """: [52, ((global) ->)]
+
+  """
+  z = 0
+  grandparent:
+  switch (10) {
+    case 9:
+    case 10:
+      parent:
+      switch (3 + 3) {
+        case 7:
+          z += 1
+          break;
+        case 6:
+          child:
+          switch (4+1) {
+            case 5:
+              z += 50
+              break;
+            case 10:
+              z += 100;
+          }
+          z += 10;
+      }
+      z += 2;
+  }
+  z
+  """: [62, ((global) ->)]
+
+  """
+  z = 0
+  grandparent:
+  switch (10) {
+    case 9:
+    case 10:
+      parent:
+      switch (3 + 3) {
+        case 7:
+          z += 1
+          break;
+        case 6:
+          child:
+          switch (4+1) {
+            case 5:
+              z += 50
+            case 10:
+              z += 100;
+          }
+          z += 10;
+      }
+      z += 2;
+  }
+  z
+  """: [162, ((global) ->)]
+
+  """
+  x = 10
+  z = 0
+  switch (x) {
+    case 10:
+      let y = 10
+    case 9:
+      y += 10
+    case 8:
+      y += 10
+      z = y
+      break
+    default:
+      z = 10;
+  }
+  z
+  """: [30, ((global) ->
+    expect(global.z).to.eql(30)
+    expect('y' of global).to.be.false)]
+
+  """
+  x = 10
+  z = 0
+  switch (x) {
+    case 10:
+      z += 2
+    case 9:
+      z += 2
+      break;
+    case 8:
+      z += 2
+      break
+    default:
+      z = 10;
+  }
+  z
+  """: [4, ((global) ->)]
 
   """
   function fn1() {

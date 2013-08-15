@@ -41,12 +41,25 @@ class Emitter extends Visitor
     @SETG(name) # global object set
 
   enterScope: ->
-    @ENTER_SCOPE()
-    @scopes.unshift({})
+    if not @scriptScope
+      # block inside global scope
+      @ENTER_SCOPE()
+      @scopes.unshift({})
+    # else we are already inside a function scope and variable unique
+    # indexing should be enough to ensure nested scopes are isolated
+
+  # add cleanup instructions to all named labels
+  addLabelCleanup: (cleanup) ->
+    for label in @labels
+      if label.name
+        if not label.cleanup
+          label.cleanup = []
+        label.cleanup.push(cleanup)
 
   exitScope: ->
-    @EXIT_SCOPE()
-    @scopes.shift()
+    if not @scriptScope
+      @EXIT_SCOPE()
+      @scopes.shift()
 
   declareVar: (name, kind) ->
     if kind in ['const', 'var']
@@ -136,6 +149,7 @@ class Emitter extends Visitor
     start = @newLabel()
     cont = @newLabel()
     if currentLabel?.stmt is node
+      # mark parent label with continue/break points
       brk = currentLabel.brk
       currentLabel.cont = cont
     else
@@ -264,6 +278,9 @@ class Emitter extends Visitor
   BreakStatement: (node) ->
     if node.label
       label = @label(node.label.name)
+      if label.cleanup
+        for cleanup in label.cleanup
+          cleanup()
     else
       label = @label()
     @JMP(label.brk)
@@ -276,22 +293,30 @@ class Emitter extends Visitor
     @JMP(label.cont)
 
   WithStatement: (node) ->
-    throw new Error('not implemented')
+    throw new Error("not implemented")
 
   SwitchStatement: (node) ->
     brk = @newLabel()
     @pushLabel(null, node, brk)
+    @addLabelCleanup(=> @POP())
     @enterScope()
     @visit(node.discriminant)
+    nextBlock = @newLabel()
     for clause in node.cases
-      nextLabel = @newLabel()
+      nextTest = @newLabel()
       if clause.test
         @DUP()
         @visit(clause.test)
         @CID()
-        @JMPF(nextLabel)
-      @visit(clause.consequent)
-      nextLabel.mark()
+        @JMPF(nextTest)
+        @JMP(nextBlock)
+      if clause.consequent.length
+        nextBlock.mark()
+        @visit(clause.consequent)
+        nextBlock = @newLabel()
+        @JMP(nextBlock) # fall to the next block
+      nextTest.mark()
+    nextBlock.mark()
     @popLabel()
     brk.mark()
     @POP()
