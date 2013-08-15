@@ -9,6 +9,7 @@ class Emitter extends Visitor
     @instructions = []
     @labels = []
     @scripts = []
+    @switches = []
     # Stack of scopes. Each scope maintains a name -> index association
     # where index is unique per script(function or code executing in global
     # scope)
@@ -278,10 +279,23 @@ class Emitter extends Visitor
     throw new Error('not implemented')
 
   SwitchStatement: (node) ->
-    # A switch statement. The lexical flag is metadata indicating whether
-    # the switch statement contains any unnested let declarations
-    # (and therefore introduces a new lexical scope)
-    throw new Error('not implemented')
+    brk = @newLabel()
+    @pushLabel(null, node, brk)
+    @enterScope()
+    @visit(node.discriminant)
+    for clause in node.cases
+      nextLabel = @newLabel()
+      if clause.test
+        @DUP()
+        @visit(clause.test)
+        @CID()
+        @JMPF(nextLabel)
+      @visit(clause.consequent)
+      nextLabel.mark()
+    @popLabel()
+    brk.mark()
+    @POP()
+    @exitScope()
 
   ReturnStatement: (node) ->
     if node.argument
@@ -617,41 +631,10 @@ class Emitter extends Visitor
     # A let expression
     throw new Error('not implemented')
 
-  # Patterns:
-
-  # JavaScript 1.7 introduced destructuring assignment and binding
-  # forms. All binding forms (such as function parameters, variable
-  # declarations, and catch block headers), accept array and object
-  # destructuring patterns in addition to plain identifiers. The left-hand
-  # sides of assignment expressions can be arbitrary expressions, but in the
-  # case where the expression is an object or array literal, it is interpreted
-  # by SpiderMonkey as a destructuring pattern.
-
-  # Since the left-hand side of an assignment can in general be any expression,
-  # in an assignment context, a pattern can be any expression. In binding
-  # positions (such as function parameters, variable declarations, and catch
-  # headers), patterns can only be identifiers in the base case, not arbitrary
-  # expressions
-  ObjectPattern: (node) ->
-    # An object-destructuring pattern. A literal property in an object pattern
-    # can have either a string or number as its value.
-    throw new Error('not implemented')
-
-  ArrayPattern: (node) ->
-    # An array-destructuring pattern.
-    throw new Error('not implemented')
-
-  # Clauses
-  SwitchCase: (node) ->
-    # A case (if test is an Expression) or default (if test === null) clause in
-    # the body of a switch statement.
-    throw new Error('not implemented')
-
   ComprehensionBlock: (node) ->
     # A for or for each block in an array comprehension or generator expression
     throw new Error('not implemented')
 
-  # Miscellaneous
   Identifier: (node) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.

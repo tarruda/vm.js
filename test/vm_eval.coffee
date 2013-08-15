@@ -241,6 +241,22 @@ tests =
   """: [[9, 'k', 'v'], ((global) ->)]
 
   """
+  x = '10'
+  switch (x) {
+    case 9:
+      z = 1;
+      break
+    case '10':
+      z = 2;
+      break;
+    default:
+      z = 3;
+      break
+  }
+  z
+  """: [2, ((global) ->)]
+
+  """
   function fn1() {
     try {
       fn2();
