@@ -9,7 +9,7 @@ class Emitter extends Visitor
     @instructions = []
     @labels = []
     @scripts = []
-    @switches = []
+    @tryStatements = []
     # Stack of scopes. Each scope maintains a name -> index association
     # where index is unique per script(function or code executing in global
     # scope)
@@ -58,13 +58,18 @@ class Emitter extends Visitor
       # back to global scope
       @EXIT_SCOPE()
 
-  # add cleanup instructions to all named labels
-  addLabelCleanup: (cleanup) ->
+  addCleanupHook: (cleanup) ->
+    # add cleanup instructions to all named labels
     for label in @labels
       if label.name
         if not label.cleanup
           label.cleanup = []
         label.cleanup.push(cleanup)
+    # also add to all enclosing try/catch/finally blocks that may exit
+    # the block
+    for tryStatement in @tryStatements
+      tryStatement.hooks.push(cleanup)
+
 
   declareVar: (name, kind) ->
     if kind in ['const', 'var']
@@ -200,7 +205,7 @@ class Emitter extends Visitor
 
   VmIteratorLoop: (node, pushIterator) ->
     labelCleanup = (label, isBreak) =>
-      if label.stmt != node or isBreak
+      if not label or label.stmt != node or isBreak
         @POP()
 
     emitInit = (brk) =>
@@ -221,7 +226,7 @@ class Emitter extends Visitor
       operator: '='
       left: assignTarget
 
-    @addLabelCleanup(labelCleanup)
+    @addCleanupHook(labelCleanup)
     assignTarget = node.left
     if assignTarget.type == 'VariableDeclaration'
       assignTarget = node.left.declarations[0].id
@@ -316,7 +321,7 @@ class Emitter extends Visitor
   SwitchStatement: (node) ->
     brk = @newLabel()
     @pushLabel(null, node, brk)
-    @addLabelCleanup((=> @POP(); @exitScope()))
+    @addCleanupHook((=> @POP(); @exitScope()))
     @enterScope()
     @visit(node.discriminant)
     nextBlock = @newLabel()
@@ -354,6 +359,7 @@ class Emitter extends Visitor
   TryStatement: (node) ->
     if node.handlers.length > 1
       throw new Error('assert error')
+    @tryStatements.push({hooks: []})
     start = @newLabel()
     handler = @newLabel()
     finalizer = @newLabel()
@@ -381,15 +387,21 @@ class Emitter extends Visitor
             operator: '='
             left: param
         @visit(assign)
+        # run cleanup hooks
+        for hook in @tryStatements[@tryStatements.length - 1].hooks
+          hook()
       @visit(node.handlers[0].body)
     finalizer.mark()
     if node.finalizer
       @visit(node.finalizer)
       if not node.handlers.length
+        for hook in @tryStatements[@tryStatements.length - 1].hooks
+          hook()
         # return from the function so the next frame can be checked
         # for a guard
         @RET()
     end.mark()
+    @tryStatements.pop()
 
   LetStatement: (node) ->
     # A let statement

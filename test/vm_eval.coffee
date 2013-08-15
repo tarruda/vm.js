@@ -233,10 +233,10 @@ tests =
 
   """
   l = [];
-  for (var i of [1, 2]) {
+  for (let i of [1, 2]) {
     outer:
     for (var j of [3, 4]) {
-      for (var k of [5, 6]) {
+      for (let k of [5, 6]) {
         l.push([i, j, k]);
         break outer;
       }
@@ -249,10 +249,10 @@ tests =
 
   """
   l = [];
-  for (var i of [1, 2]) {
+  for (let i of [1, 2]) {
     outer:
     for (let j of [3, 4]) {
-      for (var k of [5, 6]) {
+      for (let k of [5, 6]) {
         l.push([i, j, k]);
         continue outer;
       }
@@ -643,6 +643,55 @@ tests =
     expect(global.e).to.not.exist
     expect(global.ex).to.eql('err')
   )]
+
+  """
+  errors = []
+  for (let i of [1, 2]) {
+    for (var j of [3, 4]) {
+      for (let k of [5, 6]) {
+        try {
+          throw i
+        } catch (e) {
+          errors.push(e);
+        }
+      }
+    }
+  }
+  errors
+  """: [[1, 1, 1, 1, 2, 2, 2, 2], ((global) ->)]
+
+  """
+  errors = []
+  for (let i of [1, 2]) {
+    for (var j of [3, 4]) {
+      try {
+        for (let k of [5, 6]) {
+          throw j
+        }
+      } catch (e) {
+        errors.push(e);
+      }
+    }
+  }
+  errors
+  """: [[3, 4, 3, 4], ((global) ->)]
+
+  """
+  errors = []
+  for (let i of [1, 2]) {
+    try {
+      for (var j of [3, 4]) {
+        for (let k of [5, 6]) {
+          throw k
+        }
+      }
+    } catch (e) {
+      errors.push(e);
+    }
+  }
+  errors
+  """: [[5, 5], ((global) ->)]
+
 len = (obj) -> Object.keys(obj).length
 
 describe 'vm eval', ->

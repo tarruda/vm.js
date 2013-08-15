@@ -92,7 +92,7 @@ class Frame
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
       instructions[@ip++].exec(this, @evalStack, @scope, @context)
-    if (len = @evalStack.len()) != 0
+    if not @fiber.error and (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
 
