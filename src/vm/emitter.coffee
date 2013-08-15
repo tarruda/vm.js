@@ -5,7 +5,7 @@ Visitor = require '../ast/visitor'
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
 class Emitter extends Visitor
-  constructor: (scopes, @currentLine, @currentColumn) ->
+  constructor: (scopes, @filename, @name) ->
     @instructions = []
     @labels = []
     @scripts = []
@@ -19,6 +19,8 @@ class Emitter extends Visitor
     @localNames = {}
     @varIndex = 1
     @guards = []
+    @currentLine = -1
+    @currentColumn = -1
 
   scope: (name) ->
     i = 0
@@ -69,7 +71,6 @@ class Emitter extends Visitor
     # the block
     for tryStatement in @tryStatements
       tryStatement.hooks.push(cleanup)
-
 
   declareVar: (name, kind) ->
     if kind in ['const', 'var']
@@ -143,8 +144,19 @@ class Emitter extends Visitor
     for k of @localNames
       localLength++
 
-    return new Script(@instructions, @scripts, @localNames, localLength,
-      @guards, max)
+    return new Script(@filename, @name, @instructions, @scripts, @localNames,
+      localLength, @guards, max)
+
+  visit: (node) ->
+    if node.loc
+      {line, column} = node.loc.start
+      if line != @currentLine
+        @LINE(line)
+        @currentLine = line
+      if column != @currentColumn
+        @COLUMN(column)
+        @currentColumn = column
+    return super(node)
 
   BlockStatement: (node) ->
     # if node.disableScope
@@ -448,7 +460,9 @@ class Emitter extends Visitor
     @OBJECT_LITERAL(node.properties.length)
 
   VmFunction: (node) ->
-    fn = new Emitter([{arguments: 0}].concat(@scopes))
+    if node.id
+      name = node.id.name
+    fn = new Emitter([{arguments: 0}].concat(@scopes), @filename, name)
     # load the the 'arguments' object into the local scope
     fn.ARGS()
     len = node.params.length
@@ -705,8 +719,8 @@ class Label
 
 
 class Script
-  constructor: (@instructions, @scripts, @localNames, @localLength,
-    @guards, @stackSize)->
+  constructor: (@filename, @name,  @instructions, @scripts, @localNames,
+    @localLength, @guards, @stackSize)->
 
 
 (->

@@ -1,4 +1,5 @@
 {VmObject} = require '../runtime/internal'
+{VmError} = require '../runtime/errors'
 
 
 class Fiber
@@ -27,6 +28,8 @@ class Fiber
         @rv = undefined
 
   unwind: ->
+    if @error instanceof VmError
+      @injectStackTrace()
     # unwind the call stack searching for a guard set to handle this
     frame = @callStack[@depth]
     while frame
@@ -59,6 +62,19 @@ class Fiber
           return frame
       frame = @popFrame()
     throw @error
+
+  injectStackTrace: ->
+    trace = []
+    for i in [@depth..0]
+      frame = @callStack[i]
+      trace.push({
+        at:
+          name: frame.script.name
+          filename: frame.script.filename or 'file.js'
+        line: frame.line
+        column: frame.column
+      })
+    @error.trace = trace
 
   pushFrame: (func, args) ->
     if @depth is @maxDepth - 1
@@ -98,11 +114,11 @@ class Frame
 
   done: -> @ip is @exitIp
 
-  # later we will use these methods to notify listeners about line/column
-  # changes
+  # later we will use these methods to notify listeners(eg: debugger)
+  # about line/column changes
   setLine: (@line) ->
 
-  setColumn: (@line) ->
+  setColumn: (@column) ->
 
 
 class EvaluationStack

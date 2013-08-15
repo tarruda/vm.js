@@ -9,7 +9,7 @@ class Vm
   constructor: (@maxDepth, merge) ->
     @context = new Realm(merge)
 
-  eval: (string) -> @run(@compile(string))
+  eval: (string, filename) -> @run(@compile(string, filename))
 
   compile: (source, filename = '<script>') -> compile(source, filename)
 
@@ -19,10 +19,10 @@ class Vm
     return fiber.evalStack.rexp
 
 
-compile = (code) ->
-  emitter = new Emitter()
+compile = (code, filename) ->
+  emitter = new Emitter(null, filename)
   transformer = new Transformer(new ConstantFolder(), emitter)
-  transformer.transform(esprima.parse(code, loc: false))
+  transformer.transform(esprima.parse(code, loc: true))
   return emitter.end()
 
 

@@ -747,6 +747,51 @@ tests =
   errors
   """: [[[5, 3, 1], [5, 4, 1], [5, 3, 2], [5, 4, 2]], ((global) ->)]
 
+  # errors/stacktrace
+  """
+  s = null
+  s.name = 1
+  """: [undefined, ((global) ->
+    errString = global.errorThrown.toString()
+    expect(errString).to.eql(
+      """
+      TypeError: Cannot set property 'name' of null
+          at <script>:2:0
+      """
+    )
+  )]
+
+  # errors/stacktrace
+  """
+  function abc() {
+    x = 5
+    def();
+    y = 1
+  }
+
+  function def() {
+    ghi()
+  }
+
+  function ghi() {
+    s = undefined
+    s.name = 1
+  }
+
+  abc()
+  """: [undefined, ((global) ->
+    errString = global.errorThrown.toString()
+    expect(errString).to.eql(
+      """
+      TypeError: Cannot set property 'name' of undefined
+          at ghi (<script>:13:2)
+          at def (<script>:8:2)
+          at abc (<script>:3:2)
+          at <script>:16:0
+      """
+    )
+  )]
+
 
 describe 'vm eval', ->
   vm = null
@@ -757,7 +802,10 @@ describe 'vm eval', ->
   for k, v of tests
     do (k, v) ->
       fn = ->
-        result = vm.eval(k)
+        try
+          result = vm.eval(k)
+        catch e
+          vm.context.global.errorThrown = e
         expect(result).to.deep.eql expectedValue
         if typeof expectedGlobal is 'function'
           expectedGlobal(vm.context.global)
