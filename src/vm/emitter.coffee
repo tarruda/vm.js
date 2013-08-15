@@ -22,10 +22,15 @@ class Emitter extends Visitor
 
   scope: (name) ->
     i = 0
+    crossFunctionScope = false
     for scope in @scopes
       if name of scope
         return [i, scope[name]]
-      i++
+      # only scopes after the function scope will increase the index
+      if crossFunctionScope
+        i++
+      if scope == @scriptScope
+        crossFunctionScope = true
     return null
 
   scopeGet: (name) ->
@@ -41,12 +46,17 @@ class Emitter extends Visitor
     @SETG(name) # global object set
 
   enterScope: ->
-    if not @scriptScope
-      # block inside global scope
+    if not @scopes.length
+      # only enter a nested scope when running global code as local variables
+      # are identified by an integer and not name
       @ENTER_SCOPE()
-      @scopes.unshift({})
-    # else we are already inside a function scope and variable unique
-    # indexing should be enough to ensure nested scopes are isolated
+    @scopes.unshift({})
+
+  exitScope: ->
+    @scopes.shift()
+    if not @scopes.length
+      # back to global scope
+      @EXIT_SCOPE()
 
   # add cleanup instructions to all named labels
   addLabelCleanup: (cleanup) ->
@@ -55,11 +65,6 @@ class Emitter extends Visitor
         if not label.cleanup
           label.cleanup = []
         label.cleanup.push(cleanup)
-
-  exitScope: ->
-    if not @scriptScope
-      @EXIT_SCOPE()
-      @scopes.shift()
 
   declareVar: (name, kind) ->
     if kind in ['const', 'var']
@@ -148,14 +153,11 @@ class Emitter extends Visitor
     currentLabel = @label()
     start = @newLabel()
     cont = @newLabel()
+    brk = @newLabel()
     if currentLabel?.stmt is node
-      # mark parent label with continue/break points
-      brk = currentLabel.brk
+      # adjust current label 'cont' so 'continue label' will work
       currentLabel.cont = cont
-    else
-      pop = true
-      brk = @newLabel()
-      @pushLabel(null, node, brk, cont)
+    @pushLabel(null, node, brk, cont)
     if not node.body.disableScope
       node.body.disableScope = true
       @enterScope()
@@ -178,11 +180,10 @@ class Emitter extends Visitor
       emitAfterTest()
       @JMPF(brk)
     @JMP(cont)
+    brk.mark()
     if not node.body.disableScope
       @exitScope()
-    if pop
-      brk.mark()
-      @popLabel()
+    @popLabel()
 
   VmIteratorLoop: (node, pushIterator) ->
     emitInit = (brk) =>
@@ -202,6 +203,7 @@ class Emitter extends Visitor
       operator: '='
       left: assignTarget
 
+    @addLabelCleanup((=> @POP(); @exitScope()))
     @enterScope()
     node.body.disableScope = true
     assignTarget = node.left
@@ -298,7 +300,7 @@ class Emitter extends Visitor
   SwitchStatement: (node) ->
     brk = @newLabel()
     @pushLabel(null, node, brk)
-    @addLabelCleanup(=> @POP())
+    @addLabelCleanup((=> @POP(); @exitScope()))
     @enterScope()
     @visit(node.discriminant)
     nextBlock = @newLabel()

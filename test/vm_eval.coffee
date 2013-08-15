@@ -87,7 +87,7 @@ tests =
   "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
   'i = 0; while(i++ < 10) i++; i;': [11, {i: 11}]
-
+  # other acceptance tests
   """
   i = 0;
   while (i < 1000) {
@@ -150,6 +150,39 @@ tests =
   """: [null, ((global) ->
     expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
     expect('k' of global).to.be.true
+  )]
+
+  """
+  l1 = [1, 2]
+  l2 = [3, 4]
+  l3 = [5, 6]
+  l = [];
+  for (let i = 0; i < l1.length;i++) {
+    for (let j = 0; j < l2.length;j++) {
+      for (let k = 0; k < l3.length;k++) {
+        l.push([l1[i], l2[j], l3[k]]);
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql([[1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6],
+      [2, 3, 5], [2, 3, 6], [2, 4, 5], [2, 4, 6]])
+  )]
+
+  """
+  l = [];
+  for (var i of [1, 2]) {
+    for (var j of [3, 4]) {
+      for (var k of [5, 6]) {
+        l.push([i, j, k]);
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql([[1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6],
+      [2, 3, 5], [2, 3, 6], [2, 4, 5], [2, 4, 6]])
   )]
 
   """

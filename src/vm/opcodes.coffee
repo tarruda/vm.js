@@ -108,6 +108,7 @@ opcodes = [
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
     callm(f, 0, 'next', s.pop())
     if f.fiber.error == StopIteration
+      f.fiber.error = null
       f.paused = false
       f.ip = @args[0]
 
@@ -183,7 +184,8 @@ opcodes = [
   Op 'ENTER_SCOPE', (f) ->                            # enter nested scope
     f.scope = new Scope(f.scope, f.script.localNames, f.script.localLength)
 
-  Op 'EXIT_SCOPE', (f) -> f.scope = f.scope.parent    # exit nested scope
+  Op 'EXIT_SCOPE', (f) ->                             # exit nested scope
+    f.scope = f.scope.parent
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(not s.pop())         # logical NOT
