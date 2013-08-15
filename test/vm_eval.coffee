@@ -692,7 +692,61 @@ tests =
   errors
   """: [[5, 5], ((global) ->)]
 
-len = (obj) -> Object.keys(obj).length
+  """
+  errors = []
+  try {
+    for (let i of [1, 2]) {
+      for (var j of [3, 4]) {
+        for (let k of [5, 6]) {
+          try {
+            throw [k, j, i]
+          } finally {
+          }
+        }
+      }
+    }
+  } catch (e) {
+    errors.push(e)
+  }
+  errors
+  """: [[[5, 3, 1]], ((global) ->)]
+
+  """
+  errors = []
+  for (let i of [1, 2]) {
+    try {
+      for (var j of [3, 4]) {
+        for (let k of [5, 6]) {
+          try {
+            throw [k, j, i]
+          } finally { }
+        }
+      }
+    } catch (e) {
+      errors.push(e)
+    }
+  }
+  errors
+  """: [[[5, 3, 1], [5, 3, 2]], ((global) ->)]
+
+  """
+  errors = []
+  for (let i of [1, 2]) {
+    for (var j of [3, 4]) {
+      try {
+        for (let k of [5, 6]) {
+          try {
+            throw [k, j, i]
+          } finally { }
+        }
+      } catch (e) {
+        errors.push(e)
+      }
+    }
+  }
+  errors
+  """: [[[5, 3, 1], [5, 4, 1], [5, 3, 2], [5, 4, 2]], ((global) ->)]
+
 
 describe 'vm eval', ->
   vm = null
