@@ -201,6 +201,70 @@ tests =
 
   """
   l = [];
+  outer:
+  for (var i of [1, 2]) {
+    for (var j of [3, 4]) {
+      for (var k of [5, 6]) {
+        l.push([i, j, k]);
+        break outer;
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql([[1, 3, 5]])
+  )]
+
+  """
+  l = [];
+  outer:
+  for (var i of [1, 2]) {
+    for (let j of [3, 4]) {
+      for (var k of [5, 6]) {
+        l.push([i, j, k]);
+        continue outer;
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql([[1, 3, 5], [2, 3, 5]])
+  )]
+
+  """
+  l = [];
+  for (var i of [1, 2]) {
+    outer:
+    for (var j of [3, 4]) {
+      for (var k of [5, 6]) {
+        l.push([i, j, k]);
+        break outer;
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql([[1, 3, 5], [2, 3, 5]])
+  )]
+
+  """
+  l = [];
+  for (var i of [1, 2]) {
+    outer:
+    for (let j of [3, 4]) {
+      for (var k of [5, 6]) {
+        l.push([i, j, k]);
+        continue outer;
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.deep.eql([[1, 3, 5], [1, 4, 5], [2, 3, 5], [2, 4, 5]])
+  )]
+
+  """
+  l = [];
   fruits = ['orange', 'apple', 'lemon'];
   for (let k of fruits) l.push(k)
   null

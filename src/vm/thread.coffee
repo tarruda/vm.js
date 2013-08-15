@@ -2,9 +2,9 @@
 
 
 class Fiber
-  constructor: (@context, @global, maxDepth, script) ->
+  constructor: (@context, maxDepth, script) ->
     @callStack = new Array(maxDepth)
-    @callStack[0] = new Frame(this, script, null, global, @context)
+    @callStack[0] = new Frame(this, script, null, @context)
     @evalStack = @callStack[0].evalStack
     @depth = 0
     @error = null
@@ -65,7 +65,7 @@ class Fiber
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
-    frame = new Frame(this, func.script, scope, @global, @context)
+    frame = new Frame(this, func.script, scope, @context)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -77,13 +77,14 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @global, @context) ->
+  constructor: (@fiber, @script, @scope, @context) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
     @paused = false
     @finalizer = null
     @rv = undefined
+    @line = @column = -1
     # frame-specific registers
     @r1 = @r2 = @r3 = @r4 = null
 
@@ -96,6 +97,12 @@ class Frame
       throw new Error("Evaluation stack has #{len} items after execution")
 
   done: -> @ip is @exitIp
+
+  # later we will use these methods to notify listeners about line/column
+  # changes
+  setLine: (@line) ->
+
+  setColumn: (@line) ->
 
 
 class EvaluationStack

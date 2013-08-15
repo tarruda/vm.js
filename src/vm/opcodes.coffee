@@ -79,7 +79,6 @@ opcodes = [
     ret(f)
 
   Op 'THROW', (f, s, l) -> throwErr(f, s.pop())       # throw something
-  Op 'DEBUG', (f, s, l) -> debug()                    # pause execution
   Op 'SR1', (f, s, l) -> f.r1 = s.pop()               # save to register 1
   Op 'SR2', (f, s, l) -> f.r2 = s.pop()               # save to register 2
   Op 'SR3', (f, s, l) -> f.r3 = s.pop()               # save to register 3
@@ -248,6 +247,12 @@ opcodes = [
     # create a new closure, passing the current local scope
     fn = new Closure(f.script.scripts[scriptIndex], l)
     s.push(fn)
+
+  # debug related opcodes
+  Op 'LINE', (f) -> f.setLine(@args[0])               # set line number
+  Op 'COLUMN', (f) -> f.setColumn(@args[0])           # set column number
+  Op 'DEBUG', (f, s, l) -> debug()                    # pause and notify
+                                                      # attached debugger
 ]
 
 

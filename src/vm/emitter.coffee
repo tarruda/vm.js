@@ -5,7 +5,7 @@ Visitor = require '../ast/visitor'
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
 class Emitter extends Visitor
-  constructor: (scopes) ->
+  constructor: (scopes, @currentLine, @currentColumn) ->
     @instructions = []
     @labels = []
     @scripts = []
@@ -142,51 +142,69 @@ class Emitter extends Visitor
       @guards, max)
 
   BlockStatement: (node) ->
-    if node.disableScope
-      @visit(node.body)
-    else
-      @enterScope()
-      @visit(node.body)
-      @exitScope()
+    # if node.disableScope
+    #   @visit(node.body)
+    # else
+    @enterScope()
+    if node.blockInit
+      node.blockInit()
+    @visit(node.body)
+    if node.blockCleanup
+      node.blockCleanup()
+    @exitScope()
 
   VmLoop: (node, emitInit, emitBeforeTest, emitUpdate, emitAfterTest) ->
+    blockInit = =>
+      if emitInit
+        emitInit(brk)
+      if emitUpdate
+        start.mark()
+      else
+        cont.mark()
+      if emitBeforeTest
+        emitBeforeTest()
+        @JMPF(brk)
+
+    blockCleanup = =>
+      if emitUpdate
+        cont.mark()
+        emitUpdate(brk)
+        @POP()
+        @JMP(start)
+      if emitAfterTest
+        emitAfterTest()
+        @JMPF(brk)
+      @JMP(cont)
+
     currentLabel = @label()
     start = @newLabel()
     cont = @newLabel()
     brk = @newLabel()
+
     if currentLabel?.stmt is node
       # adjust current label 'cont' so 'continue label' will work
       currentLabel.cont = cont
     @pushLabel(null, node, brk, cont)
-    if not node.body.disableScope
-      node.body.disableScope = true
-      @enterScope()
-    if emitInit
-      emitInit(brk)
-    if emitUpdate
-      start.mark()
+    if node.body.type == 'BlockStatement'
+      node.body.blockInit = blockInit
+      node.body.blockCleanup = blockCleanup
+      @visit(node.body)
     else
-      cont.mark()
-    if emitBeforeTest
-      emitBeforeTest()
-      @JMPF(brk)
-    @visit(node.body)
-    if emitUpdate
-      cont.mark()
-      emitUpdate(brk)
-      @POP()
-      @JMP(start)
-    if emitAfterTest
-      emitAfterTest()
-      @JMPF(brk)
-    @JMP(cont)
-    brk.mark()
-    if not node.body.disableScope
+      @enterScope()
+      blockInit()
+      @visit(node.body)
+      blockCleanup()
       @exitScope()
+    brk.mark()
     @popLabel()
 
   VmIteratorLoop: (node, pushIterator) ->
+    labelCleanup = (label, isBreak) =>
+      if label.stmt != node or isBreak
+        @POP()
+
     emitInit = (brk) =>
+      @visit(node.left)
       @visit(node.right)
       pushIterator()
       emitUpdate(brk)
@@ -203,16 +221,11 @@ class Emitter extends Visitor
       operator: '='
       left: assignTarget
 
-    @addLabelCleanup((=> @POP(); @exitScope()))
-    @enterScope()
-    node.body.disableScope = true
+    @addLabelCleanup(labelCleanup)
     assignTarget = node.left
     if assignTarget.type == 'VariableDeclaration'
       assignTarget = node.left.declarations[0].id
-      @visit(node.left)
-
     @VmLoop(node, emitInit, null, emitUpdate)
-    @exitScope()
     @POP()
 
   WhileStatement: (node) ->
@@ -282,7 +295,7 @@ class Emitter extends Visitor
       label = @label(node.label.name)
       if label.cleanup
         for cleanup in label.cleanup
-          cleanup()
+          cleanup(label, true)
     else
       label = @label()
     @JMP(label.brk)
@@ -290,6 +303,9 @@ class Emitter extends Visitor
   ContinueStatement: (node) ->
     if node.label
       label = @label(node.label.name)
+      if label.cleanup
+        for cleanup in label.cleanup
+          cleanup(label, false)
     else
       label = @label()
     @JMP(label.cont)
@@ -353,21 +369,19 @@ class Emitter extends Visitor
     @JMP(finalizer)
     handler.mark()
     if node.handlers.length
-      node.handlers[0].body.disableScope = true
-      @enterScope()
-      # bind error to the declared pattern
-      param = node.handlers[0].param
-      @declarePattern(param)
-      assign =
-        type: 'ExpressionStatement'
-        expression:
-          loc: param.loc
-          type: 'AssignmentExpression'
-          operator: '='
-          left: param
-      @visit(assign)
+      node.handlers[0].body.blockInit = =>
+        # bind error to the declared pattern
+        param = node.handlers[0].param
+        @declarePattern(param)
+        assign =
+          type: 'ExpressionStatement'
+          expression:
+            loc: param.loc
+            type: 'AssignmentExpression'
+            operator: '='
+            left: param
+        @visit(assign)
       @visit(node.handlers[0].body)
-      @exitScope()
     finalizer.mark()
     if node.finalizer
       @visit(node.finalizer)

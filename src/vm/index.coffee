@@ -11,10 +11,10 @@ class Vm
 
   eval: (string) -> @run(@compile(string))
 
-  compile: (source) -> compile(source)
+  compile: (source, filename = '<script>') -> compile(source, filename)
 
   run: (compiled) ->
-    fiber = new Fiber(@context, @global, @maxDepth, compiled)
+    fiber = new Fiber(@context, @maxDepth, compiled)
     fiber.run()
     return fiber.evalStack.rexp
 
