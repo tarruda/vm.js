@@ -186,6 +186,20 @@ tests =
   )]
 
   """
+  for (let i of [1, 2]) {
+    for (var j of [3, 4]) {
+      for (let k of [5, 6]) {
+      }
+    }
+  }
+  null
+  """: [null, ((global) ->
+    expect(global.j).to.eql(4)
+    expect('i' of global).to.be.false
+    expect('k' of global).to.be.false
+  )]
+
+  """
   l = [];
   fruits = ['orange', 'apple', 'lemon'];
   for (let k of fruits) l.push(k)
