@@ -79,11 +79,12 @@ class Fiber
       })
     @error.trace = trace
 
-  pushFrame: (func, args, name) ->
+  pushFrame: (func, args, name, target) ->
     if @depth is @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
+    scope.set(0, target)
     frame = new Frame(this, func.script, scope, @context, name)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
@@ -111,7 +112,7 @@ class Frame
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
       instructions[@ip++].exec(this, @evalStack, @scope, @context)
-    if not @fiber.error and (len = @evalStack.len()) != 0
+    if not @paused and not @fiber.error and (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
 

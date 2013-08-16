@@ -112,15 +112,17 @@ opcodes = [
       f.ip = @args[0]
 
   Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
-    l.set(0, s.pop())                                 # object
+    l.set(1, s.pop())                                 # object
     # the fiber pushing the arguments object cancels
     # this opcode pop calL
   , -> 0
 
+  Op 'GLOBAL', (f, s, l, c) -> s.push(c.global)       # push the global object
+
   Op 'REST', (f, s, l, c) ->                          # initialize 'rest' param
     index = @args[0]
     varIndex = @args[1]
-    args = l.get(0)
+    args = l.get(1)
     if index < args.length
       l.set(varIndex, Array::slice.call(args, index))
 
@@ -333,9 +335,8 @@ call = (frame, length, func, target, name) ->
     catch nativeError
       throwErr(frame, nativeError)
   else
-    # TODO set context
     frame.paused = true
-    frame.fiber.pushFrame(func, args, name)
+    frame.fiber.pushFrame(func, args, name, target)
 
 
 ret = (frame) ->

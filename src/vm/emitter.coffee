@@ -18,7 +18,7 @@ class Emitter extends Visitor
     if scopes
       @scriptScope = scopes[0]
     @localNames = {}
-    @varIndex = 1
+    @varIndex = 2
     @guards = []
     @currentLine = -1
     @currentColumn = -1
@@ -148,7 +148,6 @@ class Emitter extends Visitor
     localLength = 0
     for k of @localNames
       localLength++
-
     return new Script(@filename, @name, @instructions, @scripts, @localNames,
       localLength, @guards, max)
 
@@ -156,17 +155,23 @@ class Emitter extends Visitor
     if node.loc
       {line, column} = node.loc.start
       if line != @currentLine
+        idx = @instructions.length - 1
+        while (@instructions[idx] instanceof opcodes.LINE or
+        @instructions[idx] instanceof opcodes.COLUMN)
+          @instructions.pop()
+          idx--
         @LINE(line)
         @currentLine = line
-      if column != @currentColumn
+      else if column != @currentColumn
+        idx = @instructions.length - 1
+        while @instructions[idx] instanceof opcodes.COLUMN
+          @instructions.pop()
+          idx--
         @COLUMN(column)
         @currentColumn = column
     return super(node)
 
   BlockStatement: (node) ->
-    # if node.disableScope
-    #   @visit(node.body)
-    # else
     @enterScope()
     if node.blockInit
       node.blockInit()
@@ -446,8 +451,10 @@ class Emitter extends Visitor
       @visit(assign)
 
   ThisExpression: (node) ->
-    # A this expression
-    throw new Error('not implemented')
+    if @scopes.length
+      @scopeGet('this')
+    else
+      @GLOBAL()
 
   ArrayExpression: (node) ->
     super(node)
@@ -469,7 +476,8 @@ class Emitter extends Visitor
     name = '<anonymous>'
     if node.id
       name = node.id.name
-    fn = new Emitter([{arguments: 0}].concat(@scopes), @filename, name)
+    fn = new Emitter([{this: 0, arguments: 1}].concat(@scopes), @filename,
+      name)
     # load the the 'arguments' object into the local scope
     fn.ARGS()
     len = node.params.length

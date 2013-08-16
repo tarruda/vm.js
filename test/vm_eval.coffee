@@ -845,6 +845,17 @@ tests =
     expect('j' of global).to.be.false
   )]
 
+  """
+  idGen = {
+    _id: 1,
+    id: function() {
+      return this._id++;
+    }
+  };
+
+  [idGen.id(), idGen.id(), idGen.id()]
+  """: [[1, 2, 3], ((global) ->)]
+
 describe 'vm eval', ->
   vm = null
 
