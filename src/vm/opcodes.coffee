@@ -2,7 +2,7 @@ Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
 {VmObject} = require '../runtime/internal'
-{Closure, Scope} = require './thread'
+{Closure, Scope, WithScope} = require './thread'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -174,6 +174,35 @@ opcodes = [
       scope = scope.parent
     s.push(scope.set(varIndex, s.pop()))
 
+  Op 'GETW', (f, s, l, c) ->
+    key = @args[0]
+    while l instanceof WithScope
+      if l.has(key)
+        return s.push(l.get(key))
+      l = l.parent
+    while l instanceof Scope
+      idx = l.name(key)
+      if idx >= 0
+        return s.push(l.get(idx))
+      l = l.parent
+    if key not of c.global
+      return throwErr(f, new VmReferenceError("#{key} is not defined"))
+    s.push(c.global[key])
+
+  Op 'SETW', (f, s, l, c) ->
+    key = @args[0]
+    value = s.pop()
+    while l instanceof WithScope
+      if l.has(key)
+        return s.push(l.set(key, value))
+      l = l.parent
+    while l instanceof Scope
+      idx = l.name(key)
+      if idx >= 0
+        return s.push(l.set(idx, value))
+      l = l.parent
+    s.push(c.global[key] = value)
+
   Op 'GETG', (f, s, l, c) ->                          # get global variable
     if @args[0] not of c.global
       return throwErr(f, new VmReferenceError("#{@args[0]} is not defined"))
@@ -187,6 +216,9 @@ opcodes = [
 
   Op 'EXIT_SCOPE', (f) ->                             # exit nested scope
     f.scope = f.scope.parent
+
+  Op 'ENTER_WITH', (f, s) ->                            # enter 'with' block
+    f.scope = new WithScope(f.scope, s.pop())
 
   Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
   Op 'LNOT', (f, s, l) -> s.push(not s.pop())         # logical NOT

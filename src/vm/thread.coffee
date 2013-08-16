@@ -150,6 +150,21 @@ class Scope
 
   set: (i, value) -> @data[i] = value
 
+  name: (name) ->
+    for k, v of @names
+      if v == name
+        return parseInt(k)
+    return -1
+
+class WithScope
+  constructor: (@parent, @object) ->
+
+  get: (name) -> @object[name]
+
+  set: (name, value) -> @object[name] = value
+
+  has: (name) -> name of @object
+
 
 class Closure
   constructor: (@script, @parent) ->
@@ -157,4 +172,5 @@ class Closure
 
 exports.Fiber = Fiber
 exports.Scope = Scope
+exports.WithScope = WithScope
 exports.Closure = Closure

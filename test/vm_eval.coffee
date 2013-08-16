@@ -822,6 +822,29 @@ tests =
     )
   )]
 
+  """
+  function withScope() {
+    let k = 3
+    let obj = {i: 1, j: 2}
+
+    with (obj) {
+      i = 10;
+      j = i * 2;
+      k = j * 3;
+      l = k * 4;
+    }
+
+    return [obj, k];
+  }
+
+  withScope()
+  """: [[{j: 20, i: 10}, 60], ((global) ->
+    expect(global.l).to.eql(240)
+    expect('k' of global).to.be.false
+    expect('i' of global).to.be.false
+    expect('j' of global).to.be.false
+  )]
+
 describe 'vm eval', ->
   vm = null
 

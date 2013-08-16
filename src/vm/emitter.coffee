@@ -10,6 +10,7 @@ class Emitter extends Visitor
     @labels = []
     @scripts = []
     @tryStatements = []
+    @withLevel = 0
     # Stack of scopes. Each scope maintains a name -> index association
     # where index is unique per script(function or code executing in global
     # scope)
@@ -36,12 +37,16 @@ class Emitter extends Visitor
     return null
 
   scopeGet: (name) ->
+    if @withLevel
+      return @GETW(name)
     scope = @scope(name)
     if scope
       return @GETL.apply(this, scope)
     @GETG(name) # global object get
 
   scopeSet: (name) ->
+    if @withLevel
+      return @SETW(name)
     scope = @scope(name)
     if scope
       return @SETL.apply(this, scope)
@@ -328,7 +333,12 @@ class Emitter extends Visitor
     @JMP(label.cont)
 
   WithStatement: (node) ->
-    throw new Error("not implemented")
+    @visit(node.object)
+    @ENTER_WITH()
+    @withLevel++
+    @visit(node.body)
+    @withLevel--
+    @EXIT_SCOPE()
 
   SwitchStatement: (node) ->
     brk = @newLabel()
@@ -753,7 +763,6 @@ class Label
 class Script
   constructor: (@filename, @name,  @instructions, @scripts, @localNames,
     @localLength, @guards, @stackSize)->
-
 
 (->
   # create an Emitter method for each opcode
