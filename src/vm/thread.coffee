@@ -67,21 +67,24 @@ class Fiber
     trace = []
     for i in [@depth..0]
       frame = @callStack[i]
+      name = frame.script.name
+      if name == '<anonymous>' and frame.fname
+        name = frame.fname
       trace.push({
         at:
-          name: frame.script.name
-          filename: frame.script.filename or 'file.js'
+          name: name
+          filename: frame.script.filename
         line: frame.line
         column: frame.column
       })
     @error.trace = trace
 
-  pushFrame: (func, args) ->
+  pushFrame: (func, args, name) ->
     if @depth is @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
-    frame = new Frame(this, func.script, scope, @context)
+    frame = new Frame(this, func.script, scope, @context, name)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -93,7 +96,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @context) ->
+  constructor: (@fiber, @script, @scope, @context, @fname) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length

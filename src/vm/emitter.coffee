@@ -460,6 +460,7 @@ class Emitter extends Visitor
     @OBJECT_LITERAL(node.properties.length)
 
   VmFunction: (node) ->
+    name = '<anonymous>'
     if node.id
       name = node.id.name
     fn = new Emitter([{arguments: 0}].concat(@scopes), @filename, name)
@@ -542,10 +543,14 @@ class Emitter extends Visitor
       @SR1() # save target
       @LR1() # load target
       @visitProperty(node.callee) # push property
-      @CALLM(node.arguments.length)
+      if node.callee.property.type == 'Identifier'
+        fname = node.callee.property.name
+      @CALLM(node.arguments.length, fname)
     else
       @visit(node.callee)
-      @CALL(node.arguments.length)
+      if node.callee.type == 'Identifier'
+        fname = node.callee.name
+      @CALL(node.arguments.length, fname)
 
   visitProperty: (memberExpression) ->
     if memberExpression.computed

@@ -761,7 +761,6 @@ tests =
     )
   )]
 
-  # errors/stacktrace
   """
   function abc() {
     x = 5
@@ -770,12 +769,15 @@ tests =
   }
 
   function def() {
-    ghi()
+    y()
   }
 
-  function ghi() {
-    s = undefined
-    s.name = 1
+  y = function() {
+    var x = function ghi() {
+      s = undefined
+      s.name = 1
+    }
+    x()
   }
 
   abc()
@@ -784,14 +786,41 @@ tests =
     expect(errString).to.eql(
       """
       TypeError: Cannot set property 'name' of undefined
-          at ghi (<script>:13:2)
+          at ghi (<script>:14:4)
+          at y (<script>:16:2)
           at def (<script>:8:2)
           at abc (<script>:3:2)
-          at <script>:16:0
+          at <script>:19:0
       """
     )
   )]
 
+  """
+  obj = {
+    getName: function() {
+      return n;
+    }
+  }
+
+  function name() {
+    obj.getName()
+  }
+
+  (function() {
+    name()
+  })()
+  """: [undefined, ((global) ->
+    errString = global.errorThrown.toString()
+    expect(errString).to.eql(
+      """
+      ReferenceError: n is not defined
+          at Object.getName (<script>:3:11)
+          at name (<script>:8:2)
+          at <anonymous> (<script>:12:2)
+          at <script>:11:1
+      """
+    )
+  )]
 
 describe 'vm eval', ->
   vm = null
@@ -840,5 +869,6 @@ describe 'vm eval', ->
     delete global.Math
     delete global.JSON
     delete global.StopIteration
+    delete global.undefined
 
     return global

@@ -10,6 +10,7 @@
 class Realm
   constructor: (merge) ->
     global = {
+      undefined: undefined
       Object: Object
       Number: Number
       Boolean: Boolean

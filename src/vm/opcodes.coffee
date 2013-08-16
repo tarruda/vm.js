@@ -1,6 +1,6 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/util'
-{VmTypeError} = require '../runtime/errors'
+{VmTypeError, VmReferenceError} = require '../runtime/errors'
 {VmObject} = require '../runtime/internal'
 {Closure, Scope} = require './thread'
 
@@ -125,12 +125,12 @@ opcodes = [
       l.set(varIndex, Array::slice.call(args, index))
 
   Op 'CALL', (f, s, l) ->                             # call function
-    call(f, @args[0], s.pop())
+    call(f, @args[0], s.pop(), null, @args[1])
      # pop n arguments plus function and push return value
   , -> 1 - (@args[0] + 1)
 
   Op 'CALLM', (f, s, l) ->                            # call method
-    callm(f, @args[0], s.pop(), s.pop())
+    callm(f, @args[0], s.pop(), s.pop(), @args[1])
      # pop n arguments plus function plus target and push return value
   , -> 1 - (@args[0] + 1 + 1)
 
@@ -175,6 +175,8 @@ opcodes = [
     s.push(scope.set(varIndex, s.pop()))
 
   Op 'GETG', (f, s, l, c) ->                          # get global variable
+    if @args[0] not of c.global
+      return throwErr(f, new VmReferenceError("#{@args[0]} is not defined"))
     s.push(c.global[@args[0]])
 
   Op 'SETG', (f, s, l, c) ->                          # set global variable
@@ -262,14 +264,21 @@ throwErr = (frame, err) ->
 
 
 # Helpers shared between some opcodes
-callm = (frame, length, key, target) ->
+callm = (frame, length, key, target, name) ->
   stack = frame.evalStack
   context = frame.context
+  if target instanceof VmObject
+    targetName = 'VmObject' # FIXME
+  else
+    targetName = target.constructor.name
+  name = "#{targetName}.#{name}"
   func = context.get(target, key)
   if func instanceof Closure
-    return call(frame, length, func, target)
+    if func.name
+      name = func.name
+    return call(frame, length, func, target, name)
   if func instanceof Function
-    return call(frame, length, func, target)
+    return call(frame, length, func, target, name)
   if not func?
     throwErr(frame, new VmTypeError("Object #{target} has no method '#{key}'"))
   else
@@ -277,7 +286,7 @@ callm = (frame, length, key, target) ->
       "Property '#{key}' of object #{target} is not a function"))
 
 
-call = (frame, length, func, target) ->
+call = (frame, length, func, target, name) ->
   stack = frame.evalStack
   context = frame.context
   if not (func instanceof Closure) and not (func instanceof Function)
@@ -294,7 +303,7 @@ call = (frame, length, func, target) ->
   else
     # TODO set context
     frame.paused = true
-    frame.fiber.pushFrame(func, args)
+    frame.fiber.pushFrame(func, args, name)
 
 
 ret = (frame) ->
