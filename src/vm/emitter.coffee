@@ -415,10 +415,6 @@ class Emitter extends Visitor
     end.mark()
     @tryStatements.pop()
 
-  LetStatement: (node) ->
-    # A let statement
-    throw new Error('not implemented')
-
   DebuggerStatement: (node) -> @DEBUG()
 
   VariableDeclaration: (node) ->
@@ -674,6 +670,14 @@ class Emitter extends Visitor
       @POP()
       @LR3()
 
+  Identifier: (node) ->
+    # An identifier. Note that an identifier may be an expression or a
+    # destructuring pattern.
+    @scopeGet(node.name)
+
+  Literal: (node) ->
+    @LITERAL(node.value)
+
   YieldExpression: (node) ->
     # A yield expression
     throw new Error('not implemented')
@@ -684,36 +688,59 @@ class Emitter extends Visitor
     # to the final if clause, if present
     throw new Error('not implemented')
 
-  GeneratorExpression: (node) ->
-    # A generator expression. As with array comprehensions, the blocks
-    # array corresponds to the sequence of for and for each blocks, and
-    # the optional filter expression corresponds to the final if clause,
-    # if present.
-    throw new Error('not implemented')
-
-  GraphExpression: (node) ->
-    # A graph expression, aka "sharp literal," such as #1={ self: #1# }.
-    throw new Error('not implemented')
-
-  GraphIndexExpression: (node) ->
-    # A graph index expression, aka "sharp variable," such as #1#
-    throw new Error('not implemented')
-
-  LetExpression: (node) ->
-    # A let expression
-    throw new Error('not implemented')
-
   ComprehensionBlock: (node) ->
     # A for or for each block in an array comprehension or generator expression
     throw new Error('not implemented')
+  ClassExpression: (node) ->
+    throw new Error('not implemented')
 
-  Identifier: (node) ->
-    # An identifier. Note that an identifier may be an expression or a
-    # destructuring pattern.
-    @scopeGet(node.name)
+  ClassBody: (node) ->
+    throw new Error('not implemented')
 
-  Literal: (node) ->
-    @LITERAL(node.value)
+  ClassDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  ClassHeritage: (node) ->
+    throw new Error('not implemented')
+
+  ArrowFunctionExpression: (node) ->
+    throw new Error('not implemented')
+
+  ExportBatchSpecifier: (node) ->
+    throw new Error('not implemented')
+
+  ExportSpecifier: (node) ->
+    throw new Error('not implemented')
+
+  ExportDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  ImportSpecifier: (node) ->
+    throw new Error('not implemented')
+
+  ImportDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  MethodDefinition: (node) ->
+    throw new Error('not implemented')
+
+  Property: (node) ->
+    throw new Error('not implemented')
+
+  ModuleDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  SpreadElement: (node) ->
+    throw new Error('not implemented')
+
+  TemplateElement: (node) ->
+    throw new Error('not implemented')
+
+  TaggedTemplateExpression: (node) ->
+    throw new Error('not implemented')
+
+  TemplateLiteral: (node) ->
+    throw new Error('not implemented')
 
 
 class Label
