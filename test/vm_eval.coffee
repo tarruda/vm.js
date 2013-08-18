@@ -846,15 +846,26 @@ tests =
   )]
 
   """
+  function fn() {
+    return this._id++;
+  }
+
+  _id = 10;
+
   idGen = {
     _id: 1,
-    id: function() {
-      return this._id++;
-    }
+    id: fn
   };
 
-  [idGen.id(), idGen.id(), idGen.id()]
-  """: [[1, 2, 3], ((global) ->)]
+  fn(); fn(); fn();
+
+  l = [idGen.id(), idGen.id(), idGen.id()]
+  _id++
+  ++this._id
+  """: [15, ((global) ->
+    expect(global._id).to.eql(15)
+    expect(global.l).to.deep.eql([1, 2, 3])
+  )]
 
 describe 'vm eval', ->
   vm = null

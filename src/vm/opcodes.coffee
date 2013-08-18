@@ -336,7 +336,9 @@ call = (frame, length, func, target, name) ->
       throwErr(frame, nativeError)
   else
     frame.paused = true
-    frame.fiber.pushFrame(func, args, name, target)
+    # FIXME strict mode does not set the value of 'this' to the global object
+    # automatically
+    frame.fiber.pushFrame(func, args, name, target or context.global)
 
 
 ret = (frame) ->
