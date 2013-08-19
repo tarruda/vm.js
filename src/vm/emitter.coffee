@@ -547,8 +547,9 @@ class Emitter extends Visitor
   ConditionalExpression: (node) -> @IfStatement(node)
 
   NewExpression: (node) ->
-    # A new expression.
-    throw new Error('not implemented')
+    @visit(node.arguments) # push arguments
+    @visit(node.callee)
+    @NEW(node.arguments.length)
 
   CallExpression: (node) ->
     @visit(node.arguments) # push arguments

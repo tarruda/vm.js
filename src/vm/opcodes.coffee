@@ -126,6 +126,9 @@ opcodes = [
     if index < args.length
       l.set(varIndex, Array::slice.call(args, index))
 
+  Op 'NEW', (f, s, l) ->                              # call as constructor
+    call(f, @args[0], s.pop(), null, null, true)
+
   Op 'CALL', (f, s, l) ->                             # call function
     call(f, @args[0], s.pop(), null, @args[1])
      # pop n arguments plus function and push return value
@@ -320,7 +323,7 @@ callm = (frame, length, key, target, name) ->
       "Property '#{key}' of object #{target} is not a function"))
 
 
-call = (frame, length, func, target, name) ->
+call = (frame, length, func, target, name, isConstructor) ->
   stack = frame.evalStack
   context = frame.context
   if not (func instanceof Closure) and not (func instanceof Function)
@@ -330,15 +333,26 @@ call = (frame, length, func, target, name) ->
     args[--length] = stack.pop()
   if func instanceof Function
     # 'native' function, execute and push to the evaluation stack
+    # some browsers do not accept array-like objects so convert
+    # to an array
+    args = Array::slice.call(args)
     try
-      stack.push(func.apply(target, Array::slice.call(args)))
+      if isConstructor
+        # create a native class instance
+        val = createNativeInstance(func, args)
+      else
+        val = func.apply(target, args)
+      # TODO check if the fiber was paused in the native call before setting
+      # the return value
+      stack.push(val)
     catch nativeError
       throwErr(frame, nativeError)
   else
     frame.paused = true
     # FIXME strict mode does not set the value of 'this' to the global object
     # automatically
-    frame.fiber.pushFrame(func, args, name, target or context.global)
+    frame.fiber.pushFrame(func, args, name, target or context.global,
+      isConstructor)
 
 
 ret = (frame) ->
@@ -348,6 +362,66 @@ ret = (frame) ->
   else
     frame.ip = frame.exitIp
 
+
 debug = ->
+
+
+# ugly but the only way I found to create native classes instances with a
+# variable number of arguments
+
+callDateConstructor = (a) ->
+  switch a.length
+    when 0
+      rv = new Date()
+    when 1
+      rv = new Date(a[0])
+    when 2
+      rv = new Date(a[0], a[1])
+    when 3
+      rv = new Date(a[0], a[1], a[2])
+    when 4
+      rv = new Date(a[0], a[1], a[2], a[3])
+    when 5
+      rv = new Date(a[0], a[1], a[2], a[3], a[4])
+    when 6
+      rv = new Date(a[0], a[1], a[2], a[3], a[4], a[5])
+    else
+      rv = new Date(a[0], a[1], a[2], a[3], a[4], a[5], a[6])
+  return rv
+
+
+callArrayConstructor = (a) ->
+  if a.length == 1 and (a[0] | 0) == a[0]
+    return new Array(a[0])
+  return a.slice()
+
+
+callRegExpConstructor = (a) ->
+  if a.length == 1
+    return new RegExp(a[0])
+  else
+    return new RegExp(a[0], a[1])
+
+
+createNativeInstance = (constructor, args) ->
+  if constructor == Date
+    return callDateConstructor(args)
+  else if constructor == Array
+    return callArrayConstructor(args)
+  else if constructor == RegExp
+    return callRegExpConstructor(args)
+  else if constructor == Number
+    return new Number(args[0])
+  else if constructor == Boolean
+    return new Boolean(args[0])
+  else if Function.prototype.bind
+    return new (Function.prototype.bind.apply(constructor, args))()
+  else
+    # create a new object linked to the function prototype by using
+    # a constructor proxy
+    constructorProxy = -> func.apply(this, args)
+    constructorProxy.prototype = func.prototype
+    return new constructorProxy()
+
 
 module.exports = opcodes

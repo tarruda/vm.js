@@ -867,11 +867,50 @@ tests =
     expect(global.l).to.deep.eql([1, 2, 3])
   )]
 
+  # construct native classes instances
+  """
+  new Date(2013, 7, 17)
+  """: [new Date(2013, 7, 17)]
+
+  """
+  new Array(3, 2, 1)
+  """: [[3, 2, 1]]
+
+  """
+  new Array(3)
+  """: [new Array(3)]
+
+  """
+  new RegExp('abc', 'gi')
+  """: [/abc/gi]
+
+  """
+  [new Number(1), new Number(null), new Number(undefined)]
+  """: [[new Number(1), new Number(null), new Number(undefined)]]
+
+  """
+  [new Boolean(1), new Boolean(null), new Boolean(undefined)]
+  """: [[new Boolean(1), new Boolean(null), new Boolean(undefined)]]
+
+  """
+  dog = new Dog()
+  dog.bark()
+  """: [true, ((global) ->
+    expect(global.dog).to.be.instanceof(merge.Dog)
+    expect(global.dog.barked).to.be.true
+  )]
+
+
+merge =
+  Dog: class Dog
+    bark: -> @barked = true
+
+
 describe 'vm eval', ->
   vm = null
 
   beforeEach ->
-    vm = new Vm(256)
+    vm = new Vm(256, merge)
 
   for k, v of tests
     do (k, v) ->
@@ -918,6 +957,7 @@ describe 'vm eval', ->
     delete global.Math
     delete global.JSON
     delete global.StopIteration
+    delete global.Dog
     delete global.undefined
 
     return global

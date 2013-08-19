@@ -79,13 +79,21 @@ class Fiber
       })
     @error.trace = trace
 
-  pushFrame: (func, args, name, target) ->
+  pushFrame: (func, args, name, target, isConstructor) ->
     if @depth is @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(func.parent, func.script.localNames,
       func.script.localLength)
+    if isConstructor
+      proto = func.__md__.properties.prototype
+      newObj = {}
+      if proto
+        newObj.__md__ = {
+          prototype: proto
+        }
+      target = newObj
     scope.set(0, target)
-    frame = new Frame(this, func.script, scope, @context, name)
+    frame = new Frame(this, func.script, scope, @context, name, isConstructor)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -97,7 +105,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @context, @fname) ->
+  constructor: (@fiber, @script, @scope, @context, @fname, @isConstructor) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
@@ -157,6 +165,7 @@ class Scope
         return parseInt(k)
     return -1
 
+
 class WithScope
   constructor: (@parent, @object) ->
 
@@ -169,6 +178,7 @@ class WithScope
 
 class Closure
   constructor: (@script, @parent) ->
+    @__md__ = {}
 
 
 exports.Fiber = Fiber
