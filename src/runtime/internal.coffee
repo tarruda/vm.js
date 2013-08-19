@@ -90,6 +90,8 @@ class VmObject
     return true
 
   isEnumerable: (k) ->
+    if k == '__mdid__'
+      return false
     v = @container[k]
     return not (v instanceof VmProperty) or v.enumerable
 

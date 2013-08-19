@@ -900,6 +900,10 @@ tests =
     expect(global.dog.barked).to.be.true
   )]
 
+  # native methods
+  """
+  (5.5).toExponential().split('.')
+  """: [['5', '5e+0']]
 
 merge =
   Dog: class Dog
@@ -912,7 +916,7 @@ describe 'vm eval', ->
   beforeEach ->
     vm = new Vm(256, merge)
 
-  for k, v of tests
+  for own k, v of tests
     do (k, v) ->
       fn = ->
         try

@@ -100,7 +100,8 @@ opcodes = [
     else
       keys = []
       for k of target
-        keys.push(k)
+        if k != '__mdid__'
+          keys.push(k)
       iterator = new ArrayIterator(keys)
     s.push(iterator)
 

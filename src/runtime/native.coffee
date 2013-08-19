@@ -235,9 +235,9 @@ nativeBuiltins = [
   i = 0
   for builtin in nativeBuiltins
     if builtin
-      builtin.vmjsNativeBuiltinId = i
+      builtin.__mdid__ = i
     i++
-)
+)()
 
 
 exports.ArrayIterator = ArrayIterator
