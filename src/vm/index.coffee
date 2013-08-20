@@ -7,14 +7,14 @@ Emitter = require './emitter'
 
 class Vm
   constructor: (@maxDepth, merge) ->
-    @context = new Realm(merge)
+    @realm = new Realm(merge)
 
   eval: (string, filename) -> @run(@compile(string, filename))
 
   compile: (source, filename = '<script>') -> compile(source, filename)
 
   run: (compiled) ->
-    fiber = new Fiber(@context, @maxDepth, compiled)
+    fiber = new Fiber(@realm, @maxDepth, compiled)
     fiber.run()
     return fiber.evalStack.rexp
 

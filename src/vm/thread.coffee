@@ -1,11 +1,10 @@
-{VmObject} = require '../runtime/internal'
 {VmError} = require '../runtime/errors'
 
 
 class Fiber
-  constructor: (@context, maxDepth, script) ->
+  constructor: (@realm, maxDepth, script) ->
     @callStack = new Array(maxDepth)
-    @callStack[0] = new Frame(this, script, null, @context)
+    @callStack[0] = new Frame(this, script, null, @realm)
     @evalStack = @callStack[0].evalStack
     @depth = 0
     @error = null
@@ -93,7 +92,7 @@ class Fiber
         }
       target = newObj
     scope.set(0, target)
-    frame = new Frame(this, func.script, scope, @context, name, isConstructor)
+    frame = new Frame(this, func.script, scope, @realm, name, isConstructor)
     frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
@@ -105,7 +104,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @context, @fname, @isConstructor) ->
+  constructor: (@fiber, @script, @scope, @realm, @fname, @isConstructor) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
@@ -119,7 +118,7 @@ class Frame
   run: ->
     instructions = @script.instructions
     while @ip != @exitIp and not @paused
-      instructions[@ip++].exec(this, @evalStack, @scope, @context)
+      instructions[@ip++].exec(this, @evalStack, @scope, @realm)
     if not @paused and not @fiber.error and (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")

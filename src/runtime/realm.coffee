@@ -2,12 +2,14 @@
   VmError, VmEvalError, VmRangeError, VmReferenceError, VmSyntaxError,
   VmTypeError, VmURIError
 } = require './errors'
-{NativeProxy, nativeBuiltins} = require './native'
-{VmObject} = require './internal'
+{
+  ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
+} = require './metadata'
+
 {ArrayIterator, StopIteration} = require './util'
 
 
-hasProp = Object.prototype.hasOwnProperty
+hasProp = (obj, prop) -> Object.prototype.hasOwnProperty.call(obj, prop)
 
 class Realm
   constructor: (merge) ->
@@ -33,66 +35,244 @@ class Realm
     }
 
     # Populate native proxies
-    nativeProxies = {}
+    nativeMetadata = {}
 
-    for builtin in nativeBuiltins
-      if builtin
-        id = builtin.__mdid__
-        if id
-          nativeProxies[id] = new NativeProxy {
-            object: builtin
-          }
+    currentId = 0
 
-    nativeProxies[Array.prototype.__mdid__].include = {
+    @registerNative = register = (obj, restrict) ->
+      if not hasProp(obj, '__mdid__')
+        obj.__mdid__ = currentId + 1
+      currentId = obj.__mdid__
+      if obj.__mdid__ of nativeMetadata
+        return
+      type = typeof restrict
+      if type == 'boolean' and type
+        return nativeMetadata[obj.__mdid__] = new CowObjectMetadata(obj)
+      if type == 'object'
+        nativeMetadata[obj.__mdid__] = new RestrictedObjectMetadata(obj)
+        if Array.isArray(restrict)
+          for k in restrict
+            if hasProp(obj, k)
+              nativeMetadata[obj.__mdid__].leak[k] = null
+              register(obj[k], true)
+        else
+          for own k of restrict
+            if hasProp(obj, k)
+              nativeMetadata[obj.__mdid__].leak[k] = null
+              register(obj[k], restrict[k])
+        return
+      return nativeMetadata[obj.__mdid__] = new ObjectMetadata(obj)
+
+    register(Object, ['prototype'])
+
+    register Function, {
+      'prototype': [
+        'apply'
+        'call'
+        'toString'
+      ]
+    }
+
+    register Number, {
+      'isNaN': true
+      'isFinite': true
+      'prototype': [
+        'toExponential'
+        'toFixed'
+        'toLocaleString'
+        'toPrecision'
+        'toString'
+        'valueOf'
+      ]
+    }
+
+    register Boolean, {
+      'prototype': [
+        'toString'
+        'valueOf'
+      ]
+    }
+
+    register String, {
+      'fromCharCode': true
+      'prototype': [
+        'charAt'
+        'charCodeAt'
+        'concat'
+        'contains'
+        'indexOf'
+        'lastIndexOf'
+        'match'
+        'replace'
+        'search'
+        'slice'
+        'split'
+        'substr'
+        'substring'
+        'toLowerCase'
+        'toString'
+        'toUpperCase'
+        'valueOf'
+      ]
+    }
+
+    register Array, {
+      'isArray': true
+      'every': true
+      'prototype': [
+        'join'
+        'reverse'
+        'sort'
+        'push'
+        'pop'
+        'shift'
+        'unshift'
+        'splice'
+        'concat'
+        'slice'
+        'indexOf'
+        'lastIndexOf'
+        'forEach'
+        'map'
+        'reduce'
+        'reduceRight'
+        'filter'
+        'some'
+        'every'
+      ]
+    }
+
+    register Date, {
+      'now': true
+      'parse': true
+      'UTC': true
+      'prototype': [
+        'getDate'
+        'getDay'
+        'getFullYear'
+        'getHours'
+        'getMilliseconds'
+        'getMinutes'
+        'getMonth'
+        'getSeconds'
+        'getTime'
+        'getTimezoneOffset'
+        'getUTCDate'
+        'getUTCDay'
+        'getUTCFullYear'
+        'getUTCHours'
+        'getUTCMilliseconds'
+        'getUTCMinutes'
+        'getUTCSeconds'
+        'setDate'
+        'setFullYear'
+        'setHours'
+        'setMilliseconds'
+        'setMinutes'
+        'setMonth'
+        'setSeconds'
+        'setUTCDate'
+        'setUTCDay'
+        'setUTCFullYear'
+        'setUTCHours'
+        'setUTCMilliseconds'
+        'setUTCMinutes'
+        'setUTCSeconds'
+        'toDateString'
+        'toISOString'
+        'toJSON'
+        'toLocaleDateString'
+        'toLocaleString'
+        'toLocaleTimeString'
+        'toString'
+        'toTimeString'
+        'toUTCString'
+        'valueOf'
+      ]
+    }
+
+    register RegExp, {
+      'prototype': [
+        'exec'
+        'test'
+        'toString'
+      ]
+    }
+
+    register Math, [
+      'abs'
+      'acos'
+      'asin'
+      'atan'
+      'atan2'
+      'ceil'
+      'cos'
+      'exp'
+      'floor'
+      'imul'
+      'log'
+      'max'
+      'min'
+      'pow'
+      'random'
+      'round'
+      'sin'
+      'sqrt'
+      'tan'
+    ]
+
+    register JSON, [
+      'parse'
+      'stringify'
+    ]
+
+    register(ArrayIterator, ['prototype'])
+   
+    nativeMetadata[Array.prototype.__mdid__].properties = {
       iterator: -> new ArrayIterator(this)
     }
 
-    nativePrototypes = {
-      Number: nativeProxies[Number.prototype.__mdid__]
-      String: nativeProxies[String.prototype.__mdid__]
-      Boolean: nativeProxies[Boolean.prototype.__mdid__]
-      Object: nativeProxies[Object.prototype.__mdid__]
-      Array: nativeProxies[Array.prototype.__mdid__]
-      Date: nativeProxies[Date.prototype.__mdid__]
-      RegExp: nativeProxies[RegExp.prototype.__mdid__]
-    }
-
-    objectProto = nativePrototypes.Object
-
-    @getNativePrototype = (obj) ->
-      type = /\[object\s(\w+)]/.exec(Object.prototype.toString.call(obj))[1]
-      return nativePrototypes[type]
-
     @get = (obj, key) ->
-      if typeof obj == 'object'
-        if obj instanceof VmObject
-          return obj.get(key)
-        else if hasProp.call(obj, '__mdid__')
-          return nativeBuiltins[obj.__mdid__].get(key, obj)
-        else if key of obj
-          return obj[key]
-      proto = @getNativePrototype(obj)
-      return proto.get(key, obj)
+      mdid = obj.__mdid__
+      md = nativeMetadata[obj.__mdid__]
+      if typeof obj != 'object' or obj == md.object or not hasProp(obj, key)
+        # primitive or native builtin or something that inherits from one
+        return md.get(key, obj)
+      # check for inline metadata object
+      if hasProp(obj, '__md__')
+        return obj.__md__.get(key)
+      # delegate lookup to the host javascript vm
+      return obj[key]
 
     @set = (obj, key, val) ->
       if typeof obj == 'object'
-        if obj instanceof VmObject
-          obj.set(key, val)
-        else if hasProp.call(obj, '__mdid__')
-          nativeBuiltins[id].set(key, val)
+        if hasProp(obj, '__md__')
+          obj.__md__.set(key, val)
+        else if hasProp(obj, '__mdid__')
+          nativeBuiltins[obj.__mdid__].set(key, val)
         else
           obj[key] = val
       return val
 
     @del = (obj, key) ->
       if typeof obj == 'object'
-        if obj instanceof VmObject
-          obj.del(key)
-        else if hasProp.call(obj, '__mdid__')
-          nativeBuiltins[id].del(key)
+        if hasProp(obj, '__md__')
+          obj.__md__.del(key)
+        else if hasProp(obj, '__mdid__')
+          nativeBuiltins[obj.__mdid__].del(key)
         else
           delete obj[key]
       return true
+
+    @enumerateKeys = (obj) ->
+      if typeof obj == 'object'
+        if hasProp(obj, '__md__')
+          return obj.__md__.enumerateKeys()
+      keys = []
+      for key of obj
+        if key != '__mdid__'
+          keys.push(key)
+      return new ArrayIterator(keys)
 
     for own k, v of merge
       global[k] = v

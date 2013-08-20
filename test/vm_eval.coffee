@@ -915,6 +915,7 @@ describe 'vm eval', ->
 
   beforeEach ->
     vm = new Vm(256, merge)
+    vm.realm.registerNative(merge.Dog.prototype)
 
   for own k, v of tests
     do (k, v) ->
@@ -925,15 +926,15 @@ describe 'vm eval', ->
           err = e
         expect(result).to.deep.eql expectedValue
         if typeof expectedGlobal is 'function'
-          vm.context.global.errorThrown = err
-          expectedGlobal(vm.context.global)
+          vm.realm.global.errorThrown = err
+          expectedGlobal(vm.realm.global)
         else
           if err
             throw new Error("The VM has thrown an error:\n#{err}")
           if typeof expectedGlobal is 'object'
-            expect(strip(vm.context.global)).to.deep.eql expectedGlobal
+            expect(strip(vm.realm.global)).to.deep.eql expectedGlobal
           else
-            expect(strip(vm.context.global)).to.deep.eql {}
+            expect(strip(vm.realm.global)).to.deep.eql {}
       test = "\"#{k}\""
       expectedValue = v[0]
       expectedGlobal = v[1]

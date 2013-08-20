@@ -1,7 +1,6 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
-{VmObject} = require '../runtime/internal'
 {Closure, Scope, WithScope} = require './thread'
 
 OpcodeClassFactory = (->
@@ -94,16 +93,8 @@ opcodes = [
     callm(f, 0, 'iterator', s.pop())
 
   Op 'ENUMERATE', (f, s, l, c) ->                     # push iterator that
-    target = s.pop()                                  # yields the object
-    if target instanceof VmObject                     # enumerable properties
-      iterator = target.enumerate()
-    else
-      keys = []
-      for k of target
-        if k != '__mdid__'
-          keys.push(k)
-      iterator = new ArrayIterator(keys)
-    s.push(iterator)
+    s.push(c.enumerateKeys(s.pop()))                  # yields the object
+                                                      # enumerable properties
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
     callm(f, 0, 'next', s.pop())
@@ -304,13 +295,13 @@ throwErr = (frame, err) ->
 # Helpers shared between some opcodes
 callm = (frame, length, key, target, name) ->
   stack = frame.evalStack
-  context = frame.context
-  if target instanceof VmObject
-    targetName = 'VmObject' # FIXME
-  else
-    targetName = target.constructor.name
+  realm = frame.realm
+  # if target instanceof VmObject
+  #   targetName = 'VmObject' # FIXME
+  # else
+  targetName = target.constructor.name
   name = "#{targetName}.#{name}"
-  func = context.get(target, key)
+  func = realm.get(target, key)
   if func instanceof Closure
     if func.name
       name = func.name
@@ -326,7 +317,7 @@ callm = (frame, length, key, target, name) ->
 
 call = (frame, length, func, target, name, isConstructor) ->
   stack = frame.evalStack
-  context = frame.context
+  realm = frame.realm
   if not (func instanceof Closure) and not (func instanceof Function)
     return throwErr(frame, new VmTypeError("Object #{func} is not a function"))
   args = {length: length, callee: func}
@@ -352,7 +343,7 @@ call = (frame, length, func, target, name, isConstructor) ->
     frame.paused = true
     # FIXME strict mode does not set the value of 'this' to the global object
     # automatically
-    frame.fiber.pushFrame(func, args, name, target or context.global,
+    frame.fiber.pushFrame(func, args, name, target or realm.global,
       isConstructor)
 
 
