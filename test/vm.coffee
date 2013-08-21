@@ -1046,7 +1046,7 @@ describe 'API', ->
       # the following expectations are not part of the spec
       # (they are here just for demonstration)
       expect(vm.realm.global.i).to.eql(37)
-      # resume fiber and give it a bit more of 'processor' time
+      # resume fiber, giving it a bit more of 'processor' time
       try
         fiber.resume(1000)
       catch e
