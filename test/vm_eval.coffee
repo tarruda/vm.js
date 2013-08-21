@@ -979,3 +979,34 @@ describe 'vm eval', ->
     delete global.undefined
 
     return global
+
+describe 'call vm functions directly', ->
+  vm = null
+
+  code =
+
+  beforeEach ->
+    vm = new Vm(merge)
+
+  it 'from global object', ->
+    code =
+      """
+      function fn() {
+        return this._id++;
+      }
+
+      _id = 10;
+
+      idGen = {
+        _id: 1,
+        id: fn
+      };
+      """
+    vm.eval(code)
+    glob = vm.realm.global
+    idGen = glob.idGen
+    expect([glob.fn(), glob.fn(), glob.fn()]).to.deep.eql([10, 11, 12])
+    expect([idGen.id(), idGen.id(), idGen.id()]).to.deep.eql([1, 2, 3])
+
+
+

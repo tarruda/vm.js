@@ -1,7 +1,7 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
-{Scope, WithScope} = require './thread'
+{Fiber, Scope, WithScope} = require './thread'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
