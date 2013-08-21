@@ -1,3 +1,1 @@
-window.vmjs = {
-  Vm: require '../src/vm'
-}
+window.Vm = require '../src/vm'

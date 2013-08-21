@@ -1009,7 +1009,7 @@ describe 'API', ->
     expect([idGen.id(), idGen.id(), idGen.id()]).to.deep.eql([1, 2, 3])
 
   it 'fiber pause/resume', (done) ->
-    fiber = vm.createFiber(vm.compile('x = 1; x = asyncArray(); x.pop()'))
+    fiber = vm.createFiber(Vm.compile('x = 1; x = asyncArray(); x.pop()'))
     vm.realm.global.asyncArray = ->
       fiber.pause()
       expect(vm.realm.global.x).to.eql(1)

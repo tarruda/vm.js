@@ -1,1 +1,1 @@
-exports.Vm = require '../src/vm'
+module.exports = require '../src/vm'

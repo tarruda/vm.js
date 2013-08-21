@@ -10,9 +10,7 @@ class Vm
     @realm = new Realm(merge)
 
   eval: (string, filename, timeout) ->
-    @run(@compile(string, filename), timeout)
-
-  compile: (source, filename) -> compile(source, filename)
+    @run(Vm.compile(string, filename), timeout)
 
   run: (script, timeout) ->
     fiber = @createFiber(script, timeout)
@@ -26,12 +24,11 @@ class Vm
     fiber.pushFrame(script, @realm.global)
     return fiber
 
-
-compile = (code, filename = '<script>') ->
-  emitter = new Emitter(null, filename)
-  transformer = new Transformer(new ConstantFolder(), emitter)
-  transformer.transform(esprima.parse(code, {loc: true}))
-  return emitter.end()
+  @compile: (code, filename = '<script>') ->
+    emitter = new Emitter(null, filename)
+    transformer = new Transformer(new ConstantFolder(), emitter)
+    transformer.transform(esprima.parse(code, {loc: true}))
+    return emitter.end()
 
 
 module.exports = Vm

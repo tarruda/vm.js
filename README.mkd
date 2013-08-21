@@ -1,7 +1,7 @@
 # vm.js
 
-> Javascript bytecode compiler/vm that should run in any ECMAScript 3 compatible
-> environment
+> Javascript bytecode compiler/vm written in coffeescript(to some extent, a
+> meta-circular interpreter)
 
 ## Installation
 ```shell
@@ -10,20 +10,37 @@ npm install vm.js
 
 ### Overview
 
-vm.js is a library that implements a javascript virtual machine that can be used
-as simple sandbox(preventing infinite loops and global leaks) or as async API
-adapter(it implements fibers that can be paused and resumed later).
+vm.js implements a ECMAScript virtual machine that can be used from any
+ECMAScript3-compatible environment. Eventually it will provide a complete
+ECMAScript 6 environment(for now only some features are supported)
 
-Eventually this will provide a complete ECMAScript 6 environment.
+Here are some possible use cases:
 
-### Example usage on node.js
+- Simple in-process sandbox that prevents untrusted code from executing
+  infinite loops and writing to builtin objects
+- Async-to-sync API adapter by using its pause/resume facility
+- Use new ECMAScript features in very old browsers
+
+
+### Usage
+> Here are some simple usage examples:
+
+The main API can be accessed through Vm instances. Each Vm is indirectly
+associated with a global object(through a Realm) and is isolated from other
+Vms.
+
+Start by creating a new instance:
 
 ```js
-> Vm = require('vm.js').Vm // On web browsers use the 'vmjs' global object
+> Vm = require('vm.js') 
 > vm = new Vm()
+```
+
+Evaluate simple expressions:
+```js
 > vm.eval('40 + 2')
 42
-> vm.eval('[a, b, c] = [1, 2, 3]')
+> vm.eval('[a, b, c] = [1, 2, 3]') // Harmony destructuring assignment
 [1, 2, 3]
 > vm.realm.global.a
 1
@@ -33,6 +50,69 @@ Eventually this will provide a complete ECMAScript 6 environment.
 3
 ```
 
+Compile programs and run later
+```js
+// pass filename as second argument for stack traces/debugging
+> script = Vm.compile('2 + 2', 'sum.js')
+> vm.run(script)
+4
+```
+
+Expose any js object and use from the VM:
+```js
+> vm.realm.global.factorial = function factorial(n) { return n > 1 ? factorial(n - 1) * n : 1 }
+> vm.eval('factorial(5)')
+120
+```
+
+The inverse also works 
+```js
+> vm.eval('function factorial(n) { return n > 1 ? factorial(n - 1) * n : 1 }')
+> vm.realm.global.factorial(5)
+120
+```
+
+Return values asynchronously using fiber pause/resume(Fibers are like threads
+but scheduled in userspace)
+```js
+fiber = vm.createFiber(Vm.compile('user = null; user = fetchAsync("/users/1");'))
+vm.realm.global.fetchAsync = function(url) {
+  fiber.pause() // pause execution
+  $.get(url, function(data) {
+    // user === null
+    fiber.setReturnValue(data)
+    fiber.resume()
+    // user === data
+  });
+}
+```
+
+Builtin objects are exposed, but each Vm instance uses a copy-on-write
+technique to maintain its own builtin state:
+
+```js
+> vm.eval('Object.prototype') === Object.prototype
+true
+> vm.eval('Object.prototype.bark = function() { return "bark!" }')
+> vm.eval('({}).bark()')
+'bark!'
+> 'bark' in Object.prototype
+false
+```
+
+Its possible to provide a instruction timeout(maximum number of instructions a
+fiber can executre)
+```js
+> vm.eval("i = 0; while (true) i++", 'timeout.js', 500)
+TimeoutError: Script timed out
+    at timeout.js:1:20
+```
+
+The TimeoutError has a 'fiber' property that references the paused fiber(it can
+be resumed, optionally passing another timeout to the 'resume' method).
+
+
+For more examples see the tests
 
 ### Comments
 
