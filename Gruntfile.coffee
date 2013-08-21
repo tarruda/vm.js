@@ -136,6 +136,7 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
   grunt.loadNpmTasks 'grunt-coffee-build'
+  grunt.loadNpmTasks 'grunt-release'
 
   grunt.registerMultiTask 'check_debug', ->
     data.debug = {}
@@ -186,6 +187,7 @@ module.exports = (grunt) ->
   grunt.registerTask 'default', [
     'debug-nodejs'
   ]
+
 
   grunt.event.on 'watch', (action, filepath) ->
     coffeelint = grunt.config.getRaw('coffeelint')
