@@ -295,7 +295,7 @@ throwErr = (frame, err) ->
 
 callm = (frame, length, key, target, name) ->
   {evalStack: stack, realm} = frame
-  targetName = target.constructor.name
+  targetName = target.constructor.name or 'Object'
   name = "#{targetName}.#{name}"
   func = realm.get(target, key)
   if func instanceof Function

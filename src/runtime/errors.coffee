@@ -2,11 +2,7 @@ class VmError
   constructor: (@msg) ->
 
   toString: ->
-    errName = @constructor.name
-    if errName
-      errName = errName.slice(2) # Remove the 'Vm' prefix
-    else
-      errName = 'Error'
+    errName = @constructor.display
     rv = "#{errName}: #{@msg}"
     if @trace
       for frame in @trace
@@ -22,24 +18,32 @@ class VmError
 
 
 class VmEvalError extends VmError
+  @display: 'EvalError'
 
 
 class VmRangeError extends VmError
+  @display: 'RangeError'
 
 
 class VmReferenceError extends VmError
+  @display: 'ReferenceError'
 
 
 class VmSyntaxError extends VmError
+  @display: 'SyntaxError'
 
 
 class VmTypeError extends VmError
+  @display: 'TypeError'
 
 
 class VmURIError extends VmError
+  @display: 'URIError'
 
 
 class VmTimeoutError extends VmError
+  @display: 'TimeoutError'
+
   constructor: (@fiber) ->
     super("Script timed out")
 

@@ -320,7 +320,6 @@ tests = {
   i
   """: [10, ((global) ->
     expect(global.i).to.eql(10)
-    expect(global.test.constructor.name).to.eql('Function')
   )]
 
   """
