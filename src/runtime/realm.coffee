@@ -39,7 +39,7 @@ class Realm
 
     currentId = 0
 
-    register = (obj, restrict) ->
+    register = (obj, restrict) =>
       if not hasProp(obj, '__mdid__')
         obj.__mdid__ = currentId + 1
       currentId = obj.__mdid__
@@ -47,9 +47,9 @@ class Realm
         return
       type = typeof restrict
       if type == 'boolean' and type
-        return nativeMetadata[obj.__mdid__] = new CowObjectMetadata(obj)
+        return nativeMetadata[obj.__mdid__] = new CowObjectMetadata(obj, this)
       if type == 'object'
-        nativeMetadata[obj.__mdid__] = new RestrictedObjectMetadata(obj)
+        nativeMetadata[obj.__mdid__] = new RestrictedObjectMetadata(obj, this)
         if Array.isArray(restrict)
           for k in restrict
             if hasProp(obj, k)
@@ -236,6 +236,11 @@ class Realm
       iterator: -> new ArrayIterator(this)
     }
 
+    @mdproto = (obj) ->
+      proto = prototypeOf(obj)
+      if proto
+        return nativeMetadata[proto.__mdid__]
+
     @get = (obj, key) ->
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
@@ -286,6 +291,16 @@ class Realm
     @global = global
 
     @registerNative = register
+
+
+# thanks john resig: http://ejohn.org/blog/objectgetprototypeof/
+if typeof Object.getPrototypeOf != 'function'
+  if typeof ''.__proto__ == 'object'
+    prototypeOf = (obj) -> obj.__proto__
+  else
+    prototypeOf = (obj) -> obj.constructor.prototype
+else
+  prototypeOf = Object.getPrototypeOf
 
 
 module.exports = Realm

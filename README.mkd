@@ -1,7 +1,6 @@
 # vm.js
 
-> Javascript bytecode compiler/vm written in coffeescript(to some extent, a
-> meta-circular interpreter)
+> Javascript bytecode compiler/vm written in coffeescript
 
 ## Installation
 ```shell
@@ -16,14 +15,12 @@ ECMAScript 6 environment(for now only some features are supported)
 
 Here are some possible use cases:
 
-- Simple in-process sandbox that prevents untrusted code from executing
-  infinite loops and writing to builtin objects
-- Async-to-sync API adapter by using its pause/resume facility
+- Simple in-process javascript sandbox
+- Async-to-sync API adapter using fibers(lightweight in-process threads)
 - Use new ECMAScript features in very old browsers
 
 
 ### Usage
-> Here are some simple usage examples:
 
 The main API can be accessed through Vm instances. Each Vm is indirectly
 associated with a global object(through a Realm) and is isolated from other
@@ -58,23 +55,23 @@ Compile programs and run later
 4
 ```
 
-Expose any js object and use from the VM:
+Expose objects to be used by code running inside the Vm
 ```js
 > vm.realm.global.factorial = function factorial(n) { return n > 1 ? factorial(n - 1) * n : 1 }
 > vm.eval('factorial(5)')
 120
 ```
 
-The inverse also works 
+The inverse also works:
 ```js
 > vm.eval('function factorial(n) { return n > 1 ? factorial(n - 1) * n : 1 }')
 > vm.realm.global.factorial(5)
 120
 ```
 
-Return values asynchronously using fiber pause/resume(Fibers are like threads
-but scheduled in userspace)
+Return values asynchronously using fiber pause/resume:
 ```js
+// created a paused fiber from compiled code
 fiber = vm.createFiber(Vm.compile('user = null; user = fetchAsync("/users/1");'))
 vm.realm.global.fetchAsync = function(url) {
   fiber.pause() // pause execution
@@ -85,23 +82,25 @@ vm.realm.global.fetchAsync = function(url) {
     // user === data
   });
 }
+// start fiber
+fiber.run()
 ```
 
 Builtin objects are exposed, but each Vm instance uses a copy-on-write
-technique to maintain its own builtin state:
+algorithm to maintain its own state of builtin globals:
 
 ```js
 > vm.eval('Object.prototype') === Object.prototype
 true
 > vm.eval('Object.prototype.bark = function() { return "bark!" }')
-> vm.eval('({}).bark()')
+> vm.eval('[].bark()')
 'bark!'
 > 'bark' in Object.prototype
 false
 ```
 
 Its possible to provide a instruction timeout(maximum number of instructions a
-fiber can executre)
+fiber can execute)
 ```js
 > vm.eval("i = 0; while (true) i++", 'timeout.js', 500)
 TimeoutError: Script timed out
@@ -112,14 +111,14 @@ The TimeoutError has a 'fiber' property that references the paused fiber(it can
 be resumed, optionally passing another timeout to the 'resume' method).
 
 
-For more examples see the tests
+See more examples [here](https://github.com/tarruda/vm.js/blob/master/test/vm.coffee).
 
 ### Comments
 
 This was inspired by [Continuum](https://github.com/Benvie/continuum) which is
 a ECMAScript 6 virtual machine implemented in pure javascript. I wrote this
 because I wanted a smaller codebase(about 3k lines of coffeescript code) and
-better integration with the host virtual machine(no need to call strange
+seamless integration with the host virtual machine(no need to call strange
 internal methods to access objects manipulated by the vm).
 
 For parsing source code this library uses the

@@ -917,6 +917,14 @@ tests = {
   """: [123, ((global) ->
     expect('custom' of Object.prototype).to.be.false
   )]
+
+  """
+  i = 1
+  Object.prototype.bark = function() { return 'bark' + i++ };
+  [({}).bark(), [].bark(), new Date().bark()]
+  """: [['bark1', 'bark2', 'bark3'], ((global) ->
+    expect('bark' of Object.prototype).to.be.false
+  )]
 }
 
 merge = {

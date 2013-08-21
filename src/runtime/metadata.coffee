@@ -64,7 +64,7 @@ class AccessorPropertyMetadata extends PropertyMetadata
 
 
 class ObjectMetadata
-  constructor: (@object) ->
+  constructor: (@object, @realm) ->
     @proto = null
     @properties = {}
     @extensible = true
@@ -83,7 +83,7 @@ class ObjectMetadata
       if md.hasOwnProperty(key)
         prop = md.getOwnProperty(key)
         break
-      md = md.proto
+      md = md.proto or @realm.mdproto(md.object)
     return prop
 
   get: (key, target = @object) ->
@@ -140,8 +140,8 @@ class ObjectMetadata
 
 
 class CowObjectMetadata extends ObjectMetadata
-  constructor: (object) ->
-    super(object)
+  constructor: (object, realm) ->
+    super(object, realm)
     @exclude = {}
 
   hasOwnProperty: (key) ->
@@ -174,8 +174,8 @@ class CowObjectMetadata extends ObjectMetadata
 # This ensures only explicitly specified builtin properties are leaked
 # into the Realm
 class RestrictedObjectMetadata extends CowObjectMetadata
-  constructor: (object) ->
-    super(object)
+  constructor: (object, realm) ->
+    super(object, realm)
     @leak = {}
 
   hasOwnProperty: (key) ->
