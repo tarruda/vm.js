@@ -982,15 +982,13 @@ describe 'vm eval', ->
 
     return global
 
-describe 'call vm functions directly', ->
+describe 'API', ->
   vm = null
 
-  code =
-
   beforeEach ->
-    vm = new Vm(merge)
+    vm = new Vm()
 
-  it 'from global object', ->
+  it 'call vm functions directly', ->
     code =
       """
       function fn() {
@@ -1010,5 +1008,18 @@ describe 'call vm functions directly', ->
     expect([glob.fn(), glob.fn(), glob.fn()]).to.deep.eql([10, 11, 12])
     expect([idGen.id(), idGen.id(), idGen.id()]).to.deep.eql([1, 2, 3])
 
+  it 'fiber pause/resume', (done) ->
+    fiber = vm.createFiber(vm.compile('x = 1; x = asyncArray(); x.pop()'))
+    vm.realm.global.asyncArray = ->
+      fiber.pause()
+      expect(vm.realm.global.x).to.eql(1)
+      setTimeout ->
+        rv = [1, 2, 3]
+        fiber.setReturnValue(rv)
+        expect(fiber.resume()).to.eql(3)
+        expect(vm.realm.global.x).to.eql(rv)
+        expect(rv).to.deep.eql([1, 2])
+        done()
+    fiber.run()
 
 

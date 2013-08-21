@@ -79,8 +79,6 @@ module.exports = (grunt) ->
         'platform/**/*.coffee'
         'src/**/*.coffee'
         'test/**/*.coffee'
-        'src/**/*.js'
-        'test/**/*.js'
       ]
 
     test:

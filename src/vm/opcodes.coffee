@@ -326,9 +326,8 @@ call = (frame, length, func, target, name, construct) ->
         val = createNativeInstance(func, args)
       else
         val = func.apply(target, args)
-      # TODO check if the fiber was paused in the native call before setting
-      # the return value
-      stack.push(val)
+      if not fiber.paused
+        stack.push(val)
     catch nativeError
       throwErr(frame, nativeError)
 

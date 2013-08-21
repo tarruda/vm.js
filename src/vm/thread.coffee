@@ -9,10 +9,11 @@ class Fiber
     @depth = -1
     @error = null
     @rv = undefined
+    @paused = false
 
   run: ->
     frame = @callStack[@depth]
-    while @depth >= 0 and frame
+    while @depth >= 0 and frame and not @paused
       if @error
         frame = @unwind()
       frame.run()
@@ -103,6 +104,19 @@ class Fiber
     if frame
       frame.paused = false
     return frame
+
+  setReturnValue: (rv) -> @callStack[@depth].evalStack.push(rv)
+
+  pause: -> @paused = @callStack[@depth].paused = true
+
+  resume: ->
+    @paused = false
+    frame = @callStack[@depth]
+    frame.paused = false
+    evalStack = @callStack[0].evalStack
+    @run()
+    if not @paused
+      return evalStack.rexp
 
 
 class Frame

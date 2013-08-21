@@ -11,17 +11,22 @@ class Vm
 
   eval: (string, filename) -> @run(@compile(string, filename))
 
-  compile: (source, filename = '<script>') -> compile(source, filename)
+  compile: (source, filename) -> compile(source, filename)
 
   run: (script) ->
-    fiber = new Fiber(@realm)
-    fiber.pushFrame(script, @realm.global)
+    fiber = @createFiber(script)
     evalStack = fiber.callStack[0].evalStack
     fiber.run()
-    return evalStack.rexp
+    if not fiber.paused
+      return evalStack.rexp
+
+  createFiber: (script) ->
+    fiber = new Fiber(@realm)
+    fiber.pushFrame(script, @realm.global)
+    return fiber
 
 
-compile = (code, filename) ->
+compile = (code, filename = '<script>') ->
   emitter = new Emitter(null, filename)
   transformer = new Transformer(new ConstantFolder(), emitter)
   transformer.transform(esprima.parse(code, {loc: true}))
