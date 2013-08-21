@@ -3,14 +3,14 @@ Visitor = require '../ast/visitor'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
 {Fiber, Scope, WithScope} = require './thread'
 
-OpcodeClassFactory = (->
+OpcodeClassFactory = ( ->
   # opcode id, correspond to the index in the opcodes array and is used
   # to represent serialized opcodes
   id = 0
 
   classFactory = (name, fn, calculateFactor) ->
     # generate opcode class
-    OpcodeClass = (->
+    OpcodeClass = ( ->
       # this is ugly but its the only way I found to get nice opcode
       # names when debugging with node-inspector/chrome dev tools
       constructor = eval(

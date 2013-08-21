@@ -1,6 +1,6 @@
 Vm = require '../src/vm'
 
-tests =
+tests = {
   ## expressions
   # literals
   "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
@@ -280,7 +280,7 @@ tests =
     l.push(x); l.push(y);
   }
   l
-  """: [[1, 2, 3, 4], ((global) ->)]
+  """: [[1, 2, 3, 4], ((global) -> )]
 
   """
   var i, j;
@@ -328,28 +328,28 @@ tests =
     return a + b + c * d;
   }
   fn(4, 9, 10, 3);
-  """: [43, ((global) ->)]
+  """: [43, ((global) -> )]
 
   """
   fn = function(a, b=2, c=b*b, d=c) {
     return a + b + c + d;
   }
   fn(9);
-  """: [19, ((global) ->)]
+  """: [19, ((global) -> )]
 
   """
   fn = function(a, b=2, c=b*b, d=c, ...f) {
     return f;
   }
   fn(1, 2, 3, 4, 5, 6);
-  """: [[5, 6], ((global) ->)]
+  """: [[5, 6], ((global) -> )]
 
   """
   fn = function([n1, n2], {key, value}) {
     return [n1 + n2, key, value];
   }
   fn([5, 4], {key: 'k', value: 'v'});
-  """: [[9, 'k', 'v'], ((global) ->)]
+  """: [[9, 'k', 'v'], ((global) -> )]
 
   """
   x = '10'
@@ -365,7 +365,7 @@ tests =
       break
   }
   z
-  """: [5, ((global) ->)]
+  """: [5, ((global) -> )]
 
   """
   x = 10
@@ -380,7 +380,7 @@ tests =
       z = 3;
   }
   z
-  """: [2, ((global) ->)]
+  """: [2, ((global) -> )]
 
   """
   x = 9
@@ -395,7 +395,7 @@ tests =
       z = 10;
   }
   z
-  """: [2, ((global) ->)]
+  """: [2, ((global) -> )]
 
   """
   x = 8
@@ -410,7 +410,7 @@ tests =
       z = 10;
   }
   z
-  """: [0, ((global) ->)]
+  """: [0, ((global) -> )]
 
   """
   z = 0
@@ -437,7 +437,7 @@ tests =
       z += 2;
   }
   z
-  """: [50, ((global) ->)]
+  """: [50, ((global) -> )]
 
   """
   z = 0
@@ -464,7 +464,7 @@ tests =
       z += 2;
   }
   z
-  """: [52, ((global) ->)]
+  """: [52, ((global) -> )]
 
   """
   z = 0
@@ -491,7 +491,7 @@ tests =
       z += 2;
   }
   z
-  """: [62, ((global) ->)]
+  """: [62, ((global) -> )]
 
   """
   z = 0
@@ -517,7 +517,7 @@ tests =
       z += 2;
   }
   z
-  """: [162, ((global) ->)]
+  """: [162, ((global) -> )]
 
   """
   x = 10
@@ -555,7 +555,7 @@ tests =
       z = 10;
   }
   z
-  """: [4, ((global) ->)]
+  """: [4, ((global) -> )]
 
   """
   function fn1() {
@@ -658,7 +658,7 @@ tests =
     }
   }
   errors
-  """: [[1, 1, 1, 1, 2, 2, 2, 2], ((global) ->)]
+  """: [[1, 1, 1, 1, 2, 2, 2, 2], ((global) -> )]
 
   """
   errors = []
@@ -674,7 +674,7 @@ tests =
     }
   }
   errors
-  """: [[3, 4, 3, 4], ((global) ->)]
+  """: [[3, 4, 3, 4], ((global) -> )]
 
   """
   errors = []
@@ -690,7 +690,7 @@ tests =
     }
   }
   errors
-  """: [[5, 5], ((global) ->)]
+  """: [[5, 5], ((global) -> )]
 
   """
   errors = []
@@ -709,7 +709,7 @@ tests =
     errors.push(e)
   }
   errors
-  """: [[[5, 3, 1]], ((global) ->)]
+  """: [[[5, 3, 1]], ((global) -> )]
 
   """
   errors = []
@@ -727,7 +727,7 @@ tests =
     }
   }
   errors
-  """: [[[5, 3, 1], [5, 3, 2]], ((global) ->)]
+  """: [[[5, 3, 1], [5, 3, 2]], ((global) -> )]
 
   """
   errors = []
@@ -745,7 +745,7 @@ tests =
     }
   }
   errors
-  """: [[[5, 3, 1], [5, 4, 1], [5, 3, 2], [5, 4, 2]], ((global) ->)]
+  """: [[[5, 3, 1], [5, 4, 1], [5, 3, 2], [5, 4, 2]], ((global) -> )]
 
   # errors/stacktrace
   """
@@ -917,10 +917,12 @@ tests =
   """: [123, ((global) ->
     expect('custom' of Object.prototype).to.be.false
   )]
+}
 
-merge =
+merge = {
   Dog: class Dog
     bark: -> @barked = true
+}
 
 
 describe 'vm eval', ->

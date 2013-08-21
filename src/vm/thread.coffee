@@ -70,9 +70,10 @@ class Fiber
       if name == '<anonymous>' and frame.fname
         name = frame.fname
       trace.push({
-        at:
+        at: {
           name: name
           filename: frame.script.filename
+        }
         line: frame.line
         column: frame.column
       })
@@ -163,7 +164,7 @@ class Scope
     for k, v of @names
       if v == name
         return parseInt(k)
-    return -1
+    return - 1
 
 
 class WithScope

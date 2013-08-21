@@ -119,15 +119,15 @@ class Emitter extends Visitor
     @declareVar(name)
     scope = @scope(name)
     if scope
-      opcode = new opcodes.SETL(scope)
+      opcode = new SETL(scope)
     else
-      opcode = new opcodes.SETG([name])
+      opcode = new SETG([name])
     # a function is declared by binding a name to the function ref
     # before other statements that are not function declarations
     codes = [
-      new opcodes.FUNCTION([index])
+      new FUNCTION([index])
       opcode
-      new opcodes.POP()
+      new POP()
     ]
     @instructions = codes.concat(@instructions)
 
@@ -242,11 +242,12 @@ class Emitter extends Visitor
       @NEXT(brk)
       @visit(assignNext()) # assign next to the iteration variable
 
-    assignNext = ->
+    assignNext = -> {
       loc: node.left.loc
       type: 'AssignmentExpression'
       operator: '='
       left: assignTarget
+    }
 
     @addCleanupHook(labelCleanup)
     assignTarget = node.left
@@ -391,11 +392,12 @@ class Emitter extends Visitor
     handler = @newLabel()
     finalizer = @newLabel()
     end = @newLabel()
-    guard =
+    guard = {
       start: start
       handler: if node.handlers.length then handler else null
       finalizer: if node.finalizer then finalizer else null
       end: end
+    }
     @guards.push(guard)
     start.mark()
     @visit(node.block)
@@ -406,13 +408,15 @@ class Emitter extends Visitor
         # bind error to the declared pattern
         param = node.handlers[0].param
         @declarePattern(param)
-        assign =
+        assign = {
           type: 'ExpressionStatement'
-          expression:
+          expression: {
             loc: param.loc
             type: 'AssignmentExpression'
             operator: '='
             left: param
+          }
+        }
         @visit(assign)
         # run cleanup hooks
         for hook in @tryStatements[@tryStatements.length - 1].hooks
@@ -440,14 +444,16 @@ class Emitter extends Visitor
   VariableDeclarator: (node) ->
     @declarePattern(node.id, node.kind)
     if node.init
-      assign =
+      assign = {
         type: 'ExpressionStatement'
-        expression:
+        expression: {
           loc: node.loc
           type: 'AssignmentExpression'
           operator: '='
           left: node.id
           right: node.init
+        }
+      }
       @visit(assign)
 
   ThisExpression: (node) ->
@@ -602,14 +608,16 @@ class Emitter extends Visitor
           if element
             @DUP()
             # get the nth-item from the array
-            childAssignment =
+            childAssignment = {
               operator: node.operator
               type: 'AssignmentExpression'
               left: element
-              right:
+              right: {
                 type: 'MemberExpression'
                 # omit the object since its already loaded on stack
                 property: {type: 'Literal', value: index}
+              }
+            }
             @visit(childAssignment)
             @POP()
           index++
@@ -618,14 +626,16 @@ class Emitter extends Visitor
           @DUP()
           source = property.key
           target = property.value
-          childAssignment =
+          childAssignment = {
             operator: node.operator
             type: 'AssignmentExpression'
             left: target
-            right:
+            right: {
               type: 'MemberExpression'
               computed: true
               property: {type: 'Literal', value: source.name}
+            }
+          }
           @visit(childAssignment)
           @POP()
       return
@@ -771,9 +781,9 @@ class Label
 
 class Script
   constructor: (@filename, @name,  @instructions, @scripts, @localNames,
-    @localLength, @guards, @stackSize)->
+    @localLength, @guards, @stackSize) ->
 
-(->
+( ->
   # create an Emitter method for each opcode
   for opcode in opcodes
     do (opcode) ->
@@ -793,17 +803,18 @@ class Script
         @instructions.push(new opcode(args))
 )()
 
+{SETL, SETG, FUNCTION, POP} =  opcodes
 
-unaryOp =
+unaryOp = {
   '-': 'INV'
   '!': 'LNOT'
   '~': 'NOT'
   'typeof': null
   'void': null
   'delete': null
+}
 
-
-binaryOp =
+binaryOp = {
   '==': 'CEQ'
   '!=': 'CNEQ'
   '===': 'CID'
@@ -825,9 +836,10 @@ binaryOp =
   '^': 'XOR'
   'in': 'IN'
   'instanceof': 'INSTANCE_OF'
+}
 
 
-assignOp =
+assignOp = {
   '+=': 'ADD'
   '-=': 'SUB'
   '*=': 'MUL'
@@ -839,6 +851,7 @@ assignOp =
   '|=': 'OR'
   '&=': 'AND'
   '^=': 'XOR'
+}
 
 
 module.exports = Emitter

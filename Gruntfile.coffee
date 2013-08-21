@@ -14,13 +14,15 @@ module.exports = (grunt) ->
 
     coffeelint:
       options:
-        arrow_spacing: 'error'
-        empty_constructor_needs_parens: 'error'
-        non_empty_constructor_needs_parens: 'error'
+        arrow_spacing: level: 'error'
+        empty_constructor_needs_parens: level: 'error'
+        non_empty_constructor_needs_parens: level: 'error'
         no_trailing_whitespace: level: 'error'
         no_empty_param_list: level: 'error'
         no_stand_alone_at: level: 'error'
         no_backticks: level: 'ignore'
+        no_implicit_braces: level: 'error'
+        space_operators: level: 'error'
       src:
         src: 'src/**/*.coffee'
       test:
@@ -30,38 +32,45 @@ module.exports = (grunt) ->
         options:
           wrap: true
           sourceMap: true
-          disableModuleWrap: ['node_modules/esprima/esprima.js']
+          disableModuleWrap: [
+            'node_modules/esprima/esprima.js'
+            'platform/browser_export.coffee'
+          ]
           disableSourceMap: ['node_modules/esprima/esprima.js']
         browser:
           files: [{
             src: [
               'node_modules/esprima/esprima.js'
               'src/**/*.coffee'
+              'platform/browser_export.coffee'
             ]
-            dest: 'build/browser_dist.js'
+            dest: 'build/browser/vm.js'
           }, {
             src: [
               'node_modules/esprima/esprima.js'
               'test/**/*.coffee'
             ]
-            dest: 'build/browser_test.js'
+            dest: 'build/browser/test.js'
           }]
         nodejs:
           options:
-            disableModuleWrap: ['platform/node_init.coffee']
-            disableSourceMap: ['platform/node_init.coffee']
+            disableModuleWrap: [
+              'platform/node_init.coffee'
+              'platform/node_export.coffee'
+            ]
           files: [{
             src: [
               'platform/node_init.coffee'
               'src/**/*.coffee'
+              'platform/node_export.coffee'
             ]
-            dest: 'build/node_dist.js'
+            dest: 'build/node/vm.js'
           }, {
             src: [
               'platform/node_init.coffee'
               'test/**/*.coffee'
             ]
-            dest: 'build/node_test.js'
+            dest: 'build/node/test.js'
           }]
 
     check_debug:
@@ -77,7 +86,7 @@ module.exports = (grunt) ->
     test:
       all: [
         'test/index.js'
-        'build/node_test.js'
+        'build/node/test.js'
       ]
 
     watch:
@@ -117,7 +126,11 @@ module.exports = (grunt) ->
           port: 8000
           base: './'
 
-    clean: ['build', 'tmp']
+    clean:
+      node:
+        ['build/node']
+      browser:
+        ['build/browser']
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-livereload'
@@ -149,14 +162,13 @@ module.exports = (grunt) ->
 
   grunt.registerTask 'common-rebuild', ->
     grunt.task.run [
-      'clean'
       'connect'
       'coffeelint'
     ]
 
   grunt.registerTask 'debug-browser', ->
     grunt.task.run [
-      'clean'
+      'clean:browser'
       'livereload-start'
       'common-rebuild'
       'coffee_build:browser'
@@ -165,7 +177,7 @@ module.exports = (grunt) ->
 
   grunt.registerTask 'debug-nodejs', ->
     grunt.task.run [
-      'clean'
+      'clean:node'
       'common-rebuild'
       'coffee_build:nodejs'
       'check_debug'

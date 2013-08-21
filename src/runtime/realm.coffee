@@ -286,6 +286,6 @@ class Realm
     @global = global
 
     @registerNative = register
-    @fiber = null
+
 
 module.exports = Realm

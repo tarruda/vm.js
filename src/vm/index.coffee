@@ -24,7 +24,7 @@ class Vm
 compile = (code, filename) ->
   emitter = new Emitter(null, filename)
   transformer = new Transformer(new ConstantFolder(), emitter)
-  transformer.transform(esprima.parse(code, loc: true))
+  transformer.transform(esprima.parse(code, {loc: true}))
   return emitter.end()
 
 

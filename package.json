@@ -4,9 +4,9 @@
   "description": "Javascript vm written in pure coffeescript",
   "repository": {
     "type": "git",
-    "url": "git://github.com/tarruda/vm-js.git"
+    "url": "git://github.com/tarruda/vm.js.git"
   },
-  "main": "./src/index",
+  "main": "./build/node/vm",
   "author": {
     "name": "Thiago de Arruda",
     "email": "tpadilha84@gmail.com"
