@@ -1,0 +1,46 @@
+# vm.js
+
+> Javascript bytecode compiler/vm that should run in any ECMAScript 3 compatible
+> environment
+
+## Installation
+```shell
+npm install vm.js
+```
+
+### Overview
+
+vm.js is a library that implements a javascript virtual machine that can be used
+as simple sandbox(preventing infinite loops and global leaks) or as async API
+adapter(it implements fibers that can be paused and resumed later).
+
+Eventually this will provide a complete ECMAScript 6 environment.
+
+### Example usage on node.js
+
+```js
+> Vm = require('vm.js').Vm // On web browsers use the 'vmjs' global object
+> vm = new Vm()
+> vm.eval('40 + 2')
+42
+> vm.eval('[a, b, c] = [1, 2, 3]')
+[1, 2, 3]
+> vm.realm.global.a
+1
+> vm.realm.global.b
+2
+> vm.realm.global.c
+3
+```
+
+
+### Comments
+
+This was inspired by [Continuum](https://github.com/Benvie/continuum) which is
+a ECMAScript 6 virtual machine implemented in pure javascript. I wrote this
+because I wanted a smaller codebase(about 3k lines of coffeescript code) and
+better integration with the host virtual machine(no need to call strange
+internal methods to access objects manipulated by the vm).
+
+For parsing source code this library uses the
+[esprima parser](https://github.com/ariya/esprima).

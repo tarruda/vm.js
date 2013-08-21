@@ -1,7 +1,7 @@
 {
   "name": "vm.js",
   "version": "0.0.1",
-  "description": "Javascript vm written in pure coffeescript",
+  "description": "Javascript bytecode compiler/virtual machine implemented in pure coffeescript",
   "repository": {
     "type": "git",
     "url": "git://github.com/tarruda/vm.js.git"
