@@ -20,17 +20,28 @@ class VmError
           rv += "\n    at #{filename}:#{l}:#{c}"
     return rv
 
+
 class VmEvalError extends VmError
+
 
 class VmRangeError extends VmError
 
+
 class VmReferenceError extends VmError
+
 
 class VmSyntaxError extends VmError
 
+
 class VmTypeError extends VmError
 
+
 class VmURIError extends VmError
+
+
+class VmTimeoutError extends VmError
+  constructor: (@fiber) ->
+    super("Script timed out")
 
 
 exports.VmError = VmError
@@ -40,3 +51,4 @@ exports.VmReferenceError = VmReferenceError
 exports.VmSyntaxError = VmSyntaxError
 exports.VmTypeError = VmTypeError
 exports.VmURIError = VmURIError
+exports.VmTimeoutError = VmTimeoutError

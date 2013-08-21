@@ -1,10 +1,10 @@
-{VmError} = require '../runtime/errors'
+{VmError, VmTimeoutError} = require '../runtime/errors'
 
 
 class Fiber
-  constructor: (@realm) ->
+  constructor: (@realm, @timeout = -1) ->
     @maxDepth = 256
-    @callStack = new Array(@maxDepth)
+    @callStack = []
     @evalStack = null
     @depth = -1
     @error = null
@@ -26,10 +26,14 @@ class Fiber
         # set the return value
         frame.evalStack.push(@rv)
         @rv = undefined
+    if @timedOut()
+      err = new VmTimeoutError(this)
+      @injectStackTrace(err)
+      throw err
 
   unwind: ->
     if @error instanceof VmError
-      @injectStackTrace()
+      @injectStackTrace(@error)
     # unwind the call stack searching for a guard set to handle this
     frame = @callStack[@depth]
     while frame
@@ -63,7 +67,7 @@ class Fiber
       frame = @popFrame()
     throw @error
 
-  injectStackTrace: ->
+  injectStackTrace: (err) ->
     trace = []
     for i in [@depth..0]
       frame = @callStack[i]
@@ -78,7 +82,9 @@ class Fiber
         line: frame.line
         column: frame.column
       })
-    @error.trace = trace
+    err.trace = trace
+    # show stack trace on node.js
+    err.stack = err.toString()
 
   pushFrame: (script, target, parent = null, args = null,
   name = '<anonymous>', isConstructor = false) ->
@@ -109,7 +115,7 @@ class Fiber
 
   pause: -> @paused = @callStack[@depth].paused = true
 
-  resume: ->
+  resume: (@timeout = -1) ->
     @paused = false
     frame = @callStack[@depth]
     frame.paused = false
@@ -117,6 +123,8 @@ class Fiber
     @run()
     if not @paused
       return evalStack.rexp
+
+  timedOut: -> @timeout == 0
 
 
 class Frame
@@ -133,8 +141,11 @@ class Frame
 
   run: ->
     instructions = @script.instructions
-    while @ip != @exitIp and not @paused
+    while @ip != @exitIp and not @paused and @fiber.timeout != 0
+      @fiber.timeout--
       instructions[@ip++].exec(this, @evalStack, @scope, @realm)
+    if @fiber.timeout == 0
+      @paused = @fiber.paused = true
     if not @paused and not @fiber.error and (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")

@@ -1022,4 +1022,41 @@ describe 'API', ->
         done()
     fiber.run()
 
+  it 'instruction timeout', ->
+    code =
+    """
+    i = 0
+    infiniteLoop();
+    function infiniteLoop() {
+      while (true) i++
+    }
+    """
+    try
+      vm.eval(code, '<timeout>', 500)
+    catch e
+      fiber = e.fiber
+      expect(e.stack).to.eql(
+        """
+        TimeoutError: Script timed out
+            at infiniteLoop (<timeout>:4:9)
+            at <timeout>:2:0
+        """
+      )
+      expect(fiber.timedOut()).to.be.true
+      # the following expectations are not part of the spec
+      # (they are here just for demonstration)
+      expect(vm.realm.global.i).to.eql(37)
+      # resume fiber and give it a bit more of 'processor' time
+      try
+        fiber.resume(1000)
+      catch e
+        expect(e.stack).to.eql(
+          """
+          TimeoutError: Script timed out
+              at infiniteLoop (<timeout>:4:9)
+              at <timeout>:2:0
+          """
+        )
+        expect(fiber.timedOut()).to.be.true
+        expect(vm.realm.global.i).to.eql(114)
 

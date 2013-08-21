@@ -9,19 +9,20 @@ class Vm
   constructor: (merge) ->
     @realm = new Realm(merge)
 
-  eval: (string, filename) -> @run(@compile(string, filename))
+  eval: (string, filename, timeout) ->
+    @run(@compile(string, filename), timeout)
 
   compile: (source, filename) -> compile(source, filename)
 
-  run: (script) ->
-    fiber = @createFiber(script)
+  run: (script, timeout) ->
+    fiber = @createFiber(script, timeout)
     evalStack = fiber.callStack[0].evalStack
     fiber.run()
     if not fiber.paused
       return evalStack.rexp
 
-  createFiber: (script) ->
-    fiber = new Fiber(@realm)
+  createFiber: (script, timeout) ->
+    fiber = new Fiber(@realm, timeout)
     fiber.pushFrame(script, @realm.global)
     return fiber
 
