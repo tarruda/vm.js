@@ -39,7 +39,7 @@ class Realm
 
     currentId = 0
 
-    @registerNative = register = (obj, restrict) ->
+    register = (obj, restrict) ->
       if not hasProp(obj, '__mdid__')
         obj.__mdid__ = currentId + 1
       currentId = obj.__mdid__
@@ -63,7 +63,11 @@ class Realm
         return
       return nativeMetadata[obj.__mdid__] = new ObjectMetadata(obj)
 
-    register(Object, ['prototype'])
+    register Object, {
+      'prototype': [
+        'toString'
+      ]
+    }
 
     register Function, {
       'prototype': [
@@ -235,8 +239,10 @@ class Realm
     @get = (obj, key) ->
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if typeof obj != 'object' or obj == md.object or not hasProp(obj, key)
-        # primitive or native builtin or something that inherits from one
+      if typeof obj not in ['object', 'function'] or obj == md.object or
+      not hasProp(obj, key)
+        # obj is primitive or native builtin or
+        # something that inherits from one
         return md.get(key, obj)
       # check for inline metadata object
       if hasProp(obj, '__md__')
@@ -245,11 +251,11 @@ class Realm
       return obj[key]
 
     @set = (obj, key, val) ->
-      if typeof obj == 'object'
+      if typeof obj in ['object', 'function']
         if hasProp(obj, '__md__')
           obj.__md__.set(key, val)
         else if hasProp(obj, '__mdid__')
-          nativeBuiltins[obj.__mdid__].set(key, val)
+          nativeMetadata[obj.__mdid__].set(key, val)
         else
           obj[key] = val
       return val
@@ -259,7 +265,7 @@ class Realm
         if hasProp(obj, '__md__')
           obj.__md__.del(key)
         else if hasProp(obj, '__mdid__')
-          nativeBuiltins[obj.__mdid__].del(key)
+          nativeMetadata[obj.__mdid__].del(key)
         else
           delete obj[key]
       return true
@@ -279,5 +285,7 @@ class Realm
 
     @global = global
 
+    @registerNative = register
+    @fiber = null
 
 module.exports = Realm

@@ -2,11 +2,11 @@
 
 
 class Fiber
-  constructor: (@realm, maxDepth, script) ->
-    @callStack = new Array(maxDepth)
-    @callStack[0] = new Frame(this, script, null, @realm)
-    @evalStack = @callStack[0].evalStack
-    @depth = 0
+  constructor: (@realm) ->
+    @maxDepth = 256
+    @callStack = new Array(@maxDepth)
+    @evalStack = null
+    @depth = -1
     @error = null
     @rv = undefined
 
@@ -78,13 +78,13 @@ class Fiber
       })
     @error.trace = trace
 
-  pushFrame: (func, args, name, target, isConstructor) ->
+  pushFrame: (script, target, parent = null, args = null,
+  name = '<anonymous>', isConstructor = false) ->
     if @depth is @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
-    scope = new Scope(func.parent, func.script.localNames,
-      func.script.localLength)
+    scope = new Scope(parent, script.localNames, script.localLength)
     if isConstructor
-      proto = func.__md__.properties.prototype
+      proto = @realm.get(func, 'prototype')
       newObj = {}
       if proto
         newObj.__md__ = {
@@ -92,8 +92,9 @@ class Fiber
         }
       target = newObj
     scope.set(0, target)
-    frame = new Frame(this, func.script, scope, @realm, name, isConstructor)
-    frame.evalStack.push(args)
+    frame = new Frame(this, script, scope, @realm, name)
+    if args
+      frame.evalStack.push(args)
     @callStack[++@depth] = frame
 
   popFrame: ->
@@ -104,7 +105,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @realm, @fname, @isConstructor) ->
+  constructor: (@fiber, @script, @scope, @realm, @fname) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length
@@ -175,12 +176,6 @@ class WithScope
   has: (name) -> name of @object
 
 
-class Closure
-  constructor: (@script, @parent) ->
-    @__md__ = {}
-
-
 exports.Fiber = Fiber
 exports.Scope = Scope
 exports.WithScope = WithScope
-exports.Closure = Closure

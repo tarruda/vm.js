@@ -6,17 +6,19 @@ Emitter = require './emitter'
 
 
 class Vm
-  constructor: (@maxDepth, merge) ->
+  constructor: (merge) ->
     @realm = new Realm(merge)
 
   eval: (string, filename) -> @run(@compile(string, filename))
 
   compile: (source, filename = '<script>') -> compile(source, filename)
 
-  run: (compiled) ->
-    fiber = new Fiber(@realm, @maxDepth, compiled)
+  run: (script) ->
+    fiber = new Fiber(@realm)
+    fiber.pushFrame(script, @realm.global)
+    evalStack = fiber.callStack[0].evalStack
     fiber.run()
-    return fiber.evalStack.rexp
+    return evalStack.rexp
 
 
 compile = (code, filename) ->

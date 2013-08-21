@@ -1,7 +1,7 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
-{Closure, Scope, WithScope} = require './thread'
+{Scope, WithScope} = require './thread'
 
 OpcodeClassFactory = (->
   # opcode id, correspond to the index in the opcodes array and is used
@@ -92,8 +92,8 @@ opcodes = [
   Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
     callm(f, 0, 'iterator', s.pop())
 
-  Op 'ENUMERATE', (f, s, l, c) ->                     # push iterator that
-    s.push(c.enumerateKeys(s.pop()))                  # yields the object
+  Op 'ENUMERATE', (f, s, l, r) ->                     # push iterator that
+    s.push(r.enumerateKeys(s.pop()))                  # yields the object
                                                       # enumerable properties
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
@@ -109,9 +109,9 @@ opcodes = [
     # this opcode pop calL
   , -> 0
 
-  Op 'GLOBAL', (f, s, l, c) -> s.push(c.global)       # push the global object
+  Op 'GLOBAL', (f, s, l, r) -> s.push(r.global)       # push the global object
 
-  Op 'REST', (f, s, l, c) ->                          # initialize 'rest' param
+  Op 'REST', (f, s, l, r) ->                          # initialize 'rest' param
     index = @args[0]
     varIndex = @args[1]
     args = l.get(1)
@@ -131,29 +131,29 @@ opcodes = [
      # pop n arguments plus function plus target and push return value
   , -> 1 - (@args[0] + 1 + 1)
 
-  Op 'GET', (f, s, l, c) ->                           # get property from
+  Op 'GET', (f, s, l, r) ->                           # get property from
     obj = s.pop()                                     # object
     key = s.pop()
     if not obj?
       return throwErr(f, new VmTypeError(
         "Cannot read property '#{key}' of #{obj}"))
-    s.push(c.get(obj, key))
+    s.push(r.get(obj, key))
 
-  Op 'SET', (f, s, l, c) ->                           # set property on
+  Op 'SET', (f, s, l, r) ->                           # set property on
     obj = s.pop()                                     # object
     key = s.pop()
     val = s.pop()
     if not obj?
       return throwErr(f, new VmTypeError(
         "Cannot set property '#{key}' of #{obj}"))
-    s.push(c.set(obj, key, val))
+    s.push(r.set(obj, key, val))
 
   Op 'DEL', (f, s, l) ->                              # del property on
     obj = s.pop()                                     # object
     key = s.pop()
     if not obj?
       return throwErr(f, new VmTypeError('Cannot convert null to object'))
-    s.push(c.del(obj, key))
+    s.push(r.del(obj, key))
 
   Op 'GETL', (f, s, l) ->                             # get local variable
     scopeIndex = @args[0]
@@ -171,7 +171,7 @@ opcodes = [
       scope = scope.parent
     s.push(scope.set(varIndex, s.pop()))
 
-  Op 'GETW', (f, s, l, c) ->
+  Op 'GETW', (f, s, l, r) ->
     key = @args[0]
     while l instanceof WithScope
       if l.has(key)
@@ -182,11 +182,11 @@ opcodes = [
       if idx >= 0
         return s.push(l.get(idx))
       l = l.parent
-    if key not of c.global
+    if key not of r.global
       return throwErr(f, new VmReferenceError("#{key} is not defined"))
-    s.push(c.global[key])
+    s.push(r.global[key])
 
-  Op 'SETW', (f, s, l, c) ->
+  Op 'SETW', (f, s, l, r) ->
     key = @args[0]
     value = s.pop()
     while l instanceof WithScope
@@ -198,15 +198,15 @@ opcodes = [
       if idx >= 0
         return s.push(l.set(idx, value))
       l = l.parent
-    s.push(c.global[key] = value)
+    s.push(r.global[key] = value)
 
-  Op 'GETG', (f, s, l, c) ->                          # get global variable
-    if @args[0] not of c.global
+  Op 'GETG', (f, s, l, r) ->                          # get global variable
+    if @args[0] not of r.global
       return throwErr(f, new VmReferenceError("#{@args[0]} is not defined"))
-    s.push(c.global[@args[0]])
+    s.push(r.global[@args[0]])
 
-  Op 'SETG', (f, s, l, c) ->                          # set global variable
-    s.push(c.global[@args[0]] = s.pop())
+  Op 'SETG', (f, s, l, r) ->                          # set global variable
+    s.push(r.global[@args[0]] = s.pop())
 
   Op 'ENTER_SCOPE', (f) ->                            # enter nested scope
     f.scope = new Scope(f.scope, f.script.localNames, f.script.localLength)
@@ -254,7 +254,7 @@ opcodes = [
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
 
-  Op 'OBJECT_LITERAL', (f, s, l, c) ->                # object literal
+  Op 'OBJECT_LITERAL', (f, s, l, r) ->                # object literal
     length = @args[0]
     rv = {}
     while length--
@@ -263,7 +263,7 @@ opcodes = [
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)
 
-  Op 'ARRAY_LITERAL', (f, s, l, c) ->                 # array literal
+  Op 'ARRAY_LITERAL', (f, s, l, r) ->                 # array literal
     length = @args[0]
     rv = new Array(length)
     while length--
@@ -272,12 +272,11 @@ opcodes = [
      # pops each element and push the array
   , -> 1 - @args[0]
 
-  Op 'FUNCTION', (f, s, l) ->                         # push function reference
+  Op 'FUNCTION', (f, s, l, r) ->                      # push function reference
     # get the index of the script with function code
     scriptIndex = @args[0]
-    # create a new closure, passing the current local scope
-    fn = new Closure(f.script.scripts[scriptIndex], l)
-    s.push(fn)
+    # create a new function, passing the current local scope
+    s.push(createFunction(f.script.scripts[scriptIndex], l, r))
 
   # debug related opcodes
   Op 'LINE', (f) -> f.setLine(@args[0])               # set line number
@@ -293,19 +292,12 @@ throwErr = (frame, err) ->
 
 
 # Helpers shared between some opcodes
+
 callm = (frame, length, key, target, name) ->
-  stack = frame.evalStack
-  realm = frame.realm
-  # if target instanceof VmObject
-  #   targetName = 'VmObject' # FIXME
-  # else
+  {evalStack: stack, realm} = frame
   targetName = target.constructor.name
   name = "#{targetName}.#{name}"
   func = realm.get(target, key)
-  if func instanceof Closure
-    if func.name
-      name = func.name
-    return call(frame, length, func, target, name)
   if func instanceof Function
     return call(frame, length, func, target, name)
   if not func?
@@ -315,21 +307,21 @@ callm = (frame, length, key, target, name) ->
       "Property '#{key}' of object #{target} is not a function"))
 
 
-call = (frame, length, func, target, name, isConstructor) ->
-  stack = frame.evalStack
-  realm = frame.realm
-  if not (func instanceof Closure) and not (func instanceof Function)
-    return throwErr(frame, new VmTypeError("Object #{func} is not a function"))
+call = (frame, length, func, target, name, construct) ->
+  {evalStack: stack, fiber, realm} = frame
   args = {length: length, callee: func}
   while length
     args[--length] = stack.pop()
-  if func instanceof Function
-    # 'native' function, execute and push to the evaluation stack
-    # some browsers do not accept array-like objects so convert
-    # to an array
-    args = Array::slice.call(args)
+  target = target or realm.global
+  if func.__vmfunction__
+    func.__callname__ = name
+    func.__fiber__ = fiber
+    func.__construct__ = construct
+    func.apply(target, args)
+  else
     try
-      if isConstructor
+      args = Array::slice.call(args)
+      if construct
         # create a native class instance
         val = createNativeInstance(func, args)
       else
@@ -339,12 +331,27 @@ call = (frame, length, func, target, name, isConstructor) ->
       stack.push(val)
     catch nativeError
       throwErr(frame, nativeError)
-  else
-    frame.paused = true
-    # FIXME strict mode does not set the value of 'this' to the global object
-    # automatically
-    frame.fiber.pushFrame(func, args, name, target or realm.global,
-      isConstructor)
+
+
+createFunction = (script, scope, realm) ->
+  rv = ->
+    construct = run = false
+    if fiber = rv.__fiber__
+      fiber.callStack[fiber.depth].paused = true
+      rv.__fiber__ = null
+      construct = rv.__construct__
+      rv.__construct__ = null
+    else
+      fiber = new Fiber(realm)
+      run = true
+    name = rv.__callname__ or script.name
+    rv.__callname__ = null
+    fiber.pushFrame(script, this, scope, arguments, name, construct)
+    if run
+      fiber.run()
+      return fiber.rv
+  rv.__vmfunction__ = true
+  return rv
 
 
 ret = (frame) ->

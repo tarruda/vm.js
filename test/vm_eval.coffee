@@ -320,7 +320,7 @@ tests =
   i
   """: [10, ((global) ->
     expect(global.i).to.eql(10)
-    expect(global.test.constructor.name).to.eql('Closure')
+    expect(global.test.constructor.name).to.eql('Function')
   )]
 
   """
@@ -905,6 +905,19 @@ tests =
   (5.5).toExponential().split('.')
   """: [['5', '5e+0']]
 
+  """
+  [1, 2].concat([3, 4], [5, 6])
+  """: [[1, 2, 3, 4, 5, 6]]
+
+  # builtin sandboxing
+  """
+  Object.prototype.custom = 123
+  x = Object.prototype.custom
+  x
+  """: [123, ((global) ->
+    expect('custom' of Object.prototype).to.be.false
+  )]
+
 merge =
   Dog: class Dog
     bark: -> @barked = true
@@ -914,7 +927,7 @@ describe 'vm eval', ->
   vm = null
 
   beforeEach ->
-    vm = new Vm(256, merge)
+    vm = new Vm(merge)
     vm.realm.registerNative(merge.Dog.prototype)
 
   for own k, v of tests
