@@ -1,5 +1,5 @@
 Visitor = require '../ast/visitor'
-{StopIteration, ArrayIterator} = require '../runtime/util'
+{StopIteration, ArrayIterator, create} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
 {Fiber, Scope, WithScope} = require './thread'
 
@@ -295,7 +295,8 @@ throwErr = (frame, err) ->
 
 callm = (frame, length, key, target, name) ->
   {evalStack: stack, realm} = frame
-  targetName = target.constructor.name or 'Object'
+  constructor = target.constructor
+  targetName = constructor.__name__ or constructor.name or 'Object'
   name = "#{targetName}.#{name}"
   func = realm.get(target, key)
   if func instanceof Function
@@ -313,28 +314,28 @@ call = (frame, length, func, target, name, construct) ->
   while length
     args[--length] = stack.pop()
   target = target or realm.global
+  push = true
   if func.__vmfunction__
     func.__callname__ = name
     func.__fiber__ = fiber
     func.__construct__ = construct
-    func.apply(target, args)
-  else
-    try
-      args = Array::slice.call(args)
-      if construct
-        # create a native class instance
-        val = createNativeInstance(func, args)
-      else
-        val = func.apply(target, args)
-      if not fiber.paused
-        stack.push(val)
-    catch nativeError
-      throwErr(frame, nativeError)
+    push = false
+  try
+    args = Array::slice.call(args)
+    if construct
+      # create a native class instance
+      val = createNativeInstance(func, args)
+    else
+      val = func.apply(target, args)
+    if push and not fiber.paused
+      stack.push(val)
+  catch nativeError
+    throwErr(frame, nativeError)
 
 
 createFunction = (script, scope, realm) ->
   rv = ->
-    construct = run = false
+    run = false
     if fiber = rv.__fiber__
       fiber.callStack[fiber.depth].paused = true
       rv.__fiber__ = null
@@ -350,6 +351,7 @@ createFunction = (script, scope, realm) ->
       fiber.run()
       return fiber.rv
   rv.__vmfunction__ = true
+  rv.__name__ = script.name
   return rv
 
 
@@ -417,7 +419,9 @@ createNativeInstance = (constructor, args) ->
     # a constructor proxy
     constructorProxy = -> constructor.apply(this, args)
     constructorProxy.prototype = constructor.prototype
-    return new constructorProxy()
+    rv = new constructorProxy()
+    rv.constructor = constructor
+    return rv
 
 
 module.exports = opcodes

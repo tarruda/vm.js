@@ -5,6 +5,7 @@
 {
   ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
 } = require './metadata'
+{prototypeOf} = require './util'
 
 {ArrayIterator, StopIteration} = require './util'
 
@@ -244,16 +245,18 @@ class Realm
     @get = (obj, key) ->
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if typeof obj not in ['object', 'function'] or obj == md.object or
-      not hasProp(obj, key)
-        # obj is primitive or native builtin or
-        # something that inherits from one
+      if md.object == obj or typeof obj not in ['object', 'function']
+        # registered native object, or primitive type. use its corresponding
+        # metadata object to read the property
         return md.get(key, obj)
-      # check for inline metadata object
       if hasProp(obj, '__md__')
+        # use the inline metadata object to read the property
         return obj.__md__.get(key)
-      # delegate lookup to the host javascript vm
-      return obj[key]
+      if hasProp(obj, key)
+        # read the property directly
+        return obj[key]
+      # search the object prototype chain
+      return @get(prototypeOf(obj), key)
 
     @set = (obj, key, val) ->
       if typeof obj in ['object', 'function']
@@ -292,15 +295,9 @@ class Realm
 
     @registerNative = register
 
+        
 
-# thanks john resig: http://ejohn.org/blog/objectgetprototypeof/
-if typeof Object.getPrototypeOf != 'function'
-  if typeof ''.__proto__ == 'object'
-    prototypeOf = (obj) -> obj.__proto__
-  else
-    prototypeOf = (obj) -> obj.constructor.prototype
-else
-  prototypeOf = Object.getPrototypeOf
 
+ 
 
 module.exports = Realm

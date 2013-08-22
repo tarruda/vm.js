@@ -20,9 +20,14 @@ class Fiber
       if @error instanceof VmError
         @injectStackTrace(@error)
       if not frame.done()
-        frame = @callStack[@depth] # function call
+        # possibly a function call, ensure 'frame' is pointing to the top
+        frame = @callStack[@depth]
         continue
-      # function returned
+      # function returned, check if this was a constructor invocation
+      # and act accordingly
+      if frame.construct
+        if typeof @rv not in ['object', 'function']
+          @rv = frame.scope.get(0) # return this
       frame = @popFrame()
       if frame and not @error
         # set the return value
@@ -88,21 +93,13 @@ class Fiber
     # show stack trace on node.js
     err.stack = err.toString()
 
-  pushFrame: (script, target, parent = null, args = null,
-  name = '<anonymous>', isConstructor = false) ->
+  pushFrame: (script, target, parent, args, name = '<anonymous>',
+  construct = false) ->
     if @depth is @maxDepth - 1
       throw new Error('maximum call stack size exceeded')
     scope = new Scope(parent, script.localNames, script.localLength)
-    if isConstructor
-      proto = @realm.get(func, 'prototype')
-      newObj = {}
-      if proto
-        newObj.__md__ = {
-          prototype: proto
-        }
-      target = newObj
     scope.set(0, target)
-    frame = new Frame(this, script, scope, @realm, name)
+    frame = new Frame(this, script, scope, @realm, name, construct)
     if args
       frame.evalStack.push(args)
     @callStack[++@depth] = frame
@@ -130,7 +127,7 @@ class Fiber
 
 
 class Frame
-  constructor: (@fiber, @script, @scope, @realm, @fname) ->
+  constructor: (@fiber, @script, @scope, @realm, @fname, @construct = false) ->
     @evalStack = new EvaluationStack(@script.stackSize)
     @ip = 0
     @exitIp = @script.instructions.length

@@ -935,6 +935,21 @@ tests = {
   """: [['bark1', 'bark2', 'bark3'], ((global) ->
     expect('bark' of Object.prototype).to.be.false
   )]
+
+  """
+  function Person(firstname, lastname) {
+    this.firstname = firstname;
+    this.lastname = lastname;
+  }
+  Person.prototype.fullname = function() {
+    return this.firstname + ' ' + this.lastname;
+  };
+
+  p = new Person('thiago', 'arruda');
+  p.fullname()
+  """: ['thiago arruda', ((global) ->
+    expect(global.p).to.be.instanceof(global.Person)
+  )]
 }
 
 merge = {
