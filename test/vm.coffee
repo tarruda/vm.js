@@ -968,15 +968,26 @@ tests = {
   p1str = p1.toString()
   p1name = p1.fullname()
   p2name = p2.toString()
-  p3name = p3.toString()
-  null
-  """: [null, ((global) ->
+  p3name = p3.toString();
+  (
+    p1 instanceof Person &&
+    !(p1 instanceof Employee) &&
+    !(p1 instanceof Programmer) &&
+    p2 instanceof Person &&
+    p2 instanceof Employee &&
+    !(p2 instanceof Programmer) &&
+    p3 instanceof Person &&
+    p3 instanceof Employee &&
+    p3 instanceof Programmer
+  )
+  """: [true, ((global) ->
     expect(global.p1).to.be.instanceof(global.Person)
     expect(global.p1str).to.eql('[object Object]')
     expect(global.p1name).to.eql('john doe')
     expect(global.p2name).to.eql('employee: thiago arruda')
     expect(global.p3name).to.eql('employee: programmer: linus torvalds')
   )]
+
 }
 
 merge = {
@@ -1119,4 +1130,31 @@ describe 'API', ->
         )
         expect(fiber.timedOut()).to.be.true
         expect(vm.realm.global.i).to.eql(114)
+
+  it 'customize recursion depth', ->
+    code =
+      """
+      var i = 0;
+      var j = rec();
+
+      function rec() {
+        if (i < 1000) {
+          i++;
+          return rec();
+        }
+        return i;
+      };
+      """
+    script = Vm.compile(code, 'stackoverflow.js')
+    VmError = vm.realm.global.Error
+    msg = /^maximum\scall\sstack\ssize\sexceeded$/
+    fiber = vm.createFiber(script)
+    expect(( -> fiber.run())).to.throw(VmError, msg)
+    expect(vm.realm.global.j).to.be.undefined
+    # create a new fiber and increase maximum depth by 1
+    fiber = vm.createFiber(script)
+    fiber.maxDepth += 1
+    fiber.run()
+    expect(vm.realm.global.j).to.eql(1000)
+
 

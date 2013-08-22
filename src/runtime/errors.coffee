@@ -1,9 +1,9 @@
 class VmError
-  constructor: (@msg) ->
+  constructor: (@message) ->
 
   toString: ->
     errName = @constructor.display
-    rv = "#{errName}: #{@msg}"
+    rv = "#{errName}: #{@message}"
     if @trace
       for frame in @trace
         l = frame.line

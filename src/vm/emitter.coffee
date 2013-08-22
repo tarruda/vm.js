@@ -152,6 +152,9 @@ class Emitter extends Visitor
       localLength, @guards, max)
 
   visit: (node) ->
+    if not node?
+      # eg: the 'alternate' block of an if statement
+      return
     if node.loc
       {line, column} = node.loc.start
       if line != @currentLine

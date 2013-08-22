@@ -6,6 +6,12 @@
     "type": "git",
     "url": "git://github.com/tarruda/vm.js.git"
   },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/tarruda/vm.js/blob/master/LICENSE-MIT"
+    }
+  ],
   "main": "./build/node/vm",
   "author": {
     "name": "Thiago de Arruda",

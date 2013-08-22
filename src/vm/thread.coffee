@@ -3,7 +3,7 @@
 
 class Fiber
   constructor: (@realm, @timeout = -1) ->
-    @maxDepth = 256
+    @maxDepth = 1000
     @callStack = []
     @evalStack = null
     @depth = -1
@@ -95,8 +95,10 @@ class Fiber
 
   pushFrame: (script, target, parent, args, name = '<anonymous>',
   construct = false) ->
-    if @depth is @maxDepth - 1
-      throw new Error('maximum call stack size exceeded')
+    if @depth is @maxDepth
+      @error = new VmError('maximum call stack size exceeded')
+      @pause()
+      return
     scope = new Scope(parent, script.localNames, script.localLength)
     scope.set(0, target)
     frame = new Frame(this, script, scope, @realm, name, construct)
@@ -128,7 +130,7 @@ class Fiber
 
 class Frame
   constructor: (@fiber, @script, @scope, @realm, @fname, @construct = false) ->
-    @evalStack = new EvaluationStack(@script.stackSize)
+    @evalStack = new EvaluationStack(@script.stackSize, @fiber)
     @ip = 0
     @exitIp = @script.instructions.length
     @paused = false
@@ -159,7 +161,7 @@ class Frame
 
 
 class EvaluationStack
-  constructor: (size) ->
+  constructor: (size, @fiber) ->
     @array = new Array(size)
     @idx = 0
     @rexp = null
