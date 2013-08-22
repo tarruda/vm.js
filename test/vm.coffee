@@ -936,6 +936,7 @@ tests = {
     expect('bark' of Object.prototype).to.be.false
   )]
 
+  # prototype chains
   """
   function Person(firstname, lastname) {
     this.firstname = firstname;
@@ -945,10 +946,36 @@ tests = {
     return this.firstname + ' ' + this.lastname;
   };
 
-  p = new Person('thiago', 'arruda');
-  p.fullname()
-  """: ['thiago arruda', ((global) ->
-    expect(global.p).to.be.instanceof(global.Person)
+  function Employee(firstname, lastname) {
+    Person.call(this, firstname, lastname)
+  }
+  Employee.prototype = Object.create(Person.prototype)
+  Employee.prototype.toString = function() {
+    return 'employee: ' + this.fullname()
+  };
+
+  function Programmer() {
+    Employee.apply(this, arguments)
+  }
+  Programmer.prototype = new Employee()
+  Programmer.prototype.fullname = function() {
+    return 'programmer: ' + Employee.prototype.fullname.call(this);
+  };
+
+  p1 = new Person('john', 'doe');
+  p2 = new Employee('thiago', 'arruda');
+  p3 = new Programmer('linus', 'torvalds');
+  p1str = p1.toString()
+  p1name = p1.fullname()
+  p2name = p2.toString()
+  p3name = p3.toString()
+  null
+  """: [null, ((global) ->
+    expect(global.p1).to.be.instanceof(global.Person)
+    expect(global.p1str).to.eql('[object Object]')
+    expect(global.p1name).to.eql('john doe')
+    expect(global.p2name).to.eql('employee: thiago arruda')
+    expect(global.p3name).to.eql('employee: programmer: linus torvalds')
   )]
 }
 

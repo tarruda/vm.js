@@ -5,7 +5,7 @@
 {
   ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
 } = require './metadata'
-{prototypeOf} = require './util'
+{prototypeOf, create} = require './util'
 
 {ArrayIterator, StopIteration} = require './util'
 
@@ -233,6 +233,10 @@ class Realm
 
     register(ArrayIterator, ['prototype'])
    
+    nativeMetadata[Object.prototype.__mdid__].properties = {
+      create: create
+    }
+
     nativeMetadata[Array.prototype.__mdid__].properties = {
       iterator: -> new ArrayIterator(this)
     }
