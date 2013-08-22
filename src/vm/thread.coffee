@@ -4,6 +4,7 @@
 class Fiber
   constructor: (@realm, @timeout = -1) ->
     @maxDepth = 1000
+    @maxTraceDepth = 50
     @callStack = []
     @evalStack = null
     @depth = -1
@@ -76,7 +77,10 @@ class Fiber
 
   injectStackTrace: (err) ->
     trace = []
-    for i in [@depth..0]
+    minDepth = 0
+    if @depth > @maxTraceDepth
+      minDepth = @depth - @maxTraceDepth
+    for i in [@depth..minDepth]
       frame = @callStack[i]
       name = frame.script.name
       if name == '<anonymous>' and frame.fname
