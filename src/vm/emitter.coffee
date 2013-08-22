@@ -22,6 +22,10 @@ class Emitter extends Visitor
     @guards = []
     @currentLine = -1
     @currentColumn = -1
+    @stringIds = {}
+    @strings = []
+    @regexpIds = {}
+    @regexps = []
 
   scope: (name) ->
     i = 0
@@ -149,7 +153,7 @@ class Emitter extends Visitor
     for k of @localNames
       localLength++
     return new Script(@filename, @name, @instructions, @scripts, @localNames,
-      localLength, @guards, max)
+      localLength, @guards, max, @strings, @regexps)
 
   visit: (node) ->
     if not node?
@@ -708,7 +712,29 @@ class Emitter extends Visitor
     @scopeGet(node.name)
 
   Literal: (node) ->
-    @LITERAL(node.value)
+    val = node.value
+    # variable-length literals(strings and regexps) are stored in arrays
+    # and referenced by index
+    if typeof val == 'string'
+      if val not of @stringIds
+        @strings.push(val)
+        idx = @strings.length - 1
+        @stringIds[val] = idx
+      idx = @stringIds[val]
+      @STRING_LITERAL(idx)
+    else if val instanceof RegExp
+      id = val.source + '/'
+      id += if val.global then 'g' else ''
+      id += if val.ignoreCase then 'i' else ''
+      id += if val.multiline then 'm' else ''
+      if id not of @regexpIds
+        @regexps.push(val)
+        idx = @regexps.length - 1
+        @regexpIds[id] = idx
+      idx = @regexpIds[id]
+      @REGEXP_LITERAL(idx)
+    else
+      @LITERAL(val)
 
   YieldExpression: (node) ->
     # A yield expression
@@ -784,7 +810,7 @@ class Label
 
 class Script
   constructor: (@filename, @name,  @instructions, @scripts, @localNames,
-    @localLength, @guards, @stackSize) ->
+    @localLength, @guards, @stackSize, @strings, @regexps) ->
 
 ( ->
   # create an Emitter method for each opcode

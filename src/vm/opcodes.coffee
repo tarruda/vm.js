@@ -254,6 +254,12 @@ opcodes = [
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
 
+  Op 'STRING_LITERAL', (f, s, l) ->                   # push string value
+    s.push(f.script.strings[@args[0]])
+
+  Op 'REGEXP_LITERAL', (f, s, l) ->                   # push regexp value
+    s.push(f.script.regexps[@args[0]])
+
   Op 'OBJECT_LITERAL', (f, s, l, r) ->                # object literal
     length = @args[0]
     rv = {}
