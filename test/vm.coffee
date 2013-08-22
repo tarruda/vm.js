@@ -557,6 +557,17 @@ tests = {
   """: [4, ((global) -> )]
 
   """
+  throw new EvalError('err')
+  """: [undefined, ((global) ->
+    expect(global.errorThrown.stack).to.eql(
+      """
+      EvalError: err
+          at <script>:1:10
+      """
+    )
+  )]
+
+  """
   function fn1() {
     try {
       fn2();

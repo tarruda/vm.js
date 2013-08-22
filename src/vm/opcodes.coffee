@@ -412,13 +412,11 @@ createNativeInstance = (constructor, args) ->
     return new Number(args[0])
   else if constructor == Boolean
     return new Boolean(args[0])
-  else if Function.prototype.bind
-    return new (Function.prototype.bind.apply(constructor, args))()
   else
     # create a new object linked to the function prototype by using
     # a constructor proxy
-    constructorProxy = -> func.apply(this, args)
-    constructorProxy.prototype = func.prototype
+    constructorProxy = -> constructor.apply(this, args)
+    constructorProxy.prototype = constructor.prototype
     return new constructorProxy()
 
 

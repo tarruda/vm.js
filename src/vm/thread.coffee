@@ -17,6 +17,8 @@ class Fiber
       if @error
         frame = @unwind()
       frame.run()
+      if @error instanceof VmError
+        @injectStackTrace(@error)
       if not frame.done()
         frame = @callStack[@depth] # function call
         continue
@@ -30,10 +32,10 @@ class Fiber
       err = new VmTimeoutError(this)
       @injectStackTrace(err)
       throw err
+    if @error
+      throw @error
 
   unwind: ->
-    if @error instanceof VmError
-      @injectStackTrace(@error)
     # unwind the call stack searching for a guard set to handle this
     frame = @callStack[@depth]
     while frame
