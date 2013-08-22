@@ -6,11 +6,14 @@
   ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
 } = require './metadata'
 {prototypeOf, create} = require './util'
+RegExpProxy = require './regexp_proxy'
+
 
 {ArrayIterator, StopIteration} = require './util'
 
 
 hasProp = (obj, prop) -> Object.prototype.hasOwnProperty.call(obj, prop)
+
 
 class Realm
   constructor: (merge) ->
@@ -232,6 +235,8 @@ class Realm
     ]
 
     register(ArrayIterator, ['prototype'])
+
+    register(RegExpProxy, ['prototype'])
    
     nativeMetadata[Object.prototype.__mdid__].properties = {
       create: create
@@ -300,8 +305,5 @@ class Realm
     @registerNative = register
 
         
-
-
- 
 
 module.exports = Realm

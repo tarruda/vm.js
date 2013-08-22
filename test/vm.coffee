@@ -6,8 +6,7 @@ tests = {
   "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
   "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
   "'abc'": ['abc']
-  "/abc/gmi": [/abc/gmi]
-  "/abc/gi === /abc/gi": [true]
+  "/abc/gi === /abc/gi": [false]
   # unary
   '-{count: 2}.count': [-2]
   "x = {count: 28};x.count++": [28, {x: {count: 29}}]
@@ -921,6 +920,10 @@ tests = {
   """
   [1, 2].concat([3, 4], [5, 6])
   """: [[1, 2, 3, 4, 5, 6]]
+
+  """
+  /(a)(b)(c)/.exec('abc').slice()
+  """: [['abc', 'a', 'b', 'c']]
 
   # builtin sandboxing
   """

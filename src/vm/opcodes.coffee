@@ -1,6 +1,7 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator, create} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
+RegExpProxy = require '../runtime/regexp_proxy'
 {Fiber, Scope, WithScope} = require './thread'
 
 OpcodeClassFactory = ( ->
@@ -254,11 +255,11 @@ opcodes = [
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
 
-  Op 'STRING_LITERAL', (f, s, l) ->                   # push string value
+  Op 'STRING_LITERAL', (f, s, l) ->                   # push string object
     s.push(f.script.strings[@args[0]])
 
-  Op 'REGEXP_LITERAL', (f, s, l) ->                   # push regexp value
-    s.push(f.script.regexps[@args[0]])
+  Op 'REGEXP_LITERAL', (f, s, l, r) ->                # push regexp object
+    s.push(new RegExpProxy(f.script.regexps[@args[0]], r))
 
   Op 'OBJECT_LITERAL', (f, s, l, r) ->                # object literal
     length = @args[0]
