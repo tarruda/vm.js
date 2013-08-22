@@ -1,6 +1,6 @@
 {
   "name": "vm.js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Javascript bytecode compiler/virtual machine implemented in pure coffeescript",
   "repository": {
     "type": "git",
