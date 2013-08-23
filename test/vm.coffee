@@ -8,6 +8,8 @@ tests = {
   "'abc'": ['abc']
   "/abc/gi === /abc/gi": [false]
   # unary
+  'void(0)': [undefined]
+  'void(x=1)': [undefined, {x: 1}]
   'typeof 5': ['number']
   'n=5; typeof n': ['number', {n: 5}]
   'typeof true': ['boolean']

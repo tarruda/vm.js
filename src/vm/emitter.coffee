@@ -767,9 +767,11 @@ class Emitter extends Visitor
 
   Literal: (node) ->
     val = node.value
+    if typeof val == 'undefined'
+      @UNDEF()
     # variable-length literals(strings and regexps) are stored in arrays
     # and referenced by index
-    if typeof val == 'string'
+    else if typeof val == 'string'
       if val not of @stringIds
         @strings.push(val)
         idx = @strings.length - 1

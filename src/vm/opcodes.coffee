@@ -261,11 +261,15 @@ opcodes = [
     s.push(typeof s.pop())
 
   Op 'VOID', (f, s) ->
+    s.pop()
     s.push(undef)
 
   Op 'JMP', (f, s, l) -> f.ip = @args[0]              # unconditional jump
   Op 'JMPT', (f, s, l) -> f.ip = @args[0] if s.pop()  # jump if true
   Op 'JMPF', (f, s, l) -> f.ip = @args[0] if not s.pop()# jump if false
+
+  Op 'UNDEF', (f, s) ->
+    s.push(undef)
 
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
