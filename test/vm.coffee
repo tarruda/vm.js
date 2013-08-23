@@ -1100,6 +1100,12 @@ tests = {
     return 'programmer: ' + Employee.prototype.fullname.call(this);
   };
 
+  hasOwn = [
+    Person.prototype.hasOwnProperty('fullname'),
+    Employee.prototype.hasOwnProperty('fullname'),
+    Programmer.prototype.hasOwnProperty('fullname')
+  ]
+
   p1 = new Person('john', 'doe');
   p2 = new Employee('thiago', 'arruda');
   p3 = new Programmer('linus', 'torvalds');
@@ -1124,6 +1130,7 @@ tests = {
     expect(global.p1name).to.eql('john doe')
     expect(global.p2name).to.eql('employee: thiago arruda')
     expect(global.p3name).to.eql('employee: programmer: linus torvalds')
+    expect(global.hasOwn).to.eql([true, false, true])
   )]
 
 }

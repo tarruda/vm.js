@@ -50,6 +50,17 @@ class Realm
 
     currentId = 0
 
+    hasOwnProperty = (obj, key) ->
+      mdid = obj.__mdid__
+      md = nativeMetadata[obj.__mdid__]
+      if md.object == obj or typeof obj not in ['object', 'function']
+        # registered native object, or primitive type. use its corresponding
+        # metadata object to read the property
+        return md.hasOwnProperty(key, obj)
+      if hasProp(obj, '__md__')
+        return obj.__md__.hasOwnProperty(key)
+      return hasProp(obj, key)
+
     register = (obj, restrict) =>
       if not hasProp(obj, '__mdid__')
         obj.__mdid__ = currentId + 1
@@ -244,8 +255,12 @@ class Realm
 
     register(RegExpProxy, ['prototype'])
    
-    nativeMetadata[Object.prototype.__mdid__].properties = {
+    nativeMetadata[Object.__mdid__].properties = {
       create: create
+    }
+
+    nativeMetadata[Object.prototype.__mdid__].properties = {
+      hasOwnProperty: (key) -> hasOwnProperty(this, key)
     }
 
     nativeMetadata[Array.prototype.__mdid__].properties = {
