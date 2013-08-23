@@ -586,7 +586,6 @@ tests = {
   """: [5, ((global) ->
     expect(global.e).to.not.exist # 'e' should be local to the catch block
     expect(global.a).to.eql('error'))]
-    # ((global) -> expect(global.a).to.eql('error')), 1]
 
   """
   function fn1() {
@@ -1054,10 +1053,13 @@ describe 'vm eval', ->
   for own k, v of tests
     do (k, v) ->
       fn = ->
+        # implicitly test script serialization/deserialization
+        script = Vm.fromJSON(Vm.compile(k).toJSON())
         try
-          result = vm.eval(k)
+          result = vm.run(script)
         catch e
           err = e
+
         expect(result).to.deep.eql expectedValue
         if typeof expectedGlobal is 'function'
           vm.realm.global.errorThrown = err

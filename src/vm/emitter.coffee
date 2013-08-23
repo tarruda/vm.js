@@ -1,4 +1,5 @@
 {parse} = esprima
+Script = require './script'
 opcodes = require './opcodes'
 Visitor = require '../ast/visitor'
     
@@ -17,7 +18,7 @@ class Emitter extends Visitor
     @scopes = scopes or []
     if scopes
       @scriptScope = scopes[0]
-    @localNames = {}
+    @localNames = []
     @varIndex = 2
     @guards = []
     @currentLine = -1
@@ -150,7 +151,7 @@ class Emitter extends Visitor
       current += code.calculateFactor()
       max = Math.max(current, max)
     localLength = 0
-    for k of @localNames
+    for k in @localNames
       localLength++
     return new Script(@filename, @name, @instructions, @scripts, @localNames,
       localLength, @guards, max, @strings, @regexps)
@@ -723,10 +724,7 @@ class Emitter extends Visitor
       idx = @stringIds[val]
       @STRING_LITERAL(idx)
     else if val instanceof RegExp
-      id = val.source + '/'
-      id += if val.global then 'g' else ''
-      id += if val.ignoreCase then 'i' else ''
-      id += if val.multiline then 'm' else ''
+      id = Script.regexpToString(val)
       if id not of @regexpIds
         @regexps.push(val)
         idx = @regexps.length - 1
@@ -807,10 +805,6 @@ class Label
 
   mark: -> @ip = @instructions.length
 
-
-class Script
-  constructor: (@filename, @name,  @instructions, @scripts, @localNames,
-    @localLength, @guards, @stackSize, @strings, @regexps) ->
 
 ( ->
   # create an Emitter method for each opcode

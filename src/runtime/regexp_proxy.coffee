@@ -13,7 +13,7 @@ class RegExpProxy
       new DataPropertyMetadata(regexp.ignoreCase, false, true, false))
     @__md__.defineProperty('multiline',
       new DataPropertyMetadata(regexp.multiline, false, true, false))
-    @__md__.defineproperty('source',
+    @__md__.defineProperty('source',
       new DataPropertyMetadata(regexp.source, false, true, false))
     @lastIndex = 0
 

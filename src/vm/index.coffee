@@ -3,6 +3,7 @@ Realm = require '../runtime/realm'
 ConstantFolder = require '../ast/constant_folder'
 Emitter = require './emitter'
 {Fiber} = require './thread'
+Script = require './script'
 
 
 class Vm
@@ -29,6 +30,8 @@ class Vm
     transformer = new Transformer(new ConstantFolder(), emitter)
     transformer.transform(esprima.parse(code, {loc: true}))
     return emitter.end()
+
+  @fromJSON: Script.fromJSON
 
 
 module.exports = Vm
