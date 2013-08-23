@@ -254,6 +254,19 @@ class Realm
       if proto
         return nativeMetadata[proto.__mdid__]
 
+    @has = (obj, key) ->
+      mdid = obj.__mdid__
+      md = nativeMetadata[obj.__mdid__]
+      if md.object == obj or typeof obj not in ['object', 'function']
+        # registered native object, or primitive type. use its corresponding
+        # metadata object to read the property
+        return md.has(key, obj)
+      if hasProp(obj, '__md__')
+        return obj.__md__.has(key)
+      if hasProp(obj, key)
+        return true
+      return @has(prototypeOf(obj), key)
+
     @get = (obj, key) ->
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
@@ -281,7 +294,11 @@ class Realm
       return val
 
     @del = (obj, key) ->
-      if typeof obj == 'object'
+      type = typeof obj
+      if type in ['object', 'function']
+        if type == 'function' and key == 'prototype'
+          # never allow a function prototype to be deleted
+          return false
         if hasProp(obj, '__md__')
           obj.__md__.del(key)
         else if hasProp(obj, '__mdid__')

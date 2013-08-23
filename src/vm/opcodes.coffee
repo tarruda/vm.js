@@ -253,7 +253,9 @@ opcodes = [
   Op 'LTE', (f, s, l) -> s.push(s.pop() <= s.pop())   # less or equal than
   Op 'GT', (f, s, l) -> s.push(s.pop() > s.pop())     # greater than
   Op 'GTE', (f, s, l) -> s.push(s.pop() >= s.pop())   # greater or equal than
-  Op 'IN', (f, s, l) -> s.push(s.pop() of s.pop())    # contains property
+  Op 'IN', (f, s, l, r) ->                            # property in obj
+    s.push(r.has(s.pop(), s.pop()))                   # prototype chain
+
   Op 'INSTANCEOF', (f, s, l, r) ->                    # instance of
     s.push(r.instanceOf(s.pop(), s.pop()))
 
@@ -328,10 +330,13 @@ callm = (frame, length, key, target, name) ->
   if func instanceof Function
     return call(frame, length, func, target, name)
   if not func?
-    throwErr(frame, new VmTypeError("Object #{target} has no method '#{key}'"))
-  else
+    stack.pop() # pop target
     throwErr(frame, new VmTypeError(
-      "Property '#{key}' of object #{target} is not a function"))
+      "Object #<#{targetName}> has no method '#{key}'"))
+  else
+    stack.pop() # pop target
+    throwErr(frame, new VmTypeError(
+      "Property '#{key}' of object #<#{targetName}> is not a function"))
 
 
 call = (frame, length, func, target, name, construct) ->

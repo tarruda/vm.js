@@ -86,6 +86,14 @@ class ObjectMetadata
       md = md.proto or @realm.mdproto(md.object)
     return prop
 
+  has: (key, target = @object) ->
+    md = this
+    while md
+      if md.hasOwnProperty(key)
+        return true
+      md = md.proto or @realm.mdproto(md.object)
+    return false
+
   get: (key, target = @object) ->
     property = @searchProperty(key)
     if property instanceof AccessorPropertyMetadata

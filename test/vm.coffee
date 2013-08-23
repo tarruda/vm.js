@@ -990,6 +990,77 @@ tests = {
   )]
 
   """
+  x = Math.abs(-5);
+  delete Math.abs;
+  try {
+    y = Math.abs(-5);
+  } catch (e) {
+    err = e;
+  }
+  'abs' in Math
+  """: [false, ((global) ->
+    expect(global.x).to.be(5)
+    expect('y' of global).to.be(false)
+    expect(global.err.stack).to.be(
+      """
+      TypeError: Object #<Object> has no method 'abs'
+          at <script>:4:6
+      """
+    )
+    expect('abs' of global.Math).to.be(true)
+  )]
+
+  """
+  x = JSON.stringify(-5);
+  JSON.stringify = 5;
+  try {
+    y = JSON.stringify(-5);
+  } catch (e) {
+    err = e;
+  }
+  'stringify' in JSON
+  """: [false, ((global) ->
+    expect(global.x).to.be('-5')
+    expect('y' of global).to.be(false)
+    expect(global.err.stack).to.be(
+      """
+      TypeError: Property 'stringify' of object #<Object> is not a function
+          at <script>:4:6
+      """
+    )
+    expect(global.JSON.stringify).to.be.a(Function)
+  )]
+
+  """
+  delete Object.prototype
+  delete Number.prototype
+  delete Boolean.prototype
+  delete String.prototype
+  delete Date.prototype
+  delete RegExp.prototype
+  """: [false, ((global) ->
+    expect(global.Object.prototype).to.be(Object.prototype)
+    expect(global.Number.prototype).to.be(Number.prototype)
+    expect(global.Boolean.prototype).to.be(Boolean.prototype)
+    expect(global.String.prototype).to.be(String.prototype)
+    expect(global.Date.prototype).to.be(Date.prototype)
+    expect(global.RegExp.prototype).to.be(RegExp.prototype)
+  )]
+
+  """
+  (Object.prototype = Number.prototype = Boolean.prototype =
+    String.prototype = Date.prototype = RegExp.prototype =
+      {name: 'replacement'});
+  """: [{name: 'replacement'}, ((global) ->
+    expect(global.Object.prototype).to.be(Object.prototype)
+    expect(global.Number.prototype).to.be(Number.prototype)
+    expect(global.Boolean.prototype).to.be(Boolean.prototype)
+    expect(global.String.prototype).to.be(String.prototype)
+    expect(global.Date.prototype).to.be(Date.prototype)
+    expect(global.RegExp.prototype).to.be(RegExp.prototype)
+  )]
+
+  """
   i = 1
   Object.prototype.bark = function() { return 'bark' + i++ };
   [({}).bark(), [].bark(), new Date().bark()]
@@ -1068,7 +1139,8 @@ describe 'vm eval', ->
     do (k, v) ->
       fn = ->
         # implicitly test script serialization/deserialization
-        script = Vm.fromJSON(Vm.compile(k).toJSON())
+        script = Vm.fromJSON(JSON.parse(
+          JSON.stringify(Vm.compile(k).toJSON())))
         try
           result = vm.run(script)
         catch e

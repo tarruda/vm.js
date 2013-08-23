@@ -9,7 +9,7 @@ class ConstantFolder extends Visitor
       return node.argument
     if node.argument.type is 'Literal' and
     not (node.argument.value instanceof RegExp)
-      if node.prefix or node.operator in ['typeof', 'void', 'delete']
+      if 'prefix' not of node or node.prefix
         result = eval("#{node.operator}(#{node.argument.raw})")
       else
         result = eval("(#{node.argument.raw})#{node.operator}")
