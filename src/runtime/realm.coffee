@@ -12,6 +12,16 @@ RegExpProxy = require './regexp_proxy'
 {ArrayIterator, StopIteration} = require './util'
 
 
+runtimeProperties = {
+  '__mdid__': null
+  '__md__': null
+  '__vmfunction__': null
+  '__fiber__': null
+  '__callname__': null
+  '__construct__': null
+  '__name__': null
+}
+
 class Realm
   constructor: (merge) ->
     global = {
@@ -255,6 +265,8 @@ class Realm
         return nativeMetadata[proto.__mdid__]
 
     @has = (obj, key) ->
+      if hasProp(runtimeProperties, key)
+        return undef
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
       if md.object == obj or typeof obj not in ['object', 'function']
@@ -268,6 +280,8 @@ class Realm
       return @has(prototypeOf(obj), key)
 
     @get = (obj, key) ->
+      if hasProp(runtimeProperties, key)
+        return undef
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
       if md.object == obj or typeof obj not in ['object', 'function']
@@ -284,6 +298,8 @@ class Realm
       return @get(prototypeOf(obj), key)
 
     @set = (obj, key, val) ->
+      if hasProp(runtimeProperties, key)
+        return undef
       if typeof obj in ['object', 'function']
         if hasProp(obj, '__md__')
           obj.__md__.set(key, val)
@@ -294,6 +310,8 @@ class Realm
       return val
 
     @del = (obj, key) ->
+      if hasProp(runtimeProperties, key)
+        return undef
       type = typeof obj
       if type in ['object', 'function']
         if type == 'function' and key == 'prototype'

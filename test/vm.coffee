@@ -1031,6 +1031,12 @@ tests = {
     expect(global.JSON.stringify).to.be.a(Function)
   )]
 
+  # special runtime properties like __mdid__ should never be
+  # visible from the vm
+  """
+  [Object.__mdid__, Object.prototype.__mdid__, (function(){}).__vmfunction__]
+  """:[[undefined, undefined, undefined]]
+
   """
   delete Object.prototype
   delete Number.prototype

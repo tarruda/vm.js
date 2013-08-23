@@ -382,7 +382,7 @@ createFunction = (script, scope, realm) ->
       fiber.run()
       return fiber.rv
   rv.__vmfunction__ = true
-  rv.__name__ = script.name
+  rv.name = rv.__name__ = script.name
   return rv
 
 
