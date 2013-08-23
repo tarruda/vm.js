@@ -141,7 +141,7 @@ tests = {
   l.sort()
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql(['address', 'email', 'name'])
+    expect(global.l).to.eql(['address', 'email', 'name'])
   )]
 
   """
@@ -150,7 +150,7 @@ tests = {
   for (var k of fruits) l.push(k)
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
+    expect(global.l).to.eql(['orange', 'apple', 'lemon'])
     expect('k' of global).to.be.true
   )]
 
@@ -168,7 +168,7 @@ tests = {
   }
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql([[1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6],
+    expect(global.l).to.eql([[1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6],
       [2, 3, 5], [2, 3, 6], [2, 4, 5], [2, 4, 6]])
   )]
 
@@ -183,7 +183,7 @@ tests = {
   }
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql([[1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6],
+    expect(global.l).to.eql([[1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6],
       [2, 3, 5], [2, 3, 6], [2, 4, 5], [2, 4, 6]])
   )]
 
@@ -214,7 +214,7 @@ tests = {
   }
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql([[1, 3, 5]])
+    expect(global.l).to.eql([[1, 3, 5]])
   )]
 
   """
@@ -230,7 +230,7 @@ tests = {
   }
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql([[1, 3, 5], [2, 3, 5]])
+    expect(global.l).to.eql([[1, 3, 5], [2, 3, 5]])
   )]
 
   """
@@ -246,7 +246,7 @@ tests = {
   }
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql([[1, 3, 5], [2, 3, 5]])
+    expect(global.l).to.eql([[1, 3, 5], [2, 3, 5]])
   )]
 
   """
@@ -262,7 +262,7 @@ tests = {
   }
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql([[1, 3, 5], [1, 4, 5], [2, 3, 5], [2, 4, 5]])
+    expect(global.l).to.eql([[1, 3, 5], [1, 4, 5], [2, 3, 5], [2, 4, 5]])
   )]
 
   """
@@ -271,7 +271,7 @@ tests = {
   for (let k of fruits) l.push(k)
   null
   """: [null, ((global) ->
-    expect(global.l).to.deep.eql(['orange', 'apple', 'lemon'])
+    expect(global.l).to.eql(['orange', 'apple', 'lemon'])
     expect('k' of global).to.be.false
   )]
 
@@ -560,7 +560,7 @@ tests = {
 
   """
   throw new EvalError('err')
-  """: [undefined, ((global) ->
+  """: [undef, ((global) ->
     expect(global.errorThrown.stack).to.eql(
       """
       EvalError: err
@@ -762,7 +762,7 @@ tests = {
   """
   s = null
   s.name = 1
-  """: [undefined, ((global) ->
+  """: [undef, ((global) ->
     errString = global.errorThrown.toString()
     expect(errString).to.eql(
       """
@@ -792,7 +792,7 @@ tests = {
   }
 
   abc()
-  """: [undefined, ((global) ->
+  """: [undef, ((global) ->
     errString = global.errorThrown.toString()
     expect(errString).to.eql(
       """
@@ -820,7 +820,7 @@ tests = {
   (function() {
     name()
   })()
-  """: [undefined, ((global) ->
+  """: [undef, ((global) ->
     errString = global.errorThrown.toString()
     expect(errString).to.eql(
       """
@@ -875,7 +875,7 @@ tests = {
   ++this._id
   """: [15, ((global) ->
     expect(global._id).to.eql(15)
-    expect(global.l).to.deep.eql([1, 2, 3])
+    expect(global.l).to.eql([1, 2, 3])
   )]
 
   # construct native classes instances
@@ -897,17 +897,17 @@ tests = {
 
   """
   [new Number(1), new Number(null), new Number(undefined)]
-  """: [[new Number(1), new Number(null), new Number(undefined)]]
+  """: [[new Number(1), new Number(null), new Number(undef)]]
 
   """
   [new Boolean(1), new Boolean(null), new Boolean(undefined)]
-  """: [[new Boolean(1), new Boolean(null), new Boolean(undefined)]]
+  """: [[new Boolean(1), new Boolean(null), new Boolean(undef)]]
 
   """
   dog = new Dog()
   dog.bark()
   """: [true, ((global) ->
-    expect(global.dog).to.be.instanceof(merge.Dog)
+    expect(global.dog).to.be.a(merge.Dog)
     expect(global.dog.barked).to.be.true
   )]
 
@@ -1028,7 +1028,7 @@ tests = {
     p3 instanceof Programmer
   )
   """: [true, ((global) ->
-    expect(global.p1).to.be.instanceof(global.Person)
+    expect(global.p1).to.be.a(global.Person)
     expect(global.p1str).to.eql('[object Object]')
     expect(global.p1name).to.eql('john doe')
     expect(global.p2name).to.eql('employee: thiago arruda')
@@ -1060,7 +1060,7 @@ describe 'vm eval', ->
         catch e
           err = e
 
-        expect(result).to.deep.eql expectedValue
+        expect(result).to.eql expectedValue
         if typeof expectedGlobal is 'function'
           vm.realm.global.errorThrown = err
           expectedGlobal(vm.realm.global)
@@ -1068,9 +1068,9 @@ describe 'vm eval', ->
           if err
             throw new Error("The VM has thrown an error:\n#{err}")
           if typeof expectedGlobal is 'object'
-            expect(strip(vm.realm.global)).to.deep.eql expectedGlobal
+            expect(strip(vm.realm.global)).to.eql expectedGlobal
           else
-            expect(strip(vm.realm.global)).to.deep.eql {}
+            expect(strip(vm.realm.global)).to.eql {}
       test = "\"#{k}\""
       expectedValue = v[0]
       expectedGlobal = v[1]
@@ -1126,8 +1126,8 @@ describe 'API', ->
     vm.eval(code)
     glob = vm.realm.global
     idGen = glob.idGen
-    expect([glob.fn(), glob.fn(), glob.fn()]).to.deep.eql([10, 11, 12])
-    expect([idGen.id(), idGen.id(), idGen.id()]).to.deep.eql([1, 2, 3])
+    expect([glob.fn(), glob.fn(), glob.fn()]).to.eql([10, 11, 12])
+    expect([idGen.id(), idGen.id(), idGen.id()]).to.eql([1, 2, 3])
 
   it 'fiber pause/resume', (done) ->
     fiber = vm.createFiber(Vm.compile('x = 1; x = asyncArray(); x.pop()'))
@@ -1139,7 +1139,7 @@ describe 'API', ->
         fiber.setReturnValue(rv)
         expect(fiber.resume()).to.eql(3)
         expect(vm.realm.global.x).to.eql(rv)
-        expect(rv).to.deep.eql([1, 2])
+        expect(rv).to.eql([1, 2])
         done()
     fiber.run()
 
@@ -1199,7 +1199,9 @@ describe 'API', ->
     VmError = vm.realm.global.Error
     msg = /^maximum\scall\sstack\ssize\sexceeded$/
     fiber = vm.createFiber(script)
-    expect(( -> fiber.run())).to.throw(VmError, msg)
+    expect(( -> fiber.run())).to.throwError (e) ->
+      expect(e).to.be.a(VmError)
+      expect(e.message).to.match(msg)
     expect(vm.realm.global.j).to.be.undefined
     # create a new fiber and increase maximum depth by 1
     fiber = vm.createFiber(script)

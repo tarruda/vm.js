@@ -8,11 +8,10 @@
 <body>
 <div id="mocha">
   <script src="http://192.168.56.50:35729/livereload.js"></script>
-  <script src="../node_modules/chai/chai.js"></script>
+  <script src="../node_modules/expect.js/expect.js"></script>
   <script src="../node_modules/mocha/mocha.js"></script>
   <script>
     mocha.setup('bdd');
-    var expect = chai.expect;
     var disconnected = false;
     LiveReload.options.maxdelay = 1000;
     LiveReload.on('connect', function() {

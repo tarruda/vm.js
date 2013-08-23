@@ -14,6 +14,9 @@ class ArrayIterator
 StopIteration = new VmError()
 
 
+toStr = (obj) -> Object.prototype.toString.call(obj)
+
+
 # thanks john resig: http://ejohn.org/blog/objectgetprototypeof/
 if typeof Object.getPrototypeOf != 'function'
   if typeof ''.__proto__ == 'object'
@@ -36,8 +39,16 @@ if typeof Object.create != 'function'
 else
   create = Object.create
 
+hasProp = (obj, prop) -> Object.prototype.hasOwnProperty.call(obj, prop)
+
+if typeof Array.isArray != 'function'
+  isArray = (obj) -> toStr(obj) == '[object Array]'
+else
+  isArray = Array.isArray
 
 exports.ArrayIterator = ArrayIterator
 exports.StopIteration = StopIteration
 exports.prototypeOf = prototypeOf
 exports.create = create
+exports.hasProp = hasProp
+exports.isArray = isArray

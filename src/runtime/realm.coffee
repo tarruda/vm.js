@@ -5,20 +5,17 @@
 {
   ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
 } = require './metadata'
-{prototypeOf, create} = require './util'
+{isArray, prototypeOf, create, hasProp} = require './util'
 RegExpProxy = require './regexp_proxy'
 
 
 {ArrayIterator, StopIteration} = require './util'
 
 
-hasProp = (obj, prop) -> Object.prototype.hasOwnProperty.call(obj, prop)
-
-
 class Realm
   constructor: (merge) ->
     global = {
-      undefined: undefined
+      undefined: undef
       Object: Object
       Number: Number
       Boolean: Boolean
@@ -54,7 +51,7 @@ class Realm
         return nativeMetadata[obj.__mdid__] = new CowObjectMetadata(obj, this)
       if type == 'object'
         nativeMetadata[obj.__mdid__] = new RestrictedObjectMetadata(obj, this)
-        if Array.isArray(restrict)
+        if isArray(restrict)
           for k in restrict
             if hasProp(obj, k)
               nativeMetadata[obj.__mdid__].leak[k] = null

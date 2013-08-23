@@ -187,6 +187,7 @@ class Emitter extends Visitor
     if node.blockCleanup
       node.blockCleanup()
     @exitScope()
+    return node
 
   VmLoop: (node, emitInit, emitBeforeTest, emitUpdate, emitAfterTest) ->
     blockInit = =>
@@ -232,6 +233,7 @@ class Emitter extends Visitor
       @exitScope()
     brk.mark()
     @popLabel()
+    return node
 
   VmIteratorLoop: (node, pushIterator) ->
     labelCleanup = (label, isBreak) =>
@@ -263,18 +265,21 @@ class Emitter extends Visitor
       assignTarget = node.left.declarations[0].id
     @VmLoop(node, emitInit, null, emitUpdate)
     @POP()
+    return node
 
   WhileStatement: (node) ->
     emitBeforeTest = =>
       @visit(node.test)
 
     @VmLoop(node, null, emitBeforeTest)
+    return node
 
   DoWhileStatement: (node) ->
     emitAfterTest = =>
       @visit(node.test)
 
     @VmLoop(node, null, null, null, emitAfterTest)
+    return node
 
   ForStatement: (node) ->
     emitInit = =>
@@ -289,18 +294,21 @@ class Emitter extends Visitor
       @visit(node.update)
 
     @VmLoop(node, emitInit, emitBeforeTest, emitUpdate)
+    return node
 
   ForInStatement: (node) ->
     pushIterator = =>
       @ENUMERATE()
 
     @VmIteratorLoop(node, pushIterator)
+    return node
 
   ForOfStatement: (node) ->
     pushIterator = =>
       @ITER()
 
     @VmIteratorLoop(node, pushIterator)
+    return node
 
   ExpressionStatement: (node) ->
     super(node)
@@ -318,6 +326,7 @@ class Emitter extends Visitor
     ifTrue.mark()
     @visit(node.consequent)
     end.mark()
+    return node
 
   LabeledStatement: (node) ->
     brk = @newLabel()
@@ -325,6 +334,7 @@ class Emitter extends Visitor
     @visit(node.body)
     brk.mark()
     @popLabel()
+    return node
 
   BreakStatement: (node) ->
     if node.label
@@ -335,6 +345,7 @@ class Emitter extends Visitor
     else
       label = @label()
     @JMP(label.brk)
+    return node
 
   ContinueStatement: (node) ->
     if node.label
@@ -345,6 +356,7 @@ class Emitter extends Visitor
     else
       label = @label()
     @JMP(label.cont)
+    return node
 
   WithStatement: (node) ->
     @visit(node.object)
@@ -353,6 +365,7 @@ class Emitter extends Visitor
     @visit(node.body)
     @withLevel--
     @EXIT_SCOPE()
+    return node
 
   SwitchStatement: (node) ->
     brk = @newLabel()
@@ -380,6 +393,7 @@ class Emitter extends Visitor
     brk.mark()
     @POP()
     @exitScope()
+    return node
 
   ReturnStatement: (node) ->
     if node.argument
@@ -387,10 +401,12 @@ class Emitter extends Visitor
       @RETV()
     else
       @RET()
+    return node
 
   ThrowStatement: (node) ->
     super(node)
     @THROW()
+    return node
 
   TryStatement: (node) ->
     if node.handlers.length > 1
@@ -441,13 +457,17 @@ class Emitter extends Visitor
         @RET()
     end.mark()
     @tryStatements.pop()
+    return node
 
-  DebuggerStatement: (node) -> @DEBUG()
+  DebuggerStatement: (node) ->
+    @DEBUG()
+    return node
 
   VariableDeclaration: (node) ->
     for decl in node.declarations
       decl.kind = node.kind
     @visit(node.declarations)
+    return node
 
   VariableDeclarator: (node) ->
     @declarePattern(node.id, node.kind)
@@ -463,16 +483,19 @@ class Emitter extends Visitor
         }
       }
       @visit(assign)
+    return node
 
   ThisExpression: (node) ->
     if @scopes.length
       @scopeGet('this')
     else
       @GLOBAL()
+    return node
 
   ArrayExpression: (node) ->
     super(node)
     @ARRAY_LITERAL(node.elements.length)
+    return node
 
   ObjectExpression: (node) ->
     for property in node.properties
@@ -485,6 +508,7 @@ class Emitter extends Visitor
       else
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
+    return node
 
   VmFunction: (node) ->
     name = '<anonymous>'
@@ -521,30 +545,36 @@ class Emitter extends Visitor
     if node.declare
       # declare so the function will be bound at the beginning of the context
       @declareFunction(node.declare, functionIndex)
+    return node
 
   FunctionDeclaration: (node) ->
     node.isExpression = false
     node.declare = node.id.name
     @VmFunction(node)
+    return node
 
   FunctionExpression: (node) ->
     node.isExpression = true
     node.declare = false
     @VmFunction(node)
+    return node
 
   SequenceExpression: (node) ->
     for i in [0...node.expressions.length - 1]
       @visit(node.expressions[i])
       @POP()
     @visit(node.expressions[i])
+    return node
 
   UnaryExpression: (node) ->
     super(node)
     @[unaryOp[node.operator]]()
+    return node
 
   BinaryExpression: (node) ->
     super(node)
     @[binaryOp[node.operator]]()
+    return node
 
   LogicalExpression: (node) ->
     evalEnd = @newLabel()
@@ -557,13 +587,17 @@ class Emitter extends Visitor
     @POP()
     @visit(node.right)
     evalEnd.mark()
+    return node
 
-  ConditionalExpression: (node) -> @IfStatement(node)
+  ConditionalExpression: (node) ->
+    @IfStatement(node)
+    return node
 
   NewExpression: (node) ->
     @visit(node.arguments) # push arguments
     @visit(node.callee)
     @NEW(node.arguments.length)
+    return node
 
   CallExpression: (node) ->
     @visit(node.arguments) # push arguments
@@ -580,6 +614,7 @@ class Emitter extends Visitor
       if node.callee.type == 'Identifier'
         fname = node.callee.name
       @CALL(node.arguments.length, fname)
+    return node
 
   visitProperty: (memberExpression) ->
     if memberExpression.computed
@@ -595,6 +630,7 @@ class Emitter extends Visitor
     @visitProperty(node)
     @visit(node.object)
     @GET()
+    return node
 
   AssignmentExpression: (node) ->
     if node.right
@@ -681,6 +717,7 @@ class Emitter extends Visitor
       else
         @LR3() # load new value
       @scopeSet(node.left.name) # set value
+    return node
 
   UpdateExpression: (node) ->
     if node.argument.type is 'MemberExpression'
@@ -706,11 +743,13 @@ class Emitter extends Visitor
     if not node.prefix
       @POP()
       @LR3()
+    return node
 
   Identifier: (node) ->
     # An identifier. Note that an identifier may be an expression or a
     # destructuring pattern.
     @scopeGet(node.name)
+    return node
 
   Literal: (node) ->
     val = node.value
@@ -733,6 +772,7 @@ class Emitter extends Visitor
       @REGEXP_LITERAL(idx)
     else
       @LITERAL(val)
+    return node
 
   YieldExpression: (node) ->
     # A yield expression
@@ -799,19 +839,11 @@ class Emitter extends Visitor
     throw new Error('not implemented')
 
 
-class Label
-  constructor: (@instructions) ->
-    @ip = null
-
-  mark: -> @ip = @instructions.length
-
-
 ( ->
   # create an Emitter method for each opcode
   for opcode in opcodes
     do (opcode) ->
       opcodes[opcode::name] = opcode
-      # also add a method for resolving label addresses
       opcode::normalizeLabels = ->
         if @args
           for i in [0...@args.length]
@@ -820,11 +852,20 @@ class Label
                 throw new Error('label has not been marked')
               # its a label, replace with the instruction pointer
               @args[i] = @args[i].ip
+      # also add a method for resolving label addresses
       Emitter::[opcode::name] = (args...) ->
         if not args.length
           args = null
         @instructions.push(new opcode(args))
+        return
 )()
+
+class Label
+  constructor: (@instructions) ->
+    @ip = null
+
+  mark: -> @ip = @instructions.length
+
 
 {SETL, SETG, FUNCTION, POP} =  opcodes
 
@@ -832,9 +873,9 @@ unaryOp = {
   '-': 'INV'
   '!': 'LNOT'
   '~': 'NOT'
-  'typeof': null
-  'void': null
-  'delete': null
+  'typeof': 'TYPEOF'
+  'void': 'VOID'
+  'delete': 'DEL'
 }
 
 binaryOp = {
@@ -858,7 +899,7 @@ binaryOp = {
   '&': 'AND'
   '^': 'XOR'
   'in': 'IN'
-  'instanceof': 'INSTANCE_OF'
+  'instanceof': 'INSTANCEOF'
 }
 
 

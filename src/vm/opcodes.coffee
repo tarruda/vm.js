@@ -4,6 +4,7 @@ Visitor = require '../ast/visitor'
 RegExpProxy = require '../runtime/regexp_proxy'
 {Fiber, Scope, WithScope} = require './thread'
 
+
 OpcodeClassFactory = ( ->
   # opcode id, correspond to the index in the opcodes array and is used
   # to represent serialized opcodes
@@ -16,6 +17,14 @@ OpcodeClassFactory = ( ->
       # names when debugging with node-inspector/chrome dev tools
       constructor = eval(
         "(function #{name}(args) { if (args) this.args = args; })")
+      if not constructor
+        # we probably are in internet explorer(hopefully for running the
+        # test suite only) so use a normal function
+        constructor = (args) ->
+          if args
+            @args = args
+          return # explicitly return undefined
+        constructor.name = name
       constructor::id = id++
       constructor::name = name
       constructor::exec = fn
@@ -245,8 +254,14 @@ opcodes = [
   Op 'GT', (f, s, l) -> s.push(s.pop() > s.pop())     # greater than
   Op 'GTE', (f, s, l) -> s.push(s.pop() >= s.pop())   # greater or equal than
   Op 'IN', (f, s, l) -> s.push(s.pop() of s.pop())    # contains property
-  Op 'INSTANCE_OF', (f, s, l, r) ->                   # instance of
+  Op 'INSTANCEOF', (f, s, l, r) ->                    # instance of
     s.push(r.instanceOf(s.pop(), s.pop()))
+
+  Op 'TYPEOF', (f, s, l, r) ->                        # instance of
+    s.push(typeof s.pop())
+
+  Op 'VOID', (f, s) ->
+    s.push(undef)
 
   Op 'JMP', (f, s, l) -> f.ip = @args[0]              # unconditional jump
   Op 'JMPT', (f, s, l) -> f.ip = @args[0] if s.pop()  # jump if true

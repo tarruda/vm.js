@@ -9,7 +9,7 @@ class Fiber
     @evalStack = null
     @depth = -1
     @error = null
-    @rv = undefined
+    @rv = undef
     @paused = false
 
   run: ->
@@ -33,7 +33,7 @@ class Fiber
       if frame and not @error
         # set the return value
         frame.evalStack.push(@rv)
-        @rv = undefined
+        @rv = undef
     if @timedOut()
       err = new VmTimeoutError(this)
       @injectStackTrace(err)
@@ -139,7 +139,7 @@ class Frame
     @exitIp = @script.instructions.length
     @paused = false
     @finalizer = null
-    @rv = undefined
+    @rv = undef
     @line = @column = -1
     # frame-specific registers
     @r1 = @r2 = @r3 = @r4 = null
@@ -194,7 +194,7 @@ class Scope
     for k, v of @names
       if v == name
         return parseInt(k)
-    return - 1
+    return -1
 
 
 class WithScope

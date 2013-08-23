@@ -1,0 +1,1 @@
+undef = `void(0)`

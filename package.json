@@ -18,7 +18,7 @@
     "email": "tpadilha84@gmail.com"
   },
   "dependencies": {
-    "esprima": "git://github.com/ariya/esprima.git#harmony"
+    "esprima": "git://github.com/tarruda/esprima.git#harmony"
   },
   "devDependencies": {
     "grunt": "~0.4.1",
@@ -30,7 +30,7 @@
     "grunt-coffeelint": "0.0.7",
     "grunt-release": "~0.5.1",
     "mocha": "~1.9.0",
-    "chai": "~1.6.0",
+    "expect.js": "~0.2.0",
     "benchmark": "~1.0.0",
     "microtime": "~0.4.0",
     "source-map-support": "~0.2.1"

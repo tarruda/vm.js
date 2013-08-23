@@ -106,7 +106,7 @@ class ObjectMetadata
         property.value = value
         return true
       return false
-    if property is undefined and not @extensible
+    if property is undef and not @extensible
       return false
     @setOwnProperty(key, value)
     return true
@@ -162,7 +162,7 @@ class CowObjectMetadata extends ObjectMetadata
       return @properties[key]
     if key of @object and key not of @exclude
       return @object[key]
-    return undefined
+    return undef
 
   setOwnProperty: (key, value) ->
     if key of @exclude
@@ -197,7 +197,7 @@ class RestrictedObjectMetadata extends CowObjectMetadata
       return @properties[key]
     if key of @leak and key of @object and key not of @exclude
       return @object[key]
-    return undefined
+    return undef
 
 
 exports.ObjectMetadata = ObjectMetadata
