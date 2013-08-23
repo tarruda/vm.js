@@ -90,6 +90,7 @@ module.exports = (grunt) ->
     test:
       all: [
         'test/index.js'
+        'build/self.js'
         'build/node/test.js'
       ]
 
@@ -132,9 +133,9 @@ module.exports = (grunt) ->
 
     clean:
       node:
-        ['build/node']
+        ['build']
       browser:
-        ['build/browser']
+        ['build']
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-livereload'
@@ -152,6 +153,11 @@ module.exports = (grunt) ->
       if /^\s*debugger\s*/gm.test(code)
         data.debug[file] = true
       else delete data.debug[file]
+
+  grunt.registerTask 'self_load', ->
+    code = grunt.file.read('./build/browser/vm.js')
+    assign = "vmjs = #{JSON.stringify(code)}"
+    grunt.file.write('./build/self.js', assign)
 
   grunt.registerMultiTask 'test', ->
     done = @async()
@@ -176,7 +182,8 @@ module.exports = (grunt) ->
       'clean:browser'
       'livereload-start'
       'common-rebuild'
-      'coffee_build:browser'
+      'coffee_build'
+      'self_load'
       'watch:browser'
     ]
 
@@ -184,7 +191,8 @@ module.exports = (grunt) ->
     grunt.task.run [
       'clean:node'
       'common-rebuild'
-      'coffee_build:nodejs'
+      'coffee_build'
+      'self_load'
       'check_debug'
       'test'
       'watch:nodejs'

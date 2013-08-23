@@ -45,6 +45,8 @@ class Realm
       JSON: JSON
     }
 
+    global.global = global
+
     # Populate native proxies
     nativeMetadata = {}
 

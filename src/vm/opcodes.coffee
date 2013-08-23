@@ -192,7 +192,7 @@ opcodes = [
       if idx >= 0
         return s.push(l.get(idx))
       l = l.parent
-    if key not of r.global
+    if key not of r.global and not @args[1]
       return throwErr(f, new VmReferenceError("#{key} is not defined"))
     s.push(r.global[key])
 
@@ -211,7 +211,7 @@ opcodes = [
     s.push(r.global[key] = value)
 
   Op 'GETG', (f, s, l, r) ->                          # get global variable
-    if @args[0] not of r.global
+    if @args[0] not of r.global and not @args[1]
       return throwErr(f, new VmReferenceError("#{@args[0]} is not defined"))
     s.push(r.global[@args[0]])
 

@@ -1,1 +1,1 @@
-window.Vm = require '../src/vm'
+@Vm = require '../src/vm'

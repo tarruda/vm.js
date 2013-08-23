@@ -11,6 +11,7 @@ tests = {
   'void(0)': [undefined]
   'void(x=1)': [undefined, {x: 1}]
   'typeof 5': ['number']
+  'typeof undef': ['undefined']
   'n=5; typeof n': ['number', {n: 5}]
   'typeof true': ['boolean']
   'b=true; typeof b': ['boolean', {b: true}]
@@ -1140,6 +1141,19 @@ merge = {
     bark: -> @barked = true
 }
 
+# describe 'vm running itself', ->
+#   compiledVm = Vm.compile(vmjs, 'vm.js')
+#   vm = null
+
+#   beforeEach ->
+#     vm = new Vm()
+#     vm.realm.global.merge = merge
+#     vm.run(compiledVm)
+#     vm.eval('vm = new Vm(merge)')
+
+#   it 'eval', ->
+#     x = vm.realm.global.vm.eval('2+2')
+#     expect(x).to.be(2)
 
 describe 'vm eval', ->
   vm = null
@@ -1158,7 +1172,6 @@ describe 'vm eval', ->
           result = vm.run(script)
         catch e
           err = e
-
         expect(result).to.eql expectedValue
         if typeof expectedGlobal is 'function'
           vm.realm.global.errorThrown = err
@@ -1199,6 +1212,7 @@ describe 'vm eval', ->
     delete global.StopIteration
     delete global.Dog
     delete global.undefined
+    delete global.global
 
     return global
 

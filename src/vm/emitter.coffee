@@ -27,6 +27,7 @@ class Emitter extends Visitor
     @strings = []
     @regexpIds = {}
     @regexps = []
+    @ignoreNotDefined = 0
 
   scope: (name) ->
     i = 0
@@ -43,11 +44,17 @@ class Emitter extends Visitor
 
   scopeGet: (name) ->
     if @withLevel
-      return @GETW(name)
+      @GETW(name, @ignoreNotDefined)
+      @ignoreNotDefined = 0
+      return
     scope = @scope(name)
     if scope
-      return @GETL.apply(this, scope)
-    @GETG(name) # global object get
+      @ignoreNotDefined = 0
+      @GETL.apply(this, scope)
+      return
+    @GETG(name, @ignoreNotDefined) # global object get
+    @ignoreNotDefined = 0
+    return
 
   scopeSet: (name) ->
     if @withLevel
@@ -581,6 +588,8 @@ class Emitter extends Visitor
         # no-op
         @LITERAL(false)
     else
+      if node.operator == 'typeof' and node.argument.type == 'Identifier'
+        @ignoreNotDefined = 1
       super(node)
       @[unaryOp[node.operator]]()
     return node
