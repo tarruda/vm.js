@@ -50,11 +50,11 @@
 
 
 class PropertyMetadata
-  constructor: (@enumerable, @configurable) ->
+  constructor: (@enumerable = true, @configurable = true) ->
 
 
 class DataPropertyMetadata extends PropertyMetadata
-  constructor: (@writable, enumerable, configurable) ->
+  constructor: (@value, @writable, enumerable, configurable) ->
     super(enumerable, configurable)
 
 
@@ -126,6 +126,16 @@ class ObjectMetadata
     @setOwnProperty(key, property)
     return true
 
+  instanceOf: (klass) ->
+    md = this
+    while md != null
+      if md.object == klass.prototype
+        return true
+      if not md.proto
+        return md.object instanceof klass
+      md = md.proto
+    return false
+
   isEnumerable: (k) ->
     v = @properties[k] or @object[k]
     return not (v instanceof PropertyMetadata) or v.enumerable
@@ -193,3 +203,5 @@ class RestrictedObjectMetadata extends CowObjectMetadata
 exports.ObjectMetadata = ObjectMetadata
 exports.CowObjectMetadata = CowObjectMetadata
 exports.RestrictedObjectMetadata = RestrictedObjectMetadata
+exports.DataPropertyMetadata = DataPropertyMetadata
+exports.AccessorPropertyMetadata = AccessorPropertyMetadata

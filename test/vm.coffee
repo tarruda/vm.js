@@ -925,6 +925,48 @@ tests = {
   /(a)(b)(c)/.exec('abc').slice()
   """: [['abc', 'a', 'b', 'c']]
 
+  """
+  /a/ instanceof RegExp
+  """: [true]
+
+  """
+  r = /a/gi;
+  r.global = false;
+  r.ignoreCase = false;
+  r.multiline = true;
+  [r.global, r.ignoreCase, r.multiline, r.source]
+  """: [[true, true, false, 'a'], ((global) -> )]
+
+  """
+  r = /\\d+/g
+  l = []
+  while (match = r.exec('1/13/123')) l.push(match[0])
+  l
+  """: [['1', '13', '123'], ((global) -> )]
+
+  # each instance has its own 'lastIndex' copy which is used when matching
+  """
+  r1 = /\\d+/g
+  r2 = /\\d+/g
+  l = []
+  l.push(r1.exec('1/13/123')[0])
+  l.push(r1.exec('1/13/123')[0])
+  l.push(r2.exec('1/13/123')[0])
+  l.push(r1.exec('1/13/123')[0])
+  l
+  """: [['1', '13', '1', '123'], ((global) ->
+    expect(global.r1.lastIndex).to.eql(8)
+    expect(global.r2.lastIndex).to.eql(1)
+    # while each literal maintain its own state, they both share
+    # the same compiled regexp
+    expect(global.r1.regexp).to.eql(global.r2.regexp)
+  )]
+
+  # String.prototype.match considers RegExpProxy instances
+  """
+  '1/13/123'.match(/\\d+/g)
+  """: [['1', '13', '123'], ((global) -> )]
+
   # builtin sandboxing
   """
   Object.prototype.custom = 123

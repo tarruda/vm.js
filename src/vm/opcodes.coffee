@@ -245,8 +245,8 @@ opcodes = [
   Op 'GT', (f, s, l) -> s.push(s.pop() > s.pop())     # greater than
   Op 'GTE', (f, s, l) -> s.push(s.pop() >= s.pop())   # greater or equal than
   Op 'IN', (f, s, l) -> s.push(s.pop() of s.pop())    # contains property
-  Op 'INSTANCE_OF', (f, s, l) ->                      # instance of
-    s.push(s.pop() instanceof s.pop())
+  Op 'INSTANCE_OF', (f, s, l, r) ->                   # instance of
+    s.push(r.instanceOf(s.pop(), s.pop()))
 
   Op 'JMP', (f, s, l) -> f.ip = @args[0]              # unconditional jump
   Op 'JMPT', (f, s, l) -> f.ip = @args[0] if s.pop()  # jump if true

@@ -110,7 +110,6 @@ class Realm
         'contains'
         'indexOf'
         'lastIndexOf'
-        'match'
         'replace'
         'search'
         'slice'
@@ -246,6 +245,13 @@ class Realm
       iterator: -> new ArrayIterator(this)
     }
 
+    nativeMetadata[String.prototype.__mdid__].properties = {
+      match: (obj) ->
+        if obj instanceof RegExpProxy
+          return @match(obj.regexp)
+        return @match(obj)
+    }
+
     @mdproto = (obj) ->
       proto = prototypeOf(obj)
       if proto
@@ -286,6 +292,18 @@ class Realm
         else
           delete obj[key]
       return true
+
+    @instanceOf = (obj, klass) ->
+      if typeof obj not in ['object', 'function']
+        return false
+      if hasProp(obj, '__md__')
+        return obj.__md__.instanceOf(klass)
+      if hasProp(obj, '__mdid__')
+        return nativeMetadata[obj.__mdid__].instanceOf(klass)
+      return obj instanceof klass
+
+    @getNativeMetadata = (obj) ->
+      return nativeMetadata[obj.__mdid__]
 
     @enumerateKeys = (obj) ->
       if typeof obj == 'object'
