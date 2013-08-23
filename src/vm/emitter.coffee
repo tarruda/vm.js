@@ -567,8 +567,22 @@ class Emitter extends Visitor
     return node
 
   UnaryExpression: (node) ->
-    super(node)
-    @[unaryOp[node.operator]]()
+    if node.operator == 'delete'
+      if node.argument.type == 'MemberExpression'
+        @visitProperty(node.argument)
+        @visit(node.argument.object)
+        @DEL()
+      else if node.argument.type == 'Identifier' and not @scopes.length
+        # global property
+        @LITERAL(node.argument.name)
+        @GLOBAL()
+        @DEL()
+      else
+        # no-op
+        @LITERAL(false)
+    else
+      super(node)
+      @[unaryOp[node.operator]]()
     return node
 
   BinaryExpression: (node) ->
@@ -875,7 +889,6 @@ unaryOp = {
   '~': 'NOT'
   'typeof': 'TYPEOF'
   'void': 'VOID'
-  'delete': 'DEL'
 }
 
 binaryOp = {

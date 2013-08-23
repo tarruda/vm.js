@@ -8,6 +8,18 @@ tests = {
   "'abc'": ['abc']
   "/abc/gi === /abc/gi": [false]
   # unary
+  'typeof 5': ['number']
+  'n=5; typeof n': ['number', {n: 5}]
+  'typeof true': ['boolean']
+  'b=true; typeof b': ['boolean', {b: true}]
+  'o={prop1: 1, prop2: 2}; delete o.prop1': [true, {o:{prop2:2}}]
+  'o={prop1: 1, prop2: 2}; delete o["prop2"]': [true, {o:{prop1:1}}]
+  'delete Array': [true, ((global) ->
+    expect('Object' of global).to.eql(true)
+    expect('Array' of global).to.eql(false)
+  )]
+  # deleting local variables is a no-op and returns false(according to v8)
+  '(function(){var x = 1; return delete x;})()': [false]
   '-{count: 2}.count': [-2]
   "x = {count: 28};x.count++": [28, {x: {count: 29}}]
   "x = {count: 30};--x.count": [29, {x: {count: 29}}]
@@ -151,7 +163,7 @@ tests = {
   null
   """: [null, ((global) ->
     expect(global.l).to.eql(['orange', 'apple', 'lemon'])
-    expect('k' of global).to.be.true
+    expect('k' of global).to.eql(true)
   )]
 
   """
@@ -197,8 +209,8 @@ tests = {
   null
   """: [null, ((global) ->
     expect(global.j).to.eql(4)
-    expect('i' of global).to.be.false
-    expect('k' of global).to.be.false
+    expect('i' of global).to.eql(false)
+    expect('k' of global).to.eql(false)
   )]
 
   """
@@ -272,7 +284,7 @@ tests = {
   null
   """: [null, ((global) ->
     expect(global.l).to.eql(['orange', 'apple', 'lemon'])
-    expect('k' of global).to.be.false
+    expect('k' of global).to.eql(false)
   )]
 
   """
@@ -538,7 +550,7 @@ tests = {
   z
   """: [30, ((global) ->
     expect(global.z).to.eql(30)
-    expect('y' of global).to.be.false)]
+    expect('y' of global).to.eql(false))]
 
   """
   x = 10
@@ -851,9 +863,9 @@ tests = {
   withScope()
   """: [[{j: 20, i: 10}, 60], ((global) ->
     expect(global.l).to.eql(240)
-    expect('k' of global).to.be.false
-    expect('i' of global).to.be.false
-    expect('j' of global).to.be.false
+    expect('k' of global).to.eql(false)
+    expect('i' of global).to.eql(false)
+    expect('j' of global).to.eql(false)
   )]
 
   """
@@ -908,7 +920,7 @@ tests = {
   dog.bark()
   """: [true, ((global) ->
     expect(global.dog).to.be.a(merge.Dog)
-    expect(global.dog.barked).to.be.true
+    expect(global.dog.barked).to.eql(true)
   )]
 
   # native methods
@@ -972,7 +984,7 @@ tests = {
   x = Object.prototype.custom
   x
   """: [123, ((global) ->
-    expect('custom' of Object.prototype).to.be.false
+    expect('custom' of Object.prototype).to.eql(false)
   )]
 
   """
@@ -980,7 +992,7 @@ tests = {
   Object.prototype.bark = function() { return 'bark' + i++ };
   [({}).bark(), [].bark(), new Date().bark()]
   """: [['bark1', 'bark2', 'bark3'], ((global) ->
-    expect('bark' of Object.prototype).to.be.false
+    expect('bark' of Object.prototype).to.eql(false)
   )]
 
   # prototype chains
@@ -1163,7 +1175,7 @@ describe 'API', ->
             at <timeout>:2:0
         """
       )
-      expect(fiber.timedOut()).to.be.true
+      expect(fiber.timedOut()).to.eql(true)
       # the following expectations are not part of the spec
       # (they are here just for demonstration)
       expect(vm.realm.global.i).to.eql(37)
@@ -1178,7 +1190,7 @@ describe 'API', ->
               at <timeout>:2:0
           """
         )
-        expect(fiber.timedOut()).to.be.true
+        expect(fiber.timedOut()).to.eql(true)
         expect(vm.realm.global.i).to.eql(114)
 
   it 'customize recursion depth', ->
@@ -1202,7 +1214,7 @@ describe 'API', ->
     expect(( -> fiber.run())).to.throwError (e) ->
       expect(e).to.be.a(VmError)
       expect(e.message).to.match(msg)
-    expect(vm.realm.global.j).to.be.undefined
+    expect(vm.realm.global.j).to.eql(undefined)
     # create a new fiber and increase maximum depth by 1
     fiber = vm.createFiber(script)
     fiber.maxDepth += 1

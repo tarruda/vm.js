@@ -9,10 +9,10 @@ class ConstantFolder extends Visitor
       return node.argument
     if node.argument.type is 'Literal' and
     not (node.argument.value instanceof RegExp)
-      if node.prefix
-        result = eval("#{node.operator}#{node.argument.raw}")
+      if node.prefix or node.operator in ['typeof']
+        result = eval("#{node.operator}(#{node.argument.raw})")
       else
-        result = eval("#{node.argument.raw}#{node.operator}")
+        result = eval("(#{node.argument.raw})#{node.operator}")
       return {type: 'Literal', value: result, loc: node.loc}
     return node
 
@@ -21,7 +21,7 @@ class ConstantFolder extends Visitor
     if node.left.type is 'Literal' and node.right.type == 'Literal' and
     not (node.right.value instanceof RegExp) and
     not (node.left.value instanceof RegExp)
-      result = eval("#{node.left.raw} #{node.operator} #{node.right.raw}")
+      result = eval("(#{node.left.raw} #{node.operator} #{node.right.raw})")
       return {type: 'Literal', value: result, loc: node.left.loc}
     return node
 

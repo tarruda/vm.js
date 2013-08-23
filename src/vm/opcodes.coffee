@@ -158,7 +158,7 @@ opcodes = [
         "Cannot set property '#{key}' of #{obj}"))
     s.push(r.set(obj, key, val))
 
-  Op 'DEL', (f, s, l) ->                              # del property on
+  Op 'DEL', (f, s, l, r) ->                           # del property on
     obj = s.pop()                                     # object
     key = s.pop()
     if not obj?
