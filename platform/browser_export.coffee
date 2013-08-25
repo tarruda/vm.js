@@ -1,1 +1,1 @@
-@Vm = require '../src/vm'
+self.Vm = require '../src/vm'

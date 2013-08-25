@@ -93,7 +93,10 @@ class Fiber
         line: frame.line
         column: frame.column
       })
-    err.trace = trace
+    if not err.trace
+      err.trace = trace
+    else
+      err.trace.push(trace)
     # show stack trace on node.js
     err.stack = err.toString()
 

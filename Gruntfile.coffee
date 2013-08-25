@@ -33,15 +33,22 @@ module.exports = (grunt) ->
           wrap: true
           sourceMap: true
           disableModuleWrap: [
-            'node_modules/esprima/esprima.js'
             'platform/common_init.coffee'
+            'node_modules/esprima/esprima.js'
+            'platform/browser_esprima_rebind.js'
             'platform/browser_export.coffee'
+            'platform/node_init.coffee'
+            'platform/node_export.coffee'
           ]
-          disableSourceMap: ['node_modules/esprima/esprima.js']
+          disableSourceMap: [
+            'node_modules/esprima/esprima.js'
+            'platform/browser_esprima_rebind.js'
+          ]
         browser:
           files: [{
             src: [
               'node_modules/esprima/esprima.js'
+              'platform/browser_esprima_rebind.js'
               'platform/common_init.coffee'
               'src/**/*.coffee'
               'platform/browser_export.coffee'
@@ -50,18 +57,13 @@ module.exports = (grunt) ->
           }, {
             src: [
               'node_modules/esprima/esprima.js'
+              'platform/browser_esprima_rebind.js'
               'platform/common_init.coffee'
               'test/**/*.coffee'
             ]
             dest: 'build/browser/test.js'
           }]
         nodejs:
-          options:
-            disableModuleWrap: [
-              'platform/node_init.coffee'
-              'platform/common_init.coffee'
-              'platform/node_export.coffee'
-            ]
           files: [{
             src: [
               'platform/common_init.coffee'
@@ -155,7 +157,7 @@ module.exports = (grunt) ->
       else delete data.debug[file]
 
   grunt.registerTask 'self_load', ->
-    code = grunt.file.read('./build/browser/vm.js')
+    code = grunt.file.read('./node_modules/esprima/esprima.js')
     assign = "vmjs = #{JSON.stringify(code)}"
     grunt.file.write('./build/self.js', assign)
 

@@ -1,19 +1,3 @@
-{VmError} = require './errors'
-
-
-class ArrayIterator
-  constructor: (@elements) ->
-    @index = 0
-
-  next: ->
-    if @index >= @elements.length
-      throw StopIteration
-    return @elements[@index++]
-
-
-StopIteration = new VmError()
-
-
 toStr = (obj) -> Object.prototype.toString.call(obj)
 
 
@@ -46,8 +30,6 @@ if typeof Array.isArray != 'function'
 else
   isArray = Array.isArray
 
-exports.ArrayIterator = ArrayIterator
-exports.StopIteration = StopIteration
 exports.prototypeOf = prototypeOf
 exports.create = create
 exports.hasProp = hasProp

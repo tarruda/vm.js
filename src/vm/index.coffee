@@ -33,5 +33,7 @@ class Vm
 
   @fromJSON: Script.fromJSON
 
+  @parse: esprima.parse
+
 
 module.exports = Vm

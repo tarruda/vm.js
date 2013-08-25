@@ -6,6 +6,8 @@ tests = {
   "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
   "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
   "'abc'": ['abc']
+  "'abc'[1]": ['b']
+  "'abc'.length": [3]
   "/abc/gi === /abc/gi": [false]
   # unary
   'void(0)': [undefined]
@@ -101,10 +103,42 @@ tests = {
   'var {op: a, lhs: {op: b}, rhs: c} = {op: 1, lhs: {op: 2}, rhs: 3};':
     [{op: 1, lhs: {op: 2}, rhs: 3}, {a:1,b:2,c:3}]
   # control flow
+  "if (5 > 4) i = 1;": [1, {i: 1}]
   "if (5 > 4) i = 1; else i = 2": [1, {i: 1}]
+  "if (4 > 5) i = 1;": [null]
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
   'i = 0; while(i++ < 10) i++; i;': [11, {i: 11}]
   # other acceptance tests
+  """
+  obj = {
+    isTrue: function(obj) { return 'isTrue' in obj }
+  }
+  l = [];
+
+  (function() {
+    for (var k in obj) {
+      if (obj.isTrue.call(obj, obj)) l.push('isTrue');
+    }
+    function test() { }
+  })();
+  l
+  """: [['isTrue'], ((global) -> )]
+
+  """
+  obj = {
+    isTrue: function(obj) { return 'isTrue' in obj }
+  }
+  l = [];
+
+  (function() {
+    for (var k in obj) {
+      if (obj.isTrue.call(obj, obj)) l.push('isTrue');
+      function test() { }
+    }
+  })();
+  l
+  """: [['isTrue'], ((global) -> )]
+
   """
   i = 0;
   while (i < 1000) {
@@ -157,6 +191,50 @@ tests = {
   null
   """: [null, ((global) ->
     expect(global.l).to.eql(['address', 'email', 'name'])
+  )]
+
+  # the below fails because its parsed as l(function...)
+  """
+  obj = {name: '1', address: 2, email: 3};
+  l = []
+  (function() {
+    for (k in obj) l.push(k)
+  })();
+  """: [undefined, ((global) ->
+    expect(global.errorThrown.stack).to.be(
+      """
+      TypeError: object is not a function
+          at <script>:2:37
+      """
+    )
+  )]
+
+
+  """
+  obj = {name: '1', address: 2, email: 3};
+  l = [];
+  (function() {
+    for (k in obj) l.push(k)
+  })();
+  l.sort()
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.eql(['address', 'email', 'name'])
+    expect('k' not of global).to.be(false)
+  )]
+
+  """
+  obj = {name: '1', address: 2, email: 3};
+  l = [];
+  (function() {
+    var k;
+    for (k in obj) l.push(k)
+  })();
+  l.sort()
+  null
+  """: [null, ((global) ->
+    expect(global.l).to.eql(['address', 'email', 'name'])
+    expect('k' not of global).to.be(true)
   )]
 
   """
@@ -340,6 +418,21 @@ tests = {
   )]
 
   """
+  (function() {
+    return a();
+    function b() {
+      return 5;
+    }
+    function a() {
+      return b();
+      function b() {
+        return 6;
+      }
+    }
+  })();
+  """: [6]
+
+  """
   fn = function(a, b, c, d) {
     return a + b + c * d;
   }
@@ -366,6 +459,23 @@ tests = {
   }
   fn([5, 4], {key: 'k', value: 'v'});
   """: [[9, 'k', 'v'], ((global) -> )]
+
+  """
+  function switchCleanup(x) {
+    switch (x) {
+      case 9:
+        return 4;
+        break
+      case '10':
+        return 5
+        break;
+      default:
+        return 6;
+        break
+    }
+  }
+  switchCleanup('10')
+  """: [5, ((global) -> ), 0]
 
   """
   x = '10'
@@ -1020,7 +1130,7 @@ tests = {
     err = e;
   }
   'stringify' in JSON
-  """: [false, ((global) ->
+  """: [true, ((global) ->
     expect(global.x).to.be('-5')
     expect('y' of global).to.be(false)
     expect(global.err.stack).to.be(
@@ -1133,27 +1243,52 @@ tests = {
     expect(global.p3name).to.eql('employee: programmer: linus torvalds')
     expect(global.hasOwn).to.eql([true, false, true])
   )]
-
 }
 
 merge = {
   Dog: class Dog
     bark: -> @barked = true
+  console: console
 }
 
-# describe 'vm running itself', ->
-#   compiledVm = Vm.compile(vmjs, 'vm.js')
-#   vm = null
+describe 'vm running esprima parser', ->
+  compiledEsprima = Vm.compile(vmjs, 'esprima.js')
+  vm = null
 
-#   beforeEach ->
-#     vm = new Vm()
-#     vm.realm.global.merge = merge
-#     vm.run(compiledVm)
-#     vm.eval('vm = new Vm(merge)')
+  beforeEach ->
+    vm = new Vm()
+    vm.run(compiledEsprima)
 
-#   it 'eval', ->
-#     x = vm.realm.global.vm.eval('2+2')
-#     expect(x).to.be(2)
+  it 'parse', ->
+    ast = vm.eval('esprima.parse("x=2+3")')
+    expect(ast).to.eql({
+      type: 'Program'
+      body: [{
+        type: 'ExpressionStatement'
+        expression: {
+          type: 'AssignmentExpression'
+          left: {
+            type: 'Identifier'
+            name: 'x'
+          }
+          right: {
+            type: 'BinaryExpression'
+            left: {
+              type: 'Literal'
+              value: 2
+              raw: '2'
+            }
+            right: {
+              type: 'Literal'
+              value: 3
+              raw: '3'
+            }
+            operator: '+'
+          }
+          operator: '='
+        }
+      }]
+    })
 
 describe 'vm eval', ->
   vm = null
@@ -1213,6 +1348,9 @@ describe 'vm eval', ->
     delete global.Dog
     delete global.undefined
     delete global.global
+    delete global.console
+    delete global.parseFloat
+    delete global.parseInt
 
     return global
 

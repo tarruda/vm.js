@@ -1,19 +1,31 @@
+{isArray} = require './util'
+
+printTrace = (trace, indent = '    ') ->
+  rv = ''
+  for frame in trace
+    if isArray(frame)
+      rv += "\n#{indent}Rethrown:"
+      rv += printTrace(frame, indent + '    ')
+      continue
+    l = frame.line
+    c = frame.column
+    name = frame.at.name
+    filename = frame.at.filename
+    if name
+      rv += "\n#{indent}at #{name} (#{filename}:#{l}:#{c})"
+    else
+      rv += "\n#{indent}at #{filename}:#{l}:#{c}"
+  return rv
+
 class VmError
   constructor: (@message) ->
+    trace = null
 
   toString: ->
     errName = @constructor.display
     rv = "#{errName}: #{@message}"
     if @trace
-      for frame in @trace
-        l = frame.line
-        c = frame.column
-        name = frame.at.name
-        filename = frame.at.filename
-        if name
-          rv += "\n    at #{name} (#{filename}:#{l}:#{c})"
-        else
-          rv += "\n    at #{filename}:#{l}:#{c}"
+      rv += printTrace(@trace)
     return rv
 
 
@@ -56,3 +68,5 @@ exports.VmSyntaxError = VmSyntaxError
 exports.VmTypeError = VmTypeError
 exports.VmURIError = VmURIError
 exports.VmTimeoutError = VmTimeoutError
+
+

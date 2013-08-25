@@ -1,0 +1,2 @@
+var esprima = this.esprima;
+

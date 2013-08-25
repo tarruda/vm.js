@@ -1,4 +1,4 @@
-{ArrayIterator} = require './util'
+{ArrayIterator} = require './builtin'
 
 # Vm instances will manipulate the same native objects created/modified
 # by the host javascript engine.

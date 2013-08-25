@@ -1,5 +1,6 @@
 Visitor = require '../ast/visitor'
-{StopIteration, ArrayIterator, create} = require '../runtime/util'
+{StopIteration, ArrayIterator} = require '../runtime/builtin'
+{create} = require '../runtime/util'
 {VmTypeError, VmReferenceError} = require '../runtime/errors'
 RegExpProxy = require '../runtime/regexp_proxy'
 {Fiber, Scope, WithScope} = require './thread'
@@ -254,7 +255,9 @@ opcodes = [
   Op 'GT', (f, s, l) -> s.push(s.pop() > s.pop())     # greater than
   Op 'GTE', (f, s, l) -> s.push(s.pop() >= s.pop())   # greater or equal than
   Op 'IN', (f, s, l, r) ->                            # property in obj
-    s.push(r.has(s.pop(), s.pop()))                   # prototype chain
+    key = s.pop()                                     # prototype chain
+    obj = s.pop()
+    s.push(r.has(obj, key))
 
   Op 'INSTANCEOF', (f, s, l, r) ->                    # instance of
     s.push(r.instanceOf(s.pop(), s.pop()))
@@ -340,6 +343,9 @@ callm = (frame, length, key, target, name) ->
 
 
 call = (frame, length, func, target, name, construct) ->
+  if typeof func != 'function'
+    return throwErr(frame, new VmTypeError(
+      "object is not a function"))
   {evalStack: stack, fiber, realm} = frame
   args = {length: length, callee: func}
   while length

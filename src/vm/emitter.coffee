@@ -36,10 +36,9 @@ class Emitter extends Visitor
       if name of scope
         return [i, scope[name]]
       # only scopes after the function scope will increase the index
-      if crossFunctionScope
-        i++
-      if scope == @scriptScope
+      if crossFunctionScope or scope == @scriptScope
         crossFunctionScope = true
+        i++
     return null
 
   scopeGet: (name) ->
@@ -112,7 +111,7 @@ class Emitter extends Visitor
     else
       throw new Error('assertion error')
      
-  newLabel: -> new Label(@instructions)
+  newLabel: -> new Label(this)
 
   label: (name) ->
     if not name
@@ -142,10 +141,38 @@ class Emitter extends Visitor
       new POP()
     ]
     @instructions = codes.concat(@instructions)
+    processedLabels = {}
+    for i in [0...@instructions.length]
+      code = @instructions[i]
+      # replace all GETG/GETL instructions that match the declared name on
+      # a parent scope by GETL of the matched index in the local scope
+      if @scopes.length and code instanceof GETG
+        if code.args[0] == name
+          @instructions[i] = new GETL(scope)
+      if code instanceof GETL
+        if code.args[0] != 0
+          s = @scopes[code.args[0]]
+          if s[name] == code.args[1]
+            @instructions[i] = new GETL(scope)
+      # update all labels offsets
+      code.forEachLabel (l) ->
+        if l.id of processedLabels
+          # the same label can be reused between instructions, this will
+          # ensure we only visit each label once
+          return l
+        processedLabels[l.id] = null
+        # console.log `_i`, code
+        if l.ip?
+          # only offset marked labels
+          l.ip += 3
+        return l
 
   end: ->
     for code in @instructions
-      code.normalizeLabels()
+      code.forEachLabel (l) ->
+        if l.ip is null
+          throw new Error('label has not been marked')
+        return l.ip
     for guard in @guards
       guard.start = guard.start.ip
       guard.handler = guard.handler.ip if guard.handler
@@ -160,6 +187,9 @@ class Emitter extends Visitor
     localLength = 0
     for k in @localNames
       localLength++
+    # compile all functions
+    for i in [0...@scripts.length]
+      @scripts[i] = @scripts[i]()
     return new Script(@filename, @name, @instructions, @scripts, @localNames,
       localLength, @guards, max, @strings, @regexps)
 
@@ -248,7 +278,8 @@ class Emitter extends Visitor
         @POP()
 
     emitInit = (brk) =>
-      @visit(node.left)
+      if node.left.type == 'VariableDeclaration'
+        @visit(node.left)
       @visit(node.right)
       pushIterator()
       emitUpdate(brk)
@@ -521,31 +552,34 @@ class Emitter extends Visitor
     name = '<anonymous>'
     if node.id
       name = node.id.name
-    fn = new Emitter([{this: 0, arguments: 1}].concat(@scopes), @filename,
-      name)
-    # load the the 'arguments' object into the local scope
-    fn.ARGS()
-    len = node.params.length
-    if node.rest
-      # initialize rest parameter
-      fn.declareVar(node.rest.name)
-      scope = fn.scope(node.rest.name)
-      fn.REST(len, scope[1])
-    # initialize parameters
-    for i in [0...len]
-      param = node.params[i]
-      def = node.defaults[i]
-      declaration = parse("var placeholder = arguments[#{i}] || 0;").body[0]
-      declarator = declaration.declarations[0]
-      declarator.id = param
-      if def then declarator.init.right = def
-      else declarator.init = declarator.init.left
-      fn.visit(declaration)
-    # emit function body
-    fn.visit(node.body.body)
-    script = fn.end()
+    # emit function code only at the end so it can access all scope
+    # variables defined after it
+    emit = =>
+      fn = new Emitter([{this: 0, arguments: 1}].concat(@scopes), @filename,
+        name)
+      # load the the 'arguments' object into the local scope
+      fn.ARGS()
+      len = node.params.length
+      if node.rest
+        # initialize rest parameter
+        fn.declareVar(node.rest.name)
+        scope = fn.scope(node.rest.name)
+        fn.REST(len, scope[1])
+      # initialize parameters
+      for i in [0...len]
+        param = node.params[i]
+        def = node.defaults[i]
+        declaration = parse("var placeholder = arguments[#{i}] || 0;").body[0]
+        declarator = declaration.declarations[0]
+        declarator.id = param
+        if def then declarator.init.right = def
+        else declarator.init = declarator.init.left
+        fn.visit(declaration)
+      # emit function body
+      fn.visit(node.body.body)
+      return fn.end()
     functionIndex = @scripts.length
-    @scripts.push(script)
+    @scripts.push(emit)
     if node.isExpression
       # push function on the stack
       @FUNCTION(functionIndex)
@@ -869,14 +903,11 @@ class Emitter extends Visitor
   for opcode in opcodes
     do (opcode) ->
       opcodes[opcode::name] = opcode
-      opcode::normalizeLabels = ->
+      opcode::forEachLabel = (cb) ->
         if @args
           for i in [0...@args.length]
             if @args[i] instanceof Label
-              if @args[i].ip is null
-                throw new Error('label has not been marked')
-              # its a label, replace with the instruction pointer
-              @args[i] = @args[i].ip
+              @args[i] = cb(@args[i])
       # also add a method for resolving label addresses
       Emitter::[opcode::name] = (args...) ->
         if not args.length
@@ -886,13 +917,16 @@ class Emitter extends Visitor
 )()
 
 class Label
-  constructor: (@instructions) ->
+  @id: 1
+
+  constructor: (@emitter) ->
+    @id = Label.id++
     @ip = null
 
-  mark: -> @ip = @instructions.length
+  mark: -> @ip = @emitter.instructions.length
 
 
-{SETL, SETG, FUNCTION, POP} =  opcodes
+{GETL, SETL, GETG, SETG, FUNCTION, POP} =  opcodes
 
 unaryOp = {
   '-': 'INV'

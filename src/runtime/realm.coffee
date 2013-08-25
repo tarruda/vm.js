@@ -9,7 +9,7 @@
 RegExpProxy = require './regexp_proxy'
 
 
-{ArrayIterator, StopIteration} = require './util'
+{ArrayIterator, StopIteration} = require './builtin'
 
 
 runtimeProperties = {
@@ -43,6 +43,8 @@ class Realm
       StopIteration: StopIteration
       Math: Math
       JSON: JSON
+      parseInt: parseInt
+      parseFloat: parseFloat
     }
 
     global.global = global
@@ -253,6 +255,10 @@ class Realm
       'stringify'
     ]
 
+    register(parseFloat)
+
+    register(parseInt)
+
     register(ArrayIterator, ['prototype'])
 
     register(RegExpProxy, ['prototype'])
@@ -297,6 +303,9 @@ class Realm
       return @has(prototypeOf(obj), key)
 
     @get = (obj, key) ->
+      if typeof obj == 'string' and typeof key == 'number' or key == 'length'
+        # char at index or string length
+        return obj[key]
       if hasProp(runtimeProperties, key)
         return undef
       mdid = obj.__mdid__
