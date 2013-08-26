@@ -1268,6 +1268,43 @@ tests = {
   ]
 
   """
+  x = 1
+  eval('x+2');
+  """: [3, {x:1}]
+
+  """
+  y = 10;
+  z = 40;
+  function evalLocal() {
+    var x = 1;
+    return eval('var y = 5; x + y + z')
+  }
+  evalLocal();
+  """: [46, ((global) ->
+    expect(global.y).to.eql(10)
+  )]
+
+  """
+  function evalClosure() {
+    var x = 1;
+    return eval('(function() { return x++ })')
+  }
+  c = evalClosure();
+  [c(), c(), c()];
+  """: [[1, 2, 3], ((global) -> )]
+
+  """
+  f = new Function('a,', 'return 5;');
+  """: [undefined, ((global) ->
+    expect(global.errorThrown.stack).to.be(
+      """
+      EvalError: Line 1: Unexpected token )
+          at <script>:1:8
+      """
+    )
+  )]
+
+  """
   f = generateFunction();
   function generateFunction() {
     return new Function('a,b', 'throw new URIError(a+b);');
@@ -1303,11 +1340,11 @@ merge = {
 describe 'vm eval', ->
   compiledVm = Vm.compile(vmjs, 'vm.js')
   vm = null
-  vm2 = new Vm(merge)
+  vm2 = new Vm(merge, true)
   # vm2.run(compiledVm)
 
   beforeEach ->
-    vm = new Vm(merge)
+    vm = new Vm(merge, true)
     vm.realm.registerNative(merge.Dog.prototype)
     # vm2.eval('vm = new Vm()')
 
@@ -1374,6 +1411,7 @@ describe 'vm eval', ->
     delete global.console
     delete global.parseFloat
     delete global.parseInt
+    delete global.eval
 
     return global
 

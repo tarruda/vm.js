@@ -102,9 +102,7 @@ class Fiber
 
   pushFrame: (script, target, parent, args, name = '<anonymous>',
   construct = false) ->
-    if @depth is @maxDepth
-      @error = new VmError('maximum call stack size exceeded')
-      @pause()
+    if not @checkCallStack()
       return
     scope = new Scope(parent, script.localNames, script.localLength)
     scope.set(0, target)
@@ -112,6 +110,18 @@ class Fiber
     if args
       frame.evalStack.push(args)
     @callStack[++@depth] = frame
+
+  pushEvalFrame: (frame, script) ->
+    if not @checkCallStack()
+      return
+    @callStack[++@depth] = new EvalFrame(frame, script)
+
+  checkCallStack: ->
+    if @depth is @maxDepth
+      @error = new VmError('maximum call stack size exceeded')
+      @pause()
+      return false
+    return true
 
   popFrame: ->
     frame = @callStack[--@depth]
@@ -167,6 +177,20 @@ class Frame
   setColumn: (@column) ->
 
 
+# Eval frame is like a normal frame, except it will use the current
+# scope/guards
+class EvalFrame extends Frame
+  constructor: (frame, script) ->
+    # copy try/catch guards to the script
+    for guard in frame.script.guards
+      script.guards.push(guard)
+    super(frame.fiber, script, frame.scope, frame.realm, script.filename)
+
+  run: ->
+    super()
+    # the eval function will return the expression evaluated last
+    @fiber.rv = @evalStack.rexp
+
 class EvaluationStack
   constructor: (size, @fiber) ->
     @array = new Array(size)
@@ -196,10 +220,19 @@ class Scope
   set: (i, value) -> @data[i] = value
 
   name: (name) ->
-    for k, v of @names
+    for own k, v of @names
       if v == name
         return parseInt(k)
     return -1
+
+  namesHash: ->
+    rv = {}
+    for own k, v of @names
+      if typeof v == 'string'
+        rv[v] = parseInt(k)
+    rv['this'] = 0
+    rv['arguments'] = 1
+    return rv
 
 
 class WithScope

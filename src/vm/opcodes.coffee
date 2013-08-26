@@ -355,10 +355,16 @@ call = (frame, length, func, target, name, construct) ->
   target = target or realm.global
   push = true
   args = Array::slice.call(args)
-  if func == Function
-    # dynamically create a new Function instance
+  if func in [Function, realm.eval]
     try
-      stack.push(createFunction(realm.compileFunction(args), null, realm))
+      if func == Function
+        # dynamically create a new Function instance
+        stack.push(createFunction(realm.compileFunction(args), null, realm))
+      else
+        # evaluate string in the current frame
+        script = realm.eval(frame, args[0])
+        frame.paused = true
+        fiber.pushEvalFrame(frame, script)
     catch e
       throwErr(frame, new VmEvalError(e.message))
     return

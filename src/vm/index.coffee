@@ -7,9 +7,11 @@ Script = require './script'
 
 
 class Vm
-  constructor: (merge) ->
+  constructor: (merge, allowEval = false) ->
     @realm = new Realm(merge)
-    @realm.compileFunction = Vm.compileFunction
+    if allowEval
+      @realm.compileFunction = Vm.compileFunction
+      @realm.eval = @realm.global.eval = Vm.compileEval
 
   eval: (string, filename, timeout) ->
     @run(Vm.compile(string, filename), timeout)
@@ -28,6 +30,24 @@ class Vm
 
   @compile: (source, filename = '<script>') ->
     emitter = new Emitter(null, filename, null, source.split('\n'))
+    return compile(source, emitter)
+
+  @compileEval: (frame, source) ->
+    # reconstruct the scope information necessary for compilation
+    scopes = []
+    scope = frame.scope
+    while scope
+      scopes.push(scope.namesHash())
+      scope = scope.parent
+    emitter = new Emitter(scopes, '<eval>', 'eval', source.split('\n'))
+    if frame.scope
+      # this should take care of updating local variables declared
+      # in the eval'ed string
+      emitter.varIndex = frame.scope.data.length
+      names = frame.scope.names.slice()
+      names[0] = 'this'
+      names[1] = 'arguments'
+      emitter.localNames = names
     return compile(source, emitter)
 
   @compileFunction: (args) ->
