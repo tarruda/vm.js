@@ -475,7 +475,7 @@ tests = {
     }
   }
   switchCleanup('10')
-  """: [5, ((global) -> ), 0]
+  """: [5, ((global) -> )]
 
   """
   x = '10'
@@ -1243,6 +1243,23 @@ tests = {
     expect(global.p3name).to.eql('employee: programmer: linus torvalds')
     expect(global.hasOwn).to.eql([true, false, true])
   )]
+
+  """
+  z = 0;
+  x=1; function hello(name) {
+    if (name)
+      return 'hello' + name;
+    return 'hello world';
+   } y = 2;
+  hello.toString()
+  """: [
+    """
+    function hello(name) {
+      if (name)
+        return 'hello' + name;
+      return 'hello world';
+     }
+    """, ((global) -> )]
 }
 
 merge = {
@@ -1251,53 +1268,50 @@ merge = {
   console: console
 }
 
-describe 'vm running esprima parser', ->
-  compiledEsprima = Vm.compile(vmjs, 'esprima.js')
-  vm = null
+# testVmInstance = (vmCb) ->
+#   c = 0
+#   for own k, v of tests
+#     do (k, v) ->
+#       fn = ->
+#         vm = vmCb()
+#         try
+#           result = vm.eval(k)
+#         catch e
+#           err = e
+#         expect(result).to.eql expectedValue
+#         if typeof expectedGlobal is 'function'
+#           vm.realm.global.errorThrown = err
+#           expectedGlobal(vm.realm.global)
+#         else
+#           if err
+#             throw new Error("The VM has thrown an error:\n#{err}")
+#           if typeof expectedGlobal is 'object'
+#             expect(strip(vm.realm.global)).to.eql expectedGlobal
+#           else
+#             expect(strip(vm.realm.global)).to.eql {}
+#       test = "\"#{k}\""
+#       expectedValue = v[0]
+#       expectedGlobal = v[1]
+#       if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
+#       else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
+#       else it(test, fn)
 
-  beforeEach ->
-    vm = new Vm()
-    vm.run(compiledEsprima)
-
-  it 'parse', ->
-    ast = vm.eval('esprima.parse("x=2+3")')
-    expect(ast).to.eql({
-      type: 'Program'
-      body: [{
-        type: 'ExpressionStatement'
-        expression: {
-          type: 'AssignmentExpression'
-          left: {
-            type: 'Identifier'
-            name: 'x'
-          }
-          right: {
-            type: 'BinaryExpression'
-            left: {
-              type: 'Literal'
-              value: 2
-              raw: '2'
-            }
-            right: {
-              type: 'Literal'
-              value: 3
-              raw: '3'
-            }
-            operator: '+'
-          }
-          operator: '='
-        }
-      }]
-    })
 
 describe 'vm eval', ->
+  # compiledVm = Vm.compile(vmjs, 'vm.js')
   vm = null
+  # vm2 = new Vm(merge)
+  # vm2.run(compiledVm)
 
   beforeEach ->
     vm = new Vm(merge)
     vm.realm.registerNative(merge.Dog.prototype)
+    # vm2.eval('vm = new Vm()')
 
+  c = 0
   for own k, v of tests
+    # if c++ == 1
+    #   break
     do (k, v) ->
       fn = ->
         # implicitly test script serialization/deserialization
@@ -1307,7 +1321,12 @@ describe 'vm eval', ->
           result = vm.run(script)
         catch e
           err = e
+        # try
+        #   result2 = vm2.realm.global.vm.eval(k)
+        # catch e
+        #   throw e
         expect(result).to.eql expectedValue
+        # expect(result2).to.eql expectedValue
         if typeof expectedGlobal is 'function'
           vm.realm.global.errorThrown = err
           expectedGlobal(vm.realm.global)

@@ -6,7 +6,7 @@ Visitor = require '../ast/visitor'
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
 class Emitter extends Visitor
-  constructor: (scopes, @filename, @name) ->
+  constructor: (scopes, @filename, @name, @original, @source) ->
     @instructions = []
     @labels = []
     @scripts = []
@@ -191,7 +191,7 @@ class Emitter extends Visitor
     for i in [0...@scripts.length]
       @scripts[i] = @scripts[i]()
     return new Script(@filename, @name, @instructions, @scripts, @localNames,
-      localLength, @guards, max, @strings, @regexps)
+      localLength, @guards, max, @strings, @regexps, @source)
 
   visit: (node) ->
     if not node?
@@ -434,6 +434,8 @@ class Emitter extends Visitor
     return node
 
   ReturnStatement: (node) ->
+    # for hook in @returnHooks
+    #   hook()
     if node.argument
       @visit(node.argument)
       @RETV()
@@ -549,6 +551,14 @@ class Emitter extends Visitor
     return node
 
   VmFunction: (node) ->
+    {
+      start: {line: sline, column: scol},
+      end: {line: eline, column: ecol}
+    } = node.loc
+    source = @original.slice(sline - 1, eline)
+    source[0] = source[0].slice(scol)
+    source[source.length - 1] = source[source.length - 1].slice(0, ecol)
+    source = source.join('\n')
     name = '<anonymous>'
     if node.id
       name = node.id.name
@@ -556,7 +566,7 @@ class Emitter extends Visitor
     # variables defined after it
     emit = =>
       fn = new Emitter([{this: 0, arguments: 1}].concat(@scopes), @filename,
-        name)
+        name, @original, source)
       # load the the 'arguments' object into the local scope
       fn.ARGS()
       len = node.params.length

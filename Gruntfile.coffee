@@ -157,7 +157,7 @@ module.exports = (grunt) ->
       else delete data.debug[file]
 
   grunt.registerTask 'self_load', ->
-    code = grunt.file.read('./node_modules/esprima/esprima.js')
+    code = grunt.file.read('./build/browser/vm.js')
     assign = "vmjs = #{JSON.stringify(code)}"
     grunt.file.write('./build/self.js', assign)
 

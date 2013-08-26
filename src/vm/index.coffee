@@ -26,7 +26,7 @@ class Vm
     return fiber
 
   @compile: (code, filename = '<script>') ->
-    emitter = new Emitter(null, filename)
+    emitter = new Emitter(null, filename, null, code.split('\n'))
     transformer = new Transformer(new ConstantFolder(), emitter)
     transformer.transform(esprima.parse(code, {loc: true}))
     return emitter.end()

@@ -4,8 +4,8 @@ opcodes = require './opcodes'
 # convert compiled scripts from/to json-compatible structure
 scriptToJson = (script) ->
   rv = [
-    script.filename or -1
-    script.name or -1
+    script.filename or 0
+    script.name or 0
     instructionsToJson(script.instructions)
     []
     script.localNames
@@ -25,12 +25,13 @@ scriptToJson = (script) ->
     ])
   for regexp in script.regexps
     rv[8].push(regexpToString(regexp))
+  rv[9] = script.source or 0
   return rv
 
 
 scriptFromJson = (json) ->
-  filename = if json[0] != -1 then json[0] else null
-  name = if json[1] != -1 then json[1] else null
+  filename = if json[0] != 0 then json[0] else null
+  name = if json[1] != 0 then json[1] else null
   instructions = instructionsFromJson(json[2])
   scripts = []
   localNames = json[4]
@@ -50,8 +51,9 @@ scriptFromJson = (json) ->
     })
   for regexp in json[8]
     regexps.push(regexpFromString(regexp))
+  source = if json[9] != 0 then json[9] else null
   return new Script(filename, name, instructions, scripts, localNames,
-    localLength, guards, stackSize, strings, regexps)
+    localLength, guards, stackSize, strings, regexps, source)
 
 
 instructionsToJson = (instructions) ->
@@ -97,7 +99,7 @@ regexpFromString = (str) ->
 
 class Script
   constructor: (@filename, @name,  @instructions, @scripts, @localNames,
-    @localLength, @guards, @stackSize, @strings, @regexps) ->
+  @localLength, @guards, @stackSize, @strings, @regexps, @source) ->
 
   toJSON: -> scriptToJson(this)
 

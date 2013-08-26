@@ -184,6 +184,8 @@ class EvaluationStack
 
   len: -> @idx
 
+  clear: -> @idx = 0
+
 
 class Scope
   constructor: (@parent, @names, len) ->

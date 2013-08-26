@@ -13,14 +13,13 @@ OpcodeClassFactory = ( ->
 
   classFactory = (name, fn, calculateFactor) ->
     # generate opcode class
+    # this is ugly but its the only way I found to get nice opcode
+    # names when debugging with node-inspector/chrome dev tools
     OpcodeClass = ( ->
-      # this is ugly but its the only way I found to get nice opcode
-      # names when debugging with node-inspector/chrome dev tools
-      constructor = eval(
-        "(function #{name}(args) { if (args) this.args = args; })")
-      if not constructor
-        # we probably are in internet explorer(hopefully for running the
-        # test suite only) so use a normal function
+      if typeof eval != 'function' or (typeof (
+        constructor = eval(
+          "(function #{name}(args) { if (args) this.args = args; })")) !=
+            'function')
         constructor = (args) ->
           if args
             @args = args
@@ -389,6 +388,8 @@ createFunction = (script, scope, realm) ->
       return fiber.rv
   rv.__vmfunction__ = true
   rv.name = rv.__name__ = script.name
+  source = script.source
+  rv.toString = -> source
   return rv
 
 
@@ -397,6 +398,7 @@ ret = (frame) ->
     frame.ip = frame.finalizer
     frame.finalizer = null
   else
+    frame.evalStack.clear()
     frame.ip = frame.exitIp
 
 
