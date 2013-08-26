@@ -1,7 +1,7 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/builtin'
 {create} = require '../runtime/util'
-{VmTypeError, VmReferenceError} = require '../runtime/errors'
+{VmTypeError, VmEvalError, VmReferenceError} = require '../runtime/errors'
 RegExpProxy = require '../runtime/regexp_proxy'
 {Fiber, Scope, WithScope} = require './thread'
 
@@ -325,6 +325,9 @@ throwErr = (frame, err) ->
 
 callm = (frame, length, key, target, name) ->
   {evalStack: stack, realm} = frame
+  if not target?
+    return throwErr(frame, new VmTypeError(
+      "Cannot call method '#{key}' of null"))
   constructor = target.constructor
   targetName = constructor.__name__ or constructor.name or 'Object'
   name = "#{targetName}.#{name}"
@@ -351,13 +354,20 @@ call = (frame, length, func, target, name, construct) ->
     args[--length] = stack.pop()
   target = target or realm.global
   push = true
+  args = Array::slice.call(args)
+  if func == Function
+    # dynamically create a new Function instance
+    try
+      stack.push(createFunction(realm.compileFunction(args), null, realm))
+    catch e
+      throwErr(frame, new VmEvalError(e.message))
+    return
   if func.__vmfunction__
     func.__callname__ = name
     func.__fiber__ = fiber
     func.__construct__ = construct
     push = false
   try
-    args = Array::slice.call(args)
     if construct
       # create a native class instance
       val = createNativeInstance(func, args)

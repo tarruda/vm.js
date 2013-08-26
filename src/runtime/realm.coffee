@@ -27,6 +27,7 @@ class Realm
     global = {
       undefined: undef
       Object: Object
+      Function: Function
       Number: Number
       Boolean: Boolean
       String: String
@@ -352,7 +353,7 @@ class Realm
       return true
 
     @instanceOf = (obj, klass) ->
-      if typeof obj not in ['object', 'function']
+      if not obj? or typeof obj not in ['object', 'function']
         return false
       if hasProp(obj, '__md__')
         return obj.__md__.instanceOf(klass)

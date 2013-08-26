@@ -23,7 +23,8 @@ if typeof Object.create != 'function'
 else
   create = Object.create
 
-hasProp = (obj, prop) -> Object.prototype.hasOwnProperty.call(obj, prop)
+hasProp = (obj, prop) ->
+  Object.prototype.hasOwnProperty.call(obj, prop)
 
 if typeof Array.isArray != 'function'
   isArray = (obj) -> toStr(obj) == '[object Array]'
