@@ -82,21 +82,25 @@ Op = (name, fn, factorFn) -> OpcodeClassFactory(name, fn, factorFn)
 opcodes = [
   Op 'POP', (f, s, l) -> s.pop()                      # remove top
   Op 'DUP', (f, s, l) -> s.push(s.top())              # duplicate top
+  Op 'SWAP', (f, s, l) ->                             # swap top 2 values
+    top = s.pop()
+    bot = s.pop()
+    s.push(top)
+    s.push(bot)
+
   Op 'RET', (f, s, l) -> ret(f)                       # return from function
   Op 'RETV', (f, s, l) ->                             # return value from
     f.fiber.rv = s.pop()                              # function
     ret(f)
 
   Op 'THROW', (f, s, l) -> throwErr(f, s.pop())       # throw something
-  Op 'SR1', (f, s, l) -> f.r1 = s.pop()               # save to register 1
-  Op 'SR2', (f, s, l) -> f.r2 = s.pop()               # save to register 2
-  Op 'SR3', (f, s, l) -> f.r3 = s.pop()               # save to register 3
-  Op 'SR4', (f, s, l) -> f.r4 = s.pop()               # save to register 4
-  Op 'LR1', (f, s, l) -> s.push(f.r1)                 # load from register 1
-  Op 'LR2', (f, s, l) -> s.push(f.r2)                 # load from register 2
-  Op 'LR3', (f, s, l) -> s.push(f.r3)                 # load from register 3
-  Op 'LR4', (f, s, l) -> s.push(f.r4)                 # load from register 4
-  Op 'SREXP', (f, s, l) -> s.rexp = s.pop()           # save to the
+  Op 'SR1', (f, s, l) -> f.fiber.r1 = s.pop()         # save to register 1
+  Op 'SR2', (f, s, l) -> f.fiber.r2 = s.pop()         # save to register 2
+  Op 'SR3', (f, s, l) -> f.fiber.r3 = s.pop()         # save to register 3
+  Op 'LR1', (f, s, l) -> s.push(f.fiber.r1)           # load from register 1
+  Op 'LR2', (f, s, l) -> s.push(f.fiber.r2)           # load from register 2
+  Op 'LR3', (f, s, l) -> s.push(f.fiber.r3)           # load from register 3
+  Op 'SREXP', (f, s, l) -> s.fiber.rexp = s.pop()     # save to the
                                                       # expression register
 
   Op 'ITER', (f, s, l) ->                             # calls 'iterator' method
@@ -288,7 +292,8 @@ opcodes = [
     length = @args[0]
     rv = {}
     while length--
-      rv[s.pop()] = s.pop()
+      val = s.pop()
+      rv[s.pop()] = val
     s.push(rv)
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)

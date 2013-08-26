@@ -4,8 +4,8 @@ tests = {
   ## expressions
   # literals
   "({name: 'thiago', 'age': 28, 1: 2})": [{name: 'thiago', age: 28, 1: 2}]
-  "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
   "'abc'": ['abc']
+  "[1, 2, [1, 2]]": [[1, 2, [1, 2]]]
   "'abc'[1]": ['b']
   "'abc'.length": [3]
   "/abc/gi === /abc/gi": [false]
@@ -109,6 +109,24 @@ tests = {
   "if (4 > 5) i = 1; else i = 4": [4, {i: 4}]
   'i = 0; while(i++ < 10) i++; i;': [11, {i: 11}]
   # other acceptance tests
+  """
+  l = ['1', 2, 'age', 28, 'name', 'thiago'];
+  obj = {}
+  while (l.length) obj[l.pop()] = l.pop();
+  obj;
+  """: [{name: 'thiago', 'age': 28, 1: 2}, ((global) -> )]
+
+  """
+  (function() {})()
+  """: [undefined]
+
+  """
+  x = 5;
+  this[++x] = 10;
+  """: [10, ((global) ->
+    expect(global[6]).to.eql(10)
+  )]
+
   """
   obj = {
     isTrue: function(obj) { return 'isTrue' in obj }
@@ -1338,20 +1356,18 @@ merge = {
 
 
 describe 'vm eval', ->
-  compiledVm = Vm.compile(vmjs, 'vm.js')
   vm = null
+  compiledVm = Vm.fromJSON(JSON.parse(
+    JSON.stringify(Vm.compile(vmjs, 'vm.js').toJSON())))
   vm2 = new Vm(merge, true)
-  # vm2.run(compiledVm)
+  vm2.run(compiledVm)
 
   beforeEach ->
     vm = new Vm(merge, true)
     vm.realm.registerNative(merge.Dog.prototype)
     # vm2.eval('vm = new Vm()')
 
-  c = 0
   for own k, v of tests
-    # if c++ == 1
-    #   break
     do (k, v) ->
       fn = ->
         # implicitly test script serialization/deserialization
@@ -1359,12 +1375,10 @@ describe 'vm eval', ->
           JSON.stringify(Vm.compile(k).toJSON())))
         try
           result = vm.run(script)
+          # run the same test from the vm inside the vm :)
+          # result2 = vm2.realm.global.vm.eval(k)
         catch e
           err = e
-        # try
-        #   result2 = vm2.realm.global.vm.eval(k)
-        # catch e
-        #   throw e
         expect(result).to.eql expectedValue
         # expect(result2).to.eql expectedValue
         if typeof expectedGlobal is 'function'
@@ -1415,110 +1429,110 @@ describe 'vm eval', ->
 
     return global
 
-# describe 'API', ->
-#   vm = null
+describe 'API', ->
+  vm = null
 
-#   beforeEach ->
-#     vm = new Vm()
+  beforeEach ->
+    vm = new Vm()
 
-#   it 'call vm functions directly', ->
-#     code =
-#       """
-#       function fn() {
-#         return this._id++;
-#       }
+  it 'call vm functions directly', ->
+    code =
+      """
+      function fn() {
+        return this._id++;
+      }
 
-#       _id = 10;
+      _id = 10;
 
-#       idGen = {
-#         _id: 1,
-#         id: fn
-#       };
-#       """
-#     vm.eval(code)
-#     glob = vm.realm.global
-#     idGen = glob.idGen
-#     expect([glob.fn(), glob.fn(), glob.fn()]).to.eql([10, 11, 12])
-#     expect([idGen.id(), idGen.id(), idGen.id()]).to.eql([1, 2, 3])
+      idGen = {
+        _id: 1,
+        id: fn
+      };
+      """
+    vm.eval(code)
+    glob = vm.realm.global
+    idGen = glob.idGen
+    expect([glob.fn(), glob.fn(), glob.fn()]).to.eql([10, 11, 12])
+    expect([idGen.id(), idGen.id(), idGen.id()]).to.eql([1, 2, 3])
 
-#   it 'fiber pause/resume', (done) ->
-#     fiber = vm.createFiber(Vm.compile('x = 1; x = asyncArray(); x.pop()'))
-#     vm.realm.global.asyncArray = ->
-#       fiber.pause()
-#       expect(vm.realm.global.x).to.eql(1)
-#       setTimeout ->
-#         rv = [1, 2, 3]
-#         fiber.setReturnValue(rv)
-#         expect(fiber.resume()).to.eql(3)
-#         expect(vm.realm.global.x).to.eql(rv)
-#         expect(rv).to.eql([1, 2])
-#         done()
-#     fiber.run()
+  it 'fiber pause/resume', (done) ->
+    fiber = vm.createFiber(Vm.compile('x = 1; x = asyncArray(); x.pop()'))
+    vm.realm.global.asyncArray = ->
+      fiber.pause()
+      expect(vm.realm.global.x).to.eql(1)
+      setTimeout ->
+        rv = [1, 2, 3]
+        fiber.setReturnValue(rv)
+        expect(fiber.resume()).to.eql(3)
+        expect(vm.realm.global.x).to.eql(rv)
+        expect(rv).to.eql([1, 2])
+        done()
+    fiber.run()
 
-#   it 'instruction timeout', ->
-#     code =
-#     """
-#     i = 0
-#     infiniteLoop();
-#     function infiniteLoop() {
-#       while (true) i++
-#     }
-#     """
-#     try
-#       vm.eval(code, '<timeout>', 500)
-#     catch e
-#       fiber = e.fiber
-#       expect(e.stack).to.eql(
-#         """
-#         TimeoutError: Script timed out
-#             at infiniteLoop (<timeout>:4:9)
-#             at <timeout>:2:0
-#         """
-#       )
-#       expect(fiber.timedOut()).to.eql(true)
-#       # the following expectations are not part of the spec
-#       # (they are here just for demonstration)
-#       expect(vm.realm.global.i).to.eql(37)
-#       # resume fiber, giving it a bit more of 'processor' time
-#       try
-#         fiber.resume(1000)
-#       catch e
-#         expect(e.stack).to.eql(
-#           """
-#           TimeoutError: Script timed out
-#               at infiniteLoop (<timeout>:4:9)
-#               at <timeout>:2:0
-#           """
-#         )
-#         expect(fiber.timedOut()).to.eql(true)
-#         expect(vm.realm.global.i).to.eql(114)
+  it 'instruction timeout', ->
+    code =
+    """
+    i = 0
+    infiniteLoop();
+    function infiniteLoop() {
+      while (true) i++
+    }
+    """
+    try
+      vm.eval(code, '<timeout>', 500)
+    catch e
+      fiber = e.fiber
+      expect(e.stack).to.eql(
+        """
+        TimeoutError: Script timed out
+            at infiniteLoop (<timeout>:4:15)
+            at <timeout>:2:0
+        """
+      )
+      expect(fiber.timedOut()).to.eql(true)
+      # the following expectations are not part of the spec
+      # (they are here just for demonstration)
+      expect(vm.realm.global.i).to.eql(37)
+      # resume fiber, giving it a bit more of 'processor' time
+      try
+        fiber.resume(1000)
+      catch e
+        expect(e.stack).to.eql(
+          """
+          TimeoutError: Script timed out
+              at infiniteLoop (<timeout>:4:15)
+              at <timeout>:2:0
+          """
+        )
+        expect(fiber.timedOut()).to.eql(true)
+        expect(vm.realm.global.i).to.eql(114)
 
-#   it 'customize recursion depth', ->
-#     code =
-#       """
-#       var i = 0;
-#       var j = rec();
+  it 'customize recursion depth', ->
+    code =
+      """
+      var i = 0;
+      var j = rec();
 
-#       function rec() {
-#         if (i < 1000) {
-#           i++;
-#           return rec();
-#         }
-#         return i;
-#       };
-#       """
-#     script = Vm.compile(code, 'stackoverflow.js')
-#     VmError = vm.realm.global.Error
-#     msg = /^maximum\scall\sstack\ssize\sexceeded$/
-#     fiber = vm.createFiber(script)
-#     expect(( -> fiber.run())).to.throwError (e) ->
-#       expect(e).to.be.a(VmError)
-#       expect(e.message).to.match(msg)
-#     expect(vm.realm.global.j).to.eql(undefined)
-#     # create a new fiber and increase maximum depth by 1
-#     fiber = vm.createFiber(script)
-#     fiber.maxDepth += 1
-#     fiber.run()
-#     expect(vm.realm.global.j).to.eql(1000)
+      function rec() {
+        if (i < 1000) {
+          i++;
+          return rec();
+        }
+        return i;
+      };
+      """
+    script = Vm.compile(code, 'stackoverflow.js')
+    VmError = vm.realm.global.Error
+    msg = /^maximum\scall\sstack\ssize\sexceeded$/
+    fiber = vm.createFiber(script)
+    expect(( -> fiber.run())).to.throwError (e) ->
+      expect(e).to.be.a(VmError)
+      expect(e.message).to.match(msg)
+    expect(vm.realm.global.j).to.eql(undefined)
+    # create a new fiber and increase maximum depth by 1
+    fiber = vm.createFiber(script)
+    fiber.maxDepth += 1
+    fiber.run()
+    expect(vm.realm.global.j).to.eql(1000)
 
 

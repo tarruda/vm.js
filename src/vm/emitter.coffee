@@ -179,7 +179,7 @@ class Emitter extends Visitor
       guard.finalizer = guard.finalizer.ip if guard.finalizer
       guard.end = guard.end.ip
     # calculate the maximum evaluation stack size
-    max = 0
+    max = 1 # at least 1 stack size is needed for the arguments object
     current = 0
     for code in @instructions
       current += code.calculateFactor()
@@ -540,11 +540,11 @@ class Emitter extends Visitor
   ObjectExpression: (node) ->
     for property in node.properties
       if property.kind is 'init' # object literal
-        @visit(property.value)
         if property.key.type is 'Literal'
           @visit(property.key)
         else # identifier. use the name to create a literal string
           @visit({type: 'Literal', value: property.key.name})
+        @visit(property.value)
       else
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
@@ -704,9 +704,8 @@ class Emitter extends Visitor
       if node.right.type is 'MemberExpression' and not node.right.object
         # destructuring pattern, need to adjust the stack before
         # getting the value
-        @SR3()
         @visitProperty(node.right)
-        @LR3()
+        @SWAP()
         @GET()
       else
         @visit(node.right)
@@ -750,48 +749,40 @@ class Emitter extends Visitor
           @visit(childAssignment)
           @POP()
       return
-    @SR3() # save new value
     if node.left.type is 'MemberExpression'
       @visitProperty(node.left)
-      @SR1()
       @visit(node.left.object)
       @SR2()
-      if node.operator isnt '='
+      @SR1()
+      if node.operator != '='
         @LR1()
         @LR2()
         @GET() # get current value
-        @SR4() # save current value
-        @LR3() # load new value
-        @LR4() # load current value
+        # swap new/old values
+        @SWAP()
         # apply operator
         @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
         @LR1() # load property
         @LR2() # load object
         @SET() # set
       else
-        @LR3() # load value
         @LR1() # load property
         @LR2() # load object
         @SET()
     else
       if node.operator != '='
         @scopeGet(node.left.name)
-        @SR4() # save current value
-        @LR3() # load new value
-        @LR4() # load current value
         # apply operator
         @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
-      else
-        @LR3() # load new value
       @scopeSet(node.left.name) # set value
     return node
 
   UpdateExpression: (node) ->
     if node.argument.type is 'MemberExpression'
       @visitProperty(node.argument)
-      @SR1()
       @visit(node.argument.object)
       @SR2()
+      @SR1()
       @LR1()
       @LR2()
       @GET() # get current

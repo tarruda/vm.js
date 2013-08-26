@@ -11,6 +11,11 @@ class Fiber
     @error = null
     @rv = undef
     @paused = false
+    # fiber-specific registers
+    # temporary registers
+    @r1 = @r2 = @r3 = null
+    # expression register(last evaluated expression statement)
+    @rexp = null
 
   run: ->
     frame = @callStack[@depth]
@@ -140,7 +145,7 @@ class Fiber
     evalStack = @callStack[0].evalStack
     @run()
     if not @paused
-      return evalStack.rexp
+      return @rexp
 
   timedOut: -> @timeout == 0
 
@@ -154,8 +159,6 @@ class Frame
     @finalizer = null
     @rv = undef
     @line = @column = -1
-    # frame-specific registers
-    @r1 = @r2 = @r3 = @r4 = null
 
   run: ->
     instructions = @script.instructions
@@ -189,13 +192,12 @@ class EvalFrame extends Frame
   run: ->
     super()
     # the eval function will return the expression evaluated last
-    @fiber.rv = @evalStack.rexp
+    @fiber.rv = @fiber.rexp
 
 class EvaluationStack
   constructor: (size, @fiber) ->
     @array = new Array(size)
     @idx = 0
-    @rexp = null
 
   push: (item) ->
     if @idx is @array.length

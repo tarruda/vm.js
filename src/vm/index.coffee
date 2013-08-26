@@ -18,10 +18,9 @@ class Vm
 
   run: (script, timeout) ->
     fiber = @createFiber(script, timeout)
-    evalStack = fiber.callStack[0].evalStack
     fiber.run()
     if not fiber.paused
-      return evalStack.rexp
+      return fiber.rexp
 
   createFiber: (script, timeout) ->
     fiber = new Fiber(@realm, timeout)
