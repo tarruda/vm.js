@@ -57,21 +57,34 @@ class Realm
     currentId = 0
 
     hasOwnProperty = (obj, key) ->
+      type = typeof obj
+      objType = type in ['object', 'function']
+      if hasProp(runtimeProperties, key)
+        if objType
+          if hasProp(obj, '__mdid__')
+            md = nativeMetadata[obj.__mdid__]
+          else if hasProp(obj, '__md__')
+            md = obj.__md__
+          if md
+            return md.hasDefProperty(key)
+        return false
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if md.object == obj or typeof obj not in ['object', 'function']
-        # registered native object, or primitive type. use its corresponding
-        # metadata object to read the property
+      if md.object == obj or not objType
         return md.hasOwnProperty(key, obj)
       if hasProp(obj, '__md__')
         return obj.__md__.hasOwnProperty(key)
       return hasProp(obj, key)
 
+    t = true
     register = (obj, restrict) =>
       if not hasProp(obj, '__mdid__')
         obj.__mdid__ = currentId + 1
-      currentId = obj.__mdid__
-      if obj.__mdid__ of nativeMetadata
+        if t and typeof log2 == 'function' and not obj.__mdid__
+          t = false
+          log2 obj, "'#{obj.__mdid__}'"
+      currentId = Math.max(obj.__mdid__, currentId)
+      if hasProp(nativeMetadata, obj.__mdid__)
         return
       type = typeof restrict
       if type == 'boolean' and type
@@ -93,12 +106,14 @@ class Realm
 
     register Object, {
       'prototype': [
+        'constructor'
         'toString'
       ]
     }
 
     register Function, {
       'prototype': [
+        'constructor'
         'apply'
         'call'
         'toString'
@@ -109,6 +124,7 @@ class Realm
       'isNaN': true
       'isFinite': true
       'prototype': [
+        'constructor'
         'toExponential'
         'toFixed'
         'toLocaleString'
@@ -120,6 +136,7 @@ class Realm
 
     register Boolean, {
       'prototype': [
+        'constructor'
         'toString'
         'valueOf'
       ]
@@ -128,6 +145,7 @@ class Realm
     register String, {
       'fromCharCode': true
       'prototype': [
+        'constructor'
         'charAt'
         'charCodeAt'
         'concat'
@@ -151,6 +169,7 @@ class Realm
       'isArray': true
       'every': true
       'prototype': [
+        'constructor'
         'join'
         'reverse'
         'sort'
@@ -178,6 +197,7 @@ class Realm
       'parse': true
       'UTC': true
       'prototype': [
+        'constructor'
         'getDate'
         'getDay'
         'getFullYear'
@@ -224,6 +244,7 @@ class Realm
 
     register RegExp, {
       'prototype': [
+        'constructor'
         'exec'
         'test'
         'toString'
@@ -257,9 +278,9 @@ class Realm
       'stringify'
     ]
 
-    register(parseFloat)
+    register(parseFloat, true)
 
-    register(parseInt)
+    register(parseInt, true)
 
     register(ArrayIterator, ['prototype'])
 
@@ -267,6 +288,7 @@ class Realm
    
     nativeMetadata[Object.__mdid__].properties = {
       create: create
+      getPrototypeOf: prototypeOf
     }
 
     nativeMetadata[Object.prototype.__mdid__].properties = {
@@ -307,6 +329,8 @@ class Realm
         return nativeMetadata[proto.__mdid__]
 
     @has = (obj, key) ->
+      if not obj?
+        return false
       type = typeof obj
       objType = type in ['object', 'function']
       if hasProp(runtimeProperties, key)
@@ -317,12 +341,11 @@ class Realm
             md = obj.__md__
           if md
             return md.hasDefProperty(key)
+          return @has(prototypeOf(obj), key)
         return false
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
       if md.object == obj or not objType
-        # registered native object, or primitive type. use its corresponding
-        # metadata object to read the property
         return md.has(key, obj)
       if hasProp(obj, '__md__')
         return obj.__md__.has(key)
@@ -331,6 +354,8 @@ class Realm
       return @has(prototypeOf(obj), key)
 
     @get = (obj, key) ->
+      if not obj?
+        return undef
       type = typeof obj
       objType = type in ['object', 'function']
       if hasProp(runtimeProperties, key)
@@ -341,6 +366,7 @@ class Realm
             md = obj.__md__
           if md and md.hasDefProperty(key)
             return md.get(key)
+          return @get(prototypeOf(obj), key)
         return undef
       if type == 'string' and typeof key == 'number' or key == 'length'
         # char at index or string length
@@ -368,6 +394,8 @@ class Realm
         # separately
         if objType
           if hasProp(obj, '__mdid__')
+            # nativeMetadata already uses copy-on-write, so no need to
+            # define a special property
             nativeMetadata[obj.__mdid__].set(key, val)
           else
             if not hasProp(obj, '__md__')
@@ -397,7 +425,7 @@ class Realm
           if hasProp(obj, '__mdid__')
             nativeMetadata[obj.__mdid__].del(key)
           else if hasProp(obj, '__md__')
-            obj.__md__.del(key)
+            obj.__md__.delDefProperty(key)
         return true
       if objType
         if type == 'function' and key == 'prototype'
@@ -411,7 +439,7 @@ class Realm
           delete obj[key]
       return true
 
-    @instanceOf = (obj, klass) ->
+    @instanceOf = (klass, obj) ->
       if not obj? or typeof obj not in ['object', 'function']
         return false
       if hasProp(obj, '__md__')
@@ -440,6 +468,32 @@ class Realm
 
     @registerNative = register
 
+  inv: (o) -> -o
+  lnot: (o) -> not o
+  not: (o) -> ~o
+  inc: (o) -> o + 1
+  dec: (o) -> o - 1
+
+  add: (r, l) -> l + r
+  sub: (r, l) -> l - r
+  mul: (r, l) -> l * r
+  div: (r, l) -> l / r
+  mod: (r, l) -> l % r
+  shl: (r, l) -> l << r
+  sar: (r, l) -> l >> r
+  shr: (r, l) -> l >>> r
+  or: (r, l) -> l | r
+  and: (r, l) -> l & r
+  xor: (r, l) -> l ^ r
+
+  ceq: (r, l) -> `l == r`
+  cneq: (r, l) -> `l != r`
+  cid: (r, l) -> l == r
+  cnid: (r, l) -> l != r
+  lt: (r, l) -> l < r
+  lte: (r, l) -> l <= r
+  gt: (r, l) -> l > r
+  gte: (r, l) -> l >= r
         
 
 module.exports = Realm

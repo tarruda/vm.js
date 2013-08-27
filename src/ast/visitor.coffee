@@ -173,13 +173,13 @@ class Visitor
     return node
 
   BinaryExpression: (node) ->
-    node.right = @visit(node.right)
     node.left = @visit(node.left)
+    node.right = @visit(node.right)
     return node
 
   AssignmentExpression: (node) ->
-    node.left = @visit(node.left)
     node.right = @visit(node.right)
+    node.left = @visit(node.left)
     return node
 
   UpdateExpression: (node) ->
@@ -228,12 +228,6 @@ class Visitor
     node.filter = @visit(node.filter)
     return node
 
-  GraphExpression: (node) ->
-    node.expression = @visit(node.expression)
-    return node
-
-  GraphIndexExpression: (node) -> node
-
   LetExpression: (node) ->
     node.head = @visit(node.head)
     node.body = @visit(node.body)
@@ -241,8 +235,8 @@ class Visitor
 
   ObjectPattern: (node) ->
     for property in node.properties
-      property.key = @visit(property.key)
       property.value = @visit(property.value)
+      property.key = @visit(property.key)
     return node
 
   ArrayPattern: (node) ->

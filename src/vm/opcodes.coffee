@@ -231,36 +231,38 @@ opcodes = [
   Op 'ENTER_WITH', (f, s) ->                            # enter 'with' block
     f.scope = new WithScope(f.scope, s.pop())
 
-  Op 'INV', (f, s, l) -> s.push(-s.pop())             # invert signal
-  Op 'LNOT', (f, s, l) -> s.push(not s.pop())         # logical NOT
-  Op 'NOT', (f, s, l) -> s.push(~s.pop())             # bitwise NOT
-  Op 'INC', (f, s, l) -> s.push(s.pop() + 1)          # increment
-  Op 'DEC', (f, s, l) -> s.push(s.pop() - 1)          # decrement
+  Op 'INV', (f, s, l, r) -> s.push(r.inv(s.pop()))            # invert signal
+  Op 'LNOT', (f, s, l, r) -> s.push(r.lnot(s.pop()))          # logical NOT
+  Op 'NOT', (f, s, l, r) -> s.push(r.not(s.pop()))            # bitwise NOT
+  Op 'INC', (f, s, l, r) -> s.push(r.inc(s.pop()))            # increment
+  Op 'DEC', (f, s, l, r) -> s.push(r.dec(s.pop()))            # decrement
 
-  Op 'ADD', (f, s, l) -> s.push(s.pop() + s.pop())    # sum
-  Op 'SUB', (f, s, l) -> s.push(s.pop() - s.pop())    # difference
-  Op 'MUL', (f, s, l) -> s.push(s.pop() * s.pop())    # product
-  Op 'DIV', (f, s, l) -> s.push(s.pop() / s.pop())    # division
-  Op 'MOD', (f, s, l) -> s.push(s.pop() % s.pop())    # modulo
-  Op 'SHL', (f, s, l) ->  s.push(s.pop() << s.pop())  # left shift
-  Op 'SAR', (f, s, l) -> s.push(s.pop() >> s.pop())   # right shift
-  Op 'SHR', (f, s, l) -> s.push(s.pop() >>> s.pop())  # unsigned right shift
-  Op 'OR', (f, s, l) -> s.push(s.pop() | s.pop())     # bitwise OR
-  Op 'AND', (f, s, l) -> s.push(s.pop() & s.pop())    # bitwise AND
-  Op 'XOR', (f, s, l) -> s.push(s.pop() ^ s.pop())    # bitwise XOR
+  Op 'ADD', (f, s, l, r) -> s.push(r.add(s.pop(), s.pop()))   # sum
+  Op 'SUB', (f, s, l, r) -> s.push(r.sub(s.pop(), s.pop()))   # difference
+  Op 'MUL', (f, s, l, r) -> s.push(r.mul(s.pop(), s.pop()))   # product
+  Op 'DIV', (f, s, l, r) -> s.push(r.div(s.pop(), s.pop()))   # division
+  Op 'MOD', (f, s, l, r) -> s.push(r.mod(s.pop(), s.pop()))   # modulo
+  Op 'SHL', (f, s, l, r) ->  s.push(r.shl(s.pop(), s.pop()))  # left shift
+  Op 'SAR', (f, s, l, r) -> s.push(r.sar(s.pop(), s.pop()))   # right shift
+  Op 'SHR', (f, s, l, r) -> s.push(r.shr(s.pop(), s.pop()))   # unsigned shift
+  Op 'OR', (f, s, l, r) -> s.push(r.or(s.pop(), s.pop()))     # bitwise OR
+  Op 'AND', (f, s, l, r) -> s.push(r.and(s.pop(), s.pop()))   # bitwise AND
+  Op 'XOR', (f, s, l, r) -> s.push(r.xor(s.pop(), s.pop()))   # bitwise XOR
 
-  Op 'CEQ', (f, s, l) -> s.push(`s.pop() == s.pop()`) # equals
-  Op 'CNEQ', (f, s, l) -> s.push(`s.pop() != s.pop()`)# not equals
-  Op 'CID', (f, s, l) -> s.push(s.pop() is s.pop())   # same
-  Op 'CNID', (f, s, l) -> s.push(s.pop() isnt s.pop())# not same
-  Op 'LT', (f, s, l) -> s.push(s.pop() < s.pop())     # less than
-  Op 'LTE', (f, s, l) -> s.push(s.pop() <= s.pop())   # less or equal than
-  Op 'GT', (f, s, l) -> s.push(s.pop() > s.pop())     # greater than
-  Op 'GTE', (f, s, l) -> s.push(s.pop() >= s.pop())   # greater or equal than
-  Op 'IN', (f, s, l, r) ->                            # property in obj
-    key = s.pop()                                     # prototype chain
-    obj = s.pop()
-    s.push(r.has(obj, key))
+  Op 'CEQ', (f, s, l, r) -> s.push(r.ceq(s.pop(), s.pop()))   # equals
+  Op 'CNEQ', (f, s, l, r) -> s.push(r.cneq(s.pop(), s.pop())) # not equals
+  Op 'CID', (f, s, l, r) -> s.push(r.cid(s.pop(), s.pop()))   # same
+  Op 'CNID', (f, s, l, r) -> s.push(r.cnid(s.pop(), s.pop())) # not same
+  Op 'LT', (f, s, l, r) -> s.push(r.lt(s.pop(), s.pop()))     # less than
+  Op 'LTE', (f, s, l, r) -> s.push(r.lte(s.pop(), s.pop()))   # less or equal
+                                                              # than
+
+  Op 'GT', (f, s, l, r) -> s.push(r.gt(s.pop(), s.pop()))     # greater than
+  Op 'GTE', (f, s, l, r) -> s.push(r.gte(s.pop(), s.pop()))   # greater or
+                                                              # equal than
+
+  Op 'IN', (f, s, l, r) ->                                    # property in obj
+    s.push(r.has(s.pop(), s.pop()))                           # prototype chain
 
   Op 'INSTANCEOF', (f, s, l, r) ->                    # instance of
     s.push(r.instanceOf(s.pop(), s.pop()))
@@ -292,8 +294,7 @@ opcodes = [
     length = @args[0]
     rv = {}
     while length--
-      val = s.pop()
-      r.set(rv, s.pop(), val)
+      r.set(rv, s.pop(), s.pop())
     s.push(rv)
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)
@@ -480,7 +481,6 @@ createNativeInstance = (constructor, args) ->
     constructorProxy = -> constructor.apply(this, args)
     constructorProxy.prototype = constructor.prototype
     rv = new constructorProxy()
-    rv.constructor = constructor
     return rv
 
 

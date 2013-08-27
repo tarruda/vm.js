@@ -2,6 +2,7 @@
 Script = require './script'
 opcodes = require './opcodes'
 Visitor = require '../ast/visitor'
+{hasProp} = require '../runtime/util'
     
 # Last visitor applied in the compilation pipeline, it
 # emits opcodes to be executed in the vm
@@ -540,11 +541,11 @@ class Emitter extends Visitor
   ObjectExpression: (node) ->
     for property in node.properties
       if property.kind is 'init' # object literal
+        @visit(property.value)
         if property.key.type is 'Literal'
           @visit(property.key)
         else # identifier. use the name to create a literal string
           @visit({type: 'Literal', value: property.key.name})
-        @visit(property.value)
       else
         throw new Error("property kind '#{property.kind}' not implemented")
     @OBJECT_LITERAL(node.properties.length)
@@ -759,7 +760,7 @@ class Emitter extends Visitor
         @LR2()
         @GET() # get current value
         # swap new/old values
-        @SWAP()
+        # @SWAP()
         # apply operator
         @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
         @LR1() # load property
@@ -772,6 +773,7 @@ class Emitter extends Visitor
     else
       if node.operator != '='
         @scopeGet(node.left.name)
+        @SWAP()
         # apply operator
         @[binaryOp[node.operator.slice(0, node.operator.length - 1)]]()
       @scopeSet(node.left.name) # set value
@@ -816,7 +818,7 @@ class Emitter extends Visitor
     # variable-length literals(strings and regexps) are stored in arrays
     # and referenced by index
     else if typeof val == 'string'
-      if val not of @stringIds
+      if not hasProp(@stringIds, val)
         @strings.push(val)
         idx = @strings.length - 1
         @stringIds[val] = idx
@@ -824,7 +826,7 @@ class Emitter extends Visitor
       @STRING_LITERAL(idx)
     else if val instanceof RegExp
       id = Script.regexpToString(val)
-      if id not of @regexpIds
+      if not hasProp(@regexpIds, id)
         @regexps.push(val)
         idx = @regexps.length - 1
         @regexpIds[id] = idx

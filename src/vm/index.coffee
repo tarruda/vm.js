@@ -76,5 +76,4 @@ compile = (source, emitter) ->
   transformer.transform(esprima.parse(source, {loc: true}))
   return emitter.end()
 
-
 module.exports = Vm

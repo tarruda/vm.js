@@ -80,6 +80,8 @@ class ObjectMetadata
 
   delOwnProperty: (key) -> delete @properties[key] and delete @object[key]
 
+  delDefProperty: (key) -> delete @properties[key]
+
   searchProperty: (key) ->
     md = this
     while md
@@ -179,7 +181,7 @@ class CowObjectMetadata extends ObjectMetadata
   setOwnProperty: (key, value) ->
     if hasProp(@exclude, key)
       delete @exclude[key]
-    if value != @properties[key]
+    if not hasProp(@properties, key) or value != @properties[key]
       @properties[key] = value
 
   delOwnProperty: (key) ->
@@ -201,13 +203,15 @@ class RestrictedObjectMetadata extends CowObjectMetadata
     @leak = {}
 
   hasOwnProperty: (key) ->
-    key of @properties or
-      (key of @leak and key of @object and key not of @exclude)
+    hasProp(@properties, key) or
+      (hasProp(@leak, key) and hasProp(@object, key) and
+      not hasProp(@exclude, key))
 
   getOwnProperty: (key) ->
-    if key of @properties
+    if hasProp(@properties, key)
       return @properties[key]
-    if key of @leak and key of @object and key not of @exclude
+    if hasProp(@leak, key) and hasProp(@object, key) and
+    not hasProp(@exclude, key)
       return @object[key]
     return undef
 

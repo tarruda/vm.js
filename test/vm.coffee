@@ -1072,6 +1072,14 @@ tests = {
   """: [true]
 
   """
+  new RegExp('abc').constructor
+  """: [RegExp]
+
+  """
+  /abc/.constructor
+  """: [RegExp]
+
+  """
   null instanceof Object
   """: [false]
 
@@ -1164,7 +1172,7 @@ tests = {
     expect(global.JSON.stringify).to.be.a(Function)
   )]
 
-  # special runtime properties like are handled specially
+  # special runtime properties are handled specially
   """
   f = function(){};
   o = {'__md__': 'd'};
@@ -1184,8 +1192,14 @@ tests = {
     '__vmfunction__' in f,
     '__md__' in o
   ];
-  [Object.__mdid__, Object.prototype.__mdid__, f.__vmfunction__, o.__md__]
+  [
+    Object.__mdid__,
+    Object.prototype.__mdid__,
+    f.__vmfunction__,
+    o.__md__
+  ]
   """:[['a', 'b', 'c', undefined], ((global) ->
+    expect(global.o).to.have.property('__md__')
     expect(Object.__mdid__).to.be(1)
     expect(Object.prototype.__mdid__).to.be(2)
     expect(global.f.__vmfunction__).to.be(true)
@@ -1201,7 +1215,32 @@ tests = {
       true
       false
     ])
-  ), 0]
+  )]
+
+  """
+  currentId = 5;
+  Object.__mdid__ = currentId + 1;
+  currentId = Object.__mdid__;
+  Object.prototype.__mdid__ = currentId + 1;
+  currentId = Object.prototype.__mdid__;
+  Function.__mdid__ = currentId + 1;
+  currentId = Function.__mdid__;
+  Function.prototype.__mdid__ = currentId + 1;
+  currentId = Function.prototype.__mdid__;
+  [
+    currentId,
+    Function.prototype.__mdid__,
+    Function.__mdid__,
+    Object.prototype.__mdid__,
+    Object.__mdid__
+  ];
+  """: [[9, 9, 8, 7, 6], ((global) ->
+    expect(Object.__mdid__).to.be(1)
+    expect(Object.prototype.__mdid__).to.be(2)
+    expect(Object.prototype.toString.__mdid__).to.be(3)
+    expect(Function.__mdid__).to.be(4)
+    expect(Function.prototype.__mdid__).to.be(5)
+  )]
 
   """
   delete Object.prototype
@@ -1385,22 +1424,32 @@ merge = {
   Dog: class Dog
     bark: -> @barked = true
   console: console
+  log2: -> console.log.apply(console, arguments)
 }
 
+selftest = 0
 
 describe 'vm eval', ->
   vm = null
-  compiledVm = Vm.fromJSON(JSON.parse(
-    JSON.stringify(Vm.compile(vmjs, 'vm.js').toJSON())))
-  vm2 = new Vm(merge, true)
-  vm2.run(compiledVm)
+  if selftest
+    compiledVm = Vm.fromJSON(JSON.parse(
+      JSON.stringify(Vm.compile(vmjs, 'vm.js').toJSON())))
+    vm2 = new Vm(merge, true)
+    vm2.run(compiledVm)
 
   beforeEach ->
     vm = new Vm(merge, true)
     vm.realm.registerNative(merge.Dog.prototype)
-    vm2.eval('vm = new Vm()')
+    if selftest
+      vm2.eval(
+        """
+        vm = new Vm({Dog: Dog})
+        """)
 
+  c = 0
   for own k, v of tests
+    # if c++ == 100
+    #   break
     do (k, v) ->
       fn = ->
         # implicitly test script serialization/deserialization
@@ -1408,13 +1457,15 @@ describe 'vm eval', ->
           JSON.stringify(Vm.compile(k).toJSON())))
         try
           result = vm.run(script)
-          # run the same test from the vm inside the vm :)
-          result2 = vm2.realm.global.vm.eval(k)
+          if selftest
+            # run the same test from the vm inside the vm :)
+            result2 = vm2.realm.global.vm.eval(k)
         catch e
           # console.log e.stack
           err = e
         expect(result).to.eql expectedValue
-        expect(result2).to.eql expectedValue
+        if selftest
+          expect(result2).to.eql expectedValue
         if typeof expectedGlobal is 'function'
           vm.realm.global.errorThrown = err
           expectedGlobal(vm.realm.global)
@@ -1425,6 +1476,7 @@ describe 'vm eval', ->
             expect(strip(vm.realm.global)).to.eql expectedGlobal
           else
             expect(strip(vm.realm.global)).to.eql {}
+        # assert builtin properties are not tampered by the self-hosted vm
       test = "\"#{k}\""
       expectedValue = v[0]
       expectedGlobal = v[1]
@@ -1460,6 +1512,7 @@ describe 'vm eval', ->
     delete global.parseFloat
     delete global.parseInt
     delete global.eval
+    delete global.log2
 
     return global
 
