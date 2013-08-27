@@ -293,7 +293,7 @@ opcodes = [
     rv = {}
     while length--
       val = s.pop()
-      rv[s.pop()] = val
+      r.set(rv, s.pop(), val)
     s.push(rv)
     # pops one item for each key/value and push the object
   , -> 1 - (@args[0] * 2)

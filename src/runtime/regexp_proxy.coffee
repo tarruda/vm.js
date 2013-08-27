@@ -17,19 +17,5 @@ class RegExpProxy
       new DataPropertyMetadata(regexp.source, false, true, false))
     @lastIndex = 0
 
-  exec: (str) ->
-    @regexp.lastIndex = @lastIndex
-    rv = @regexp.exec(str)
-    @lastIndex = @regexp.lastIndex
-    return rv
-
-  test: (str) ->
-    @regexp.lastIndex = @lastIndex
-    rv = @regexp.test(str)
-    @lastIndex = @regexp.lastIndex
-    return rv
-
-  toString: -> @regexp.toString()
-
 
 module.exports = RegExpProxy

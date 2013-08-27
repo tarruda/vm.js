@@ -4,6 +4,7 @@
 } = require './errors'
 {
   ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
+  DataPropertyMetadata
 } = require './metadata'
 {isArray, prototypeOf, create, hasProp} = require './util'
 RegExpProxy = require './regexp_proxy'
@@ -283,17 +284,43 @@ class Realm
         return @match(obj)
     }
 
+    nativeMetadata[RegExp.prototype.__mdid__].properties = {
+      exec: (str) ->
+        @regexp.lastIndex = @lastIndex
+        rv = @regexp.exec(str)
+        @lastIndex = @regexp.lastIndex
+        return rv
+
+      test: (str) ->
+        @regexp.lastIndex = @lastIndex
+        rv = @regexp.test(str)
+        @lastIndex = @regexp.lastIndex
+        return rv
+
+      toString: -> @regexp.toString()
+
+    }
+
     @mdproto = (obj) ->
       proto = prototypeOf(obj)
       if proto
         return nativeMetadata[proto.__mdid__]
 
     @has = (obj, key) ->
+      type = typeof obj
+      objType = type in ['object', 'function']
       if hasProp(runtimeProperties, key)
-        return undef
+        if objType
+          if hasProp(obj, '__mdid__')
+            md = nativeMetadata[obj.__mdid__]
+          else if hasProp(obj, '__md__')
+            md = obj.__md__
+          if md
+            return md.hasDefProperty(key)
+        return false
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if md.object == obj or typeof obj not in ['object', 'function']
+      if md.object == obj or not objType
         # registered native object, or primitive type. use its corresponding
         # metadata object to read the property
         return md.has(key, obj)
@@ -304,14 +331,23 @@ class Realm
       return @has(prototypeOf(obj), key)
 
     @get = (obj, key) ->
-      if typeof obj == 'string' and typeof key == 'number' or key == 'length'
+      type = typeof obj
+      objType = type in ['object', 'function']
+      if hasProp(runtimeProperties, key)
+        if objType
+          if hasProp(obj, '__mdid__')
+            md = nativeMetadata[obj.__mdid__]
+          else if hasProp(obj, '__md__')
+            md = obj.__md__
+          if md and md.hasDefProperty(key)
+            return md.get(key)
+        return undef
+      if type == 'string' and typeof key == 'number' or key == 'length'
         # char at index or string length
         return obj[key]
-      if hasProp(runtimeProperties, key)
-        return undef
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if md.object == obj or typeof obj not in ['object', 'function']
+      if md.object == obj or not objType
         # registered native object, or primitive type. use its corresponding
         # metadata object to read the property
         return md.get(key, obj)
@@ -325,9 +361,26 @@ class Realm
       return @get(prototypeOf(obj), key)
 
     @set = (obj, key, val) ->
+      type = typeof obj
+      objType = type in ['object', 'function']
+      if hasProp(runtimeProperties, key)
+        # one of the special runtime properties. needs to be handled
+        # separately
+        if objType
+          if hasProp(obj, '__mdid__')
+            nativeMetadata[obj.__mdid__].set(key, val)
+          else
+            if not hasProp(obj, '__md__')
+              obj.__md__ = new ObjectMetadata(obj, this)
+            md = obj.__md__
+            if not md.hasDefProperty(key)
+              prop = new DataPropertyMetadata(val, true, true, true)
+              md.defineProperty(key, prop)
+            md.set(key, val)
+        return val
       if hasProp(runtimeProperties, key)
         return undef
-      if typeof obj in ['object', 'function']
+      if objType
         if hasProp(obj, '__md__')
           obj.__md__.set(key, val)
         else if hasProp(obj, '__mdid__')
@@ -337,12 +390,18 @@ class Realm
       return val
 
     @del = (obj, key) ->
-      if hasProp(runtimeProperties, key)
-        return undef
       type = typeof obj
-      if type in ['object', 'function']
+      objType = type in ['object', 'function']
+      if hasProp(runtimeProperties, key)
+        if objType
+          if hasProp(obj, '__mdid__')
+            nativeMetadata[obj.__mdid__].del(key)
+          else if hasProp(obj, '__md__')
+            obj.__md__.del(key)
+        return true
+      if objType
         if type == 'function' and key == 'prototype'
-          # never allow a function prototype to be deleted
+          # a function prototype cannot be deleted
           return false
         if hasProp(obj, '__md__')
           obj.__md__.del(key)

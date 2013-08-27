@@ -1164,11 +1164,44 @@ tests = {
     expect(global.JSON.stringify).to.be.a(Function)
   )]
 
-  # special runtime properties like __mdid__ should never be
-  # visible from the vm
+  # special runtime properties like are handled specially
   """
-  [Object.__mdid__, Object.prototype.__mdid__, (function(){}).__vmfunction__]
-  """:[[undefined, undefined, undefined]]
+  f = function(){};
+  o = {'__md__': 'd'};
+  assertions1 = [
+    '__mdid__' in Object,
+    '__mdid__' in Object.prototype,
+    '__vmfunction__' in f,
+    '__md__' in o
+  ]
+  Object.__mdid__ = 'a';
+  Object.prototype.__mdid__ = 'b';
+  f.__vmfunction__ = 'c';
+  delete o.__md__;
+  assertions2 = [
+    '__mdid__' in Object,
+    '__mdid__' in Object.prototype,
+    '__vmfunction__' in f,
+    '__md__' in o
+  ];
+  [Object.__mdid__, Object.prototype.__mdid__, f.__vmfunction__, o.__md__]
+  """:[['a', 'b', 'c', undefined], ((global) ->
+    expect(Object.__mdid__).to.be(1)
+    expect(Object.prototype.__mdid__).to.be(2)
+    expect(global.f.__vmfunction__).to.be(true)
+    expect(global.assertions1).to.eql([
+      false
+      false
+      false
+      true
+    ])
+    expect(global.assertions2).to.eql([
+      true
+      true
+      true
+      false
+    ])
+  ), 0]
 
   """
   delete Object.prototype
@@ -1365,7 +1398,7 @@ describe 'vm eval', ->
   beforeEach ->
     vm = new Vm(merge, true)
     vm.realm.registerNative(merge.Dog.prototype)
-    # vm2.eval('vm = new Vm()')
+    vm2.eval('vm = new Vm()')
 
   for own k, v of tests
     do (k, v) ->
@@ -1376,11 +1409,12 @@ describe 'vm eval', ->
         try
           result = vm.run(script)
           # run the same test from the vm inside the vm :)
-          # result2 = vm2.realm.global.vm.eval(k)
+          result2 = vm2.realm.global.vm.eval(k)
         catch e
+          # console.log e.stack
           err = e
         expect(result).to.eql expectedValue
-        # expect(result2).to.eql expectedValue
+        expect(result2).to.eql expectedValue
         if typeof expectedGlobal is 'function'
           vm.realm.global.errorThrown = err
           expectedGlobal(vm.realm.global)

@@ -1,4 +1,5 @@
 {ArrayIterator} = require './builtin'
+{hasProp} = require './util'
 
 # Vm instances will manipulate the same native objects created/modified
 # by the host javascript engine.
@@ -69,7 +70,9 @@ class ObjectMetadata
     @properties = {}
     @extensible = true
 
-  hasOwnProperty: (key) -> key of @properties or key of @object
+  hasDefProperty: (key) -> hasProp(@properties, key)
+
+  hasOwnProperty: (key) -> @hasDefProperty(key) or hasProp(@object, key)
 
   getOwnProperty: (key) -> @properties[key] or @object[key]
 
@@ -131,7 +134,7 @@ class ObjectMetadata
   defineProperty: (key, property) ->
     if not @extensible
       return false
-    @setOwnProperty(key, property)
+    @properties[key] = property
     return true
 
   instanceOf: (klass) ->
@@ -163,23 +166,24 @@ class CowObjectMetadata extends ObjectMetadata
     @exclude = {}
 
   hasOwnProperty: (key) ->
-    key of @properties or (key of @object and key not of @exclude)
+    hasProp(@properties, key) or
+    (hasProp(@object, key) and not hasProp(@exclude, key))
 
   getOwnProperty: (key) ->
-    if key of @properties
+    if hasProp(@properties, key)
       return @properties[key]
-    if key of @object and key not of @exclude
+    if hasProp(@object, key) and not hasProp(@exclude, key)
       return @object[key]
     return undef
 
   setOwnProperty: (key, value) ->
-    if key of @exclude
+    if hasProp(@exclude, key)
       delete @exclude[key]
     if value != @properties[key]
       @properties[key] = value
 
   delOwnProperty: (key) ->
-    if key of @properties
+    if hasProp(@properties, key)
       delete @properties[key]
     @exclude[key] = null
 
