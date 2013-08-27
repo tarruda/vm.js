@@ -1,5 +1,19 @@
 Vm = require '../src/vm'
 
+# flag to enable/disable running the tests from a native vm
+nativetest = 1
+# flag to enable/disable running the tests from a self-hosted vm
+selftest = 0
+
+# what follows is a bunch of test cases to be run in a Vm instance.
+# the key is the string to be eval'ed and the value is an array where:
+# - the first item is the result of the expression that was evaluated last
+# - if the second item is an object, it is treated as an expectation for the
+#   global object
+# - if its a function its called with the vm global object as argument
+# - if the last argument is 1, then only that test is ran. if its 0 that test
+#   is skipped
+
 tests = {
   ## expressions
   # literals
@@ -1424,97 +1438,97 @@ merge = {
   Dog: class Dog
     bark: -> @barked = true
   console: console
-  log2: -> console.log.apply(console, arguments)
+  log: -> console.log.apply(console, arguments)
 }
 
-selftest = 0
+strip = (global) ->
+  # strip builtins for easy assertion of global object state
+  delete global.Object
+  delete global.Function
+  delete global.Number
+  delete global.Boolean
+  delete global.String
+  delete global.Array
+  delete global.Date
+  delete global.RegExp
+  delete global.Error
+  delete global.EvalError
+  delete global.RangeError
+  delete global.ReferenceError
+  delete global.SyntaxError
+  delete global.TypeError
+  delete global.URIError
+  delete global.Math
+  delete global.JSON
+  delete global.StopIteration
+  delete global.Dog
+  delete global.undefined
+  delete global.global
+  delete global.console
+  delete global.parseFloat
+  delete global.parseInt
+  delete global.eval
+  delete global.log
+  return global
 
-describe 'vm eval', ->
-  vm = null
-  if selftest
+
+vmEvalSuite = (description, init, testInit, getResult) ->
+  describe description, ->
+    before(init)
+    beforeEach(testInit)
+
+    for own k, v of tests
+      do (k, v) ->
+        fn = ->
+          try
+            result = getResult.call(this, k)
+          catch e
+            # console.log e.stack
+            err = e
+          expect(result).to.eql expectedValue
+          if typeof expectedGlobal == 'function'
+            @global.errorThrown = err
+            expectedGlobal(@global)
+          else
+            if err
+              throw new Error("The VM has thrown an error:\n#{err}")
+            if typeof expectedGlobal == 'object'
+              expect(strip(@global)).to.eql expectedGlobal
+            else
+              expect(strip(@global)).to.eql {}
+
+          # assert builtin properties are not tampered by the self-hosted vm
+        test = "\"#{k}\""
+        expectedValue = v[0]
+        expectedGlobal = v[1]
+        if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
+        else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
+        else it(test, fn)
+
+if nativetest
+  vmEvalSuite 'vm eval', ->
+    @vm = null
+  , ->
+    @vm = new Vm(merge, true)
+    @global = @vm.realm.global
+  , (string) ->
+    # implicitly test script serialization/deserialization
+    script = Vm.fromJSON(JSON.parse(
+      JSON.stringify(Vm.compile(string).toJSON())))
+    @vm.run(script)
+
+if selftest
+  vmEvalSuite 'self-hosted vm eval', ->
     compiledVm = Vm.fromJSON(JSON.parse(
       JSON.stringify(Vm.compile(vmjs, 'vm.js').toJSON())))
-    vm2 = new Vm(merge, true)
-    vm2.run(compiledVm)
+    @vm = new Vm(merge, true)
+    @vm.run(compiledVm)
+  , ->
+    @vm.eval("vm = new Vm({Dog: Dog}, true);")
+    @global = @vm.realm.global.vm.realm.global
+  , (string) ->
+    @vm.realm.global.vm.eval(string)
 
-  beforeEach ->
-    vm = new Vm(merge, true)
-    vm.realm.registerNative(merge.Dog.prototype)
-    if selftest
-      vm2.eval(
-        """
-        vm = new Vm({Dog: Dog})
-        """)
-
-  c = 0
-  for own k, v of tests
-    # if c++ == 100
-    #   break
-    do (k, v) ->
-      fn = ->
-        # implicitly test script serialization/deserialization
-        script = Vm.fromJSON(JSON.parse(
-          JSON.stringify(Vm.compile(k).toJSON())))
-        try
-          result = vm.run(script)
-          if selftest
-            # run the same test from the vm inside the vm :)
-            result2 = vm2.realm.global.vm.eval(k)
-        catch e
-          # console.log e.stack
-          err = e
-        expect(result).to.eql expectedValue
-        if selftest
-          expect(result2).to.eql expectedValue
-        if typeof expectedGlobal is 'function'
-          vm.realm.global.errorThrown = err
-          expectedGlobal(vm.realm.global)
-        else
-          if err
-            throw new Error("The VM has thrown an error:\n#{err}")
-          if typeof expectedGlobal is 'object'
-            expect(strip(vm.realm.global)).to.eql expectedGlobal
-          else
-            expect(strip(vm.realm.global)).to.eql {}
-        # assert builtin properties are not tampered by the self-hosted vm
-      test = "\"#{k}\""
-      expectedValue = v[0]
-      expectedGlobal = v[1]
-      if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
-      else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
-      else it(test, fn)
-
-
-  strip = (global) ->
-    # strip builtins for easy assertion of global object state
-    delete global.Object
-    delete global.Function
-    delete global.Number
-    delete global.Boolean
-    delete global.String
-    delete global.Array
-    delete global.Date
-    delete global.RegExp
-    delete global.Error
-    delete global.EvalError
-    delete global.RangeError
-    delete global.ReferenceError
-    delete global.SyntaxError
-    delete global.TypeError
-    delete global.URIError
-    delete global.Math
-    delete global.JSON
-    delete global.StopIteration
-    delete global.Dog
-    delete global.undefined
-    delete global.global
-    delete global.console
-    delete global.parseFloat
-    delete global.parseInt
-    delete global.eval
-    delete global.log2
-
-    return global
 
 describe 'API', ->
   vm = null
@@ -1621,5 +1635,4 @@ describe 'API', ->
     fiber.maxDepth += 1
     fiber.run()
     expect(vm.realm.global.j).to.eql(1000)
-
 

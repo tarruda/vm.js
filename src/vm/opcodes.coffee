@@ -1,6 +1,6 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/builtin'
-{create} = require '../runtime/util'
+{hasProp, create} = require '../runtime/util'
 {VmTypeError, VmEvalError, VmReferenceError} = require '../runtime/errors'
 RegExpProxy = require '../runtime/regexp_proxy'
 {Fiber, Scope, WithScope} = require './thread'
@@ -196,7 +196,7 @@ opcodes = [
       if idx >= 0
         return s.push(l.get(idx))
       l = l.parent
-    if key not of r.global and not @args[1]
+    if not hasProp(r.global, key) and not @args[1]
       return throwErr(f, new VmReferenceError("#{key} is not defined"))
     s.push(r.global[key])
 
@@ -215,7 +215,7 @@ opcodes = [
     s.push(r.global[key] = value)
 
   Op 'GETG', (f, s, l, r) ->                          # get global variable
-    if @args[0] not of r.global and not @args[1]
+    if not hasProp(r.global, @args[0]) and not @args[1]
       return throwErr(f, new VmReferenceError("#{@args[0]} is not defined"))
     s.push(r.global[@args[0]])
 
@@ -332,8 +332,11 @@ throwErr = (frame, err) ->
 callm = (frame, length, key, target, name) ->
   {evalStack: stack, realm} = frame
   if not target?
+    id = 'null'
+    if target == undef
+      id = 'undefined'
     return throwErr(frame, new VmTypeError(
-      "Cannot call method '#{key}' of null"))
+      "Cannot call method '#{key}' of #{id}"))
   constructor = target.constructor
   targetName = constructor.__name__ or constructor.name or 'Object'
   name = "#{targetName}.#{name}"
@@ -409,9 +412,8 @@ createFunction = (script, scope, realm) ->
       fiber.run()
       return fiber.rv
   rv.__vmfunction__ = true
+  rv.__source__ = script.source
   rv.name = rv.__name__ = script.name
-  source = script.source
-  rv.toString = -> source
   return rv
 
 

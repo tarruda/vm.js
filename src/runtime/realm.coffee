@@ -20,6 +20,7 @@ runtimeProperties = {
   '__fiber__': null
   '__callname__': null
   '__construct__': null
+  '__source__': null
   '__name__': null
 }
 
@@ -70,19 +71,15 @@ class Realm
         return false
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if md.object == obj or not objType
+      if md and md.object == obj or not objType
         return md.hasOwnProperty(key, obj)
       if hasProp(obj, '__md__')
         return obj.__md__.hasOwnProperty(key)
       return hasProp(obj, key)
 
-    t = true
     register = (obj, restrict) =>
       if not hasProp(obj, '__mdid__')
         obj.__mdid__ = currentId + 1
-        if t and typeof log2 == 'function' and not obj.__mdid__
-          t = false
-          log2 obj, "'#{obj.__mdid__}'"
       currentId = Math.max(obj.__mdid__, currentId)
       if hasProp(nativeMetadata, obj.__mdid__)
         return
@@ -295,6 +292,13 @@ class Realm
       hasOwnProperty: (key) -> hasOwnProperty(this, key)
     }
 
+    nativeMetadata[Function.prototype.__mdid__].properties = {
+      toString: ->
+        if @__source__
+          return @__source__
+        return @toString()
+    }
+
     nativeMetadata[Array.prototype.__mdid__].properties = {
       iterator: -> new ArrayIterator(this)
     }
@@ -308,19 +312,25 @@ class Realm
 
     nativeMetadata[RegExp.prototype.__mdid__].properties = {
       exec: (str) ->
-        @regexp.lastIndex = @lastIndex
-        rv = @regexp.exec(str)
-        @lastIndex = @regexp.lastIndex
-        return rv
+        if this instanceof RegExpProxy
+          @regexp.lastIndex = @lastIndex
+          rv = @regexp.exec(str)
+          @lastIndex = @regexp.lastIndex
+          return rv
+        return @exec(str)
 
       test: (str) ->
-        @regexp.lastIndex = @lastIndex
-        rv = @regexp.test(str)
-        @lastIndex = @regexp.lastIndex
-        return rv
+        if this instanceof RegExpProxy
+          @regexp.lastIndex = @lastIndex
+          rv = @regexp.test(str)
+          @lastIndex = @regexp.lastIndex
+          return rv
+        return @test(str)
 
-      toString: -> @regexp.toString()
-
+      toString: ->
+        if this instanceof RegExpProxy
+          return @regexp.toString()
+        return @toString()
     }
 
     @mdproto = (obj) ->
@@ -345,7 +355,7 @@ class Realm
         return false
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if md.object == obj or not objType
+      if md and md.object == obj or not objType
         return md.has(key, obj)
       if hasProp(obj, '__md__')
         return obj.__md__.has(key)
@@ -367,13 +377,16 @@ class Realm
           if md and md.hasDefProperty(key)
             return md.get(key)
           return @get(prototypeOf(obj), key)
+        else
+          # primitive
+          return nativeMetadata[obj.__mdid__].get(key)
         return undef
       if type == 'string' and typeof key == 'number' or key == 'length'
         # char at index or string length
         return obj[key]
       mdid = obj.__mdid__
       md = nativeMetadata[obj.__mdid__]
-      if md.object == obj or not objType
+      if md and md.object == obj or not objType
         # registered native object, or primitive type. use its corresponding
         # metadata object to read the property
         return md.get(key, obj)

@@ -190,7 +190,7 @@ class CowObjectMetadata extends ObjectMetadata
     @exclude[key] = null
 
   isEnumerable: (k) ->
-    if k of @exclude
+    if hasProp(@exclude, k)
       return false
     return super(k)
 

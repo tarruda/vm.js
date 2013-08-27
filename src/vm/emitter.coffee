@@ -34,7 +34,7 @@ class Emitter extends Visitor
     i = 0
     crossFunctionScope = false
     for scope in @scopes
-      if name of scope
+      if hasProp(scope, name)
         return [i, scope[name]]
       # only scopes after the function scope will increase the index
       if crossFunctionScope or scope == @scriptScope
@@ -157,12 +157,11 @@ class Emitter extends Visitor
             @instructions[i] = new GETL(scope)
       # update all labels offsets
       code.forEachLabel (l) ->
-        if l.id of processedLabels
+        if hasProp(processedLabels, l.id)
           # the same label can be reused between instructions, this will
           # ensure we only visit each label once
           return l
         processedLabels[l.id] = null
-        # console.log `_i`, code
         if l.ip?
           # only offset marked labels
           l.ip += 3
