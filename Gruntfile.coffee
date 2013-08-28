@@ -81,6 +81,14 @@ module.exports = (grunt) ->
             dest: 'build/node/test.js'
           }]
 
+    uglify:
+      browser_dist:
+        options:
+          sourceMap: 'build/browser/vm.min.js.map'
+          sourceMapIn: 'build/browser/vm.js.map'
+        files:
+          'build/browser/vm.min.js': ['build/browser/vm.js']
+
     check_debug:
       all: [
         'platform/**/*.js'
@@ -141,6 +149,7 @@ module.exports = (grunt) ->
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-livereload'
+  grunt.loadNpmTasks 'grunt-contrib-uglify'
   grunt.loadNpmTasks 'grunt-contrib-connect'
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
@@ -173,32 +182,38 @@ module.exports = (grunt) ->
       data.child = null
       done(code is 0)
 
-  grunt.registerTask 'common-rebuild', ->
-    grunt.task.run [
-      'connect'
-      'coffeelint'
-    ]
+  grunt.registerTask 'build', [
+    'clean'
+    'coffeelint'
+    'coffee_build'
+    'self_load'
+    'test'
+    'uglify'
+  ]
 
-  grunt.registerTask 'debug-browser', ->
-    grunt.task.run [
-      'clean:browser'
-      'livereload-start'
-      'common-rebuild'
-      'coffee_build'
-      'self_load'
-      'watch:browser'
-    ]
+  grunt.registerTask 'common-rebuild', [
+    'connect'
+    'coffeelint'
+  ]
 
-  grunt.registerTask 'debug-nodejs', ->
-    grunt.task.run [
-      'clean:node'
-      'common-rebuild'
-      'coffee_build'
-      'self_load'
-      'check_debug'
-      'test'
-      'watch:nodejs'
-    ]
+  grunt.registerTask 'debug-browser', [
+    'clean:browser'
+    'livereload-start'
+    'common-rebuild'
+    'coffee_build'
+    'self_load'
+    'watch:browser'
+  ]
+
+  grunt.registerTask 'debug-nodejs', [
+    'clean:node'
+    'common-rebuild'
+    'coffee_build'
+    'self_load'
+    'check_debug'
+    'test'
+    'watch:nodejs'
+  ]
 
   grunt.registerTask 'default', [
     'debug-nodejs'

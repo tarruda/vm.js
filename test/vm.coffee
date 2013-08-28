@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 1
+selftest = 0
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -1469,7 +1469,6 @@ merge = {
   log: -> console.log.apply(console, arguments)
 }
 
-len = Object.keys(tests).length
 startIndex = 0
 stopIndex = 1210
 
