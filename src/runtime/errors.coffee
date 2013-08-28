@@ -1,11 +1,12 @@
 {isArray} = require './util'
 
-printTrace = (trace, indent = '    ') ->
+printTrace = (trace, indent = '') ->
+  indent += '    '
   rv = ''
   for frame in trace
     if isArray(frame)
-      rv += "\n#{indent}Rethrown:"
-      rv += printTrace(frame, indent + '    ')
+      rv += "\n\n#{indent}Rethrown:"
+      rv += printTrace(frame, indent)
       continue
     l = frame.line
     c = frame.column

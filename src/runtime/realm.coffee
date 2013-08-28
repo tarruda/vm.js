@@ -308,6 +308,11 @@ class Realm
         if obj instanceof RegExpProxy
           return @match(obj.regexp)
         return @match(obj)
+      replace: (obj) ->
+        args = Array.prototype.slice.call(arguments)
+        if obj instanceof RegExpProxy
+          args[0] = obj.regexp
+        return @replace.apply(this, args)
     }
 
     nativeMetadata[RegExp.prototype.__mdid__].properties = {

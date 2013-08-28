@@ -112,8 +112,8 @@ opcodes = [
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
     callm(f, 0, 'next', s.pop())
-    if f.fiber.error == StopIteration
-      f.fiber.error = null
+    if f.error == StopIteration
+      f.error = null
       f.paused = false
       f.ip = @args[0]
 
@@ -323,7 +323,7 @@ opcodes = [
 
 
 throwErr = (frame, err) ->
-  frame.fiber.error = err
+  frame.error = err
   frame.paused = true
 
 

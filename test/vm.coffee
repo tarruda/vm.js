@@ -1,9 +1,9 @@
 Vm = require '../src/vm'
 
+# flag to enable/disable running the tests from a self-hosted vm
+selftest = 1
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
-# flag to enable/disable running the tests from a self-hosted vm
-selftest = 0
 
 # what follows is a bunch of test cases to be run in a Vm instance.
 # the key is the string to be eval'ed and the value is an array where:
@@ -436,6 +436,7 @@ tests = {
   """: [1, {i: 1, j: 1, l: [0, 0, 0, 1, 0, 2, 1, 0]}]
 
   'for (var i = 0, len = 6; i < len; i+=10) {}; i': [10, {i: 10, len: 6}]
+
   '(function() { return 10; })()': [10]
   '(function() { var i = 4; return i * i; })()': [16]
   '(function named() { var i = 4; return i * i; })()': [16]
@@ -810,6 +811,19 @@ tests = {
   """: ['err', ((global) ->
     expect(global.e).to.not.exist
     expect(global.ex).to.eql('err')
+  )]
+
+  """
+  try {
+    throw 'err'
+  } catch (e) {
+    throw e;
+  } finally {
+    (function() { obj = [1, 2] })();
+  }
+  """: [undefined, ((global) ->
+    expect(global.errorThrown).to.eql('err')
+    expect(global.obj).to.eql([1, 2])
   )]
 
   """
@@ -1409,6 +1423,17 @@ tests = {
   )]
 
   """
+  throw new URIError('err')
+  """: [undefined, ((global) ->
+    expect(global.errorThrown.stack).to.be(
+      """
+      URIError: err
+          at <script>:1:10
+      """
+    )
+  )]
+
+  """
   f = generateFunction();
   function generateFunction() {
     return new Function('a,b', 'throw new URIError(a+b);');
@@ -1432,6 +1457,9 @@ tests = {
   }
   f(1, 2, 3, 4, 5);
   """: [[15, [1,2,3,4,5]], ((global) -> )]
+
+  'eval("(")': [undefined, ((global) -> )]
+  '(function(a) { return a })(4)': [4]
 }
 
 merge = {
@@ -1441,81 +1469,48 @@ merge = {
   log: -> console.log.apply(console, arguments)
 }
 
-strip = (global) ->
-  # strip builtins for easy assertion of global object state
-  delete global.Object
-  delete global.Function
-  delete global.Number
-  delete global.Boolean
-  delete global.String
-  delete global.Array
-  delete global.Date
-  delete global.RegExp
-  delete global.Error
-  delete global.EvalError
-  delete global.RangeError
-  delete global.ReferenceError
-  delete global.SyntaxError
-  delete global.TypeError
-  delete global.URIError
-  delete global.Math
-  delete global.JSON
-  delete global.StopIteration
-  delete global.Dog
-  delete global.undefined
-  delete global.global
-  delete global.console
-  delete global.parseFloat
-  delete global.parseInt
-  delete global.eval
-  delete global.log
-  return global
-
+len = Object.keys(tests).length
+startIndex = 0
+stopIndex = 1210
 
 vmEvalSuite = (description, init, testInit, getResult) ->
   describe description, ->
     before(init)
     beforeEach(testInit)
 
+    i = 0
+
     for own k, v of tests
-      do (k, v) ->
-        fn = ->
-          try
-            result = getResult.call(this, k)
-          catch e
-            # console.log e.stack
-            err = e
-          expect(result).to.eql expectedValue
-          if typeof expectedGlobal == 'function'
-            @global.errorThrown = err
-            expectedGlobal(@global)
-          else
-            if err
-              throw new Error("The VM has thrown an error:\n#{err}")
-            if typeof expectedGlobal == 'object'
-              expect(strip(@global)).to.eql expectedGlobal
+      if i == stopIndex
+        break
+      if i >= startIndex
+        do (k, v) ->
+          fn = ->
+            try
+              result = getResult.call(this, k)
+            catch e
+              # console.log e.stack
+              err = e
+            expect(result).to.eql expectedValue
+            if typeof expectedGlobal == 'function'
+              @global.errorThrown = err
+              expectedGlobal(@global)
             else
-              expect(strip(@global)).to.eql {}
+              if err
+                throw new Error("The VM has thrown an error:\n#{err}")
+              if typeof expectedGlobal == 'object'
+                expect(strip(@global)).to.eql expectedGlobal
+              else
+                expect(strip(@global)).to.eql {}
 
-          # assert builtin properties are not tampered by the self-hosted vm
-        test = "\"#{k}\""
-        expectedValue = v[0]
-        expectedGlobal = v[1]
-        if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
-        else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
-        else it(test, fn)
-
-if nativetest
-  vmEvalSuite 'vm eval', ->
-    @vm = null
-  , ->
-    @vm = new Vm(merge, true)
-    @global = @vm.realm.global
-  , (string) ->
-    # implicitly test script serialization/deserialization
-    script = Vm.fromJSON(JSON.parse(
-      JSON.stringify(Vm.compile(string).toJSON())))
-    @vm.run(script)
+            # assert builtin properties are not tampered by the self-hosted vm
+          test = "\"#{k}\""
+          expectedValue = v[0]
+          expectedGlobal = v[1]
+          if 1 in [expectedGlobal, v[2]] then it.only(test, fn)
+          else if 0 in [expectedGlobal, v[2]] then it.skip(test, fn)
+          else it(test, fn)
+      i++
 
 if selftest
   vmEvalSuite 'self-hosted vm eval', ->
@@ -1528,6 +1523,18 @@ if selftest
     @global = @vm.realm.global.vm.realm.global
   , (string) ->
     @vm.realm.global.vm.eval(string)
+
+if nativetest
+  vmEvalSuite 'vm eval', ->
+    @vm = null
+  , ->
+    @vm = new Vm(merge, true)
+    @global = @vm.realm.global
+  , (string) ->
+    # implicitly test script serialization/deserialization
+    script = Vm.fromJSON(JSON.parse(
+      JSON.stringify(Vm.compile(string).toJSON())))
+    @vm.run(script)
 
 
 describe 'API', ->
@@ -1636,3 +1643,33 @@ describe 'API', ->
     fiber.run()
     expect(vm.realm.global.j).to.eql(1000)
 
+
+strip = (global) ->
+  # strip builtins for easy assertion of global object state
+  delete global.Object
+  delete global.Function
+  delete global.Number
+  delete global.Boolean
+  delete global.String
+  delete global.Array
+  delete global.Date
+  delete global.RegExp
+  delete global.Error
+  delete global.EvalError
+  delete global.RangeError
+  delete global.ReferenceError
+  delete global.SyntaxError
+  delete global.TypeError
+  delete global.URIError
+  delete global.Math
+  delete global.JSON
+  delete global.StopIteration
+  delete global.Dog
+  delete global.undefined
+  delete global.global
+  delete global.console
+  delete global.parseFloat
+  delete global.parseInt
+  delete global.eval
+  delete global.log
+  return global

@@ -1,4 +1,5 @@
 Visitor = require './visitor'
+{hasProp} = require '../runtime/util'
 
 # very simple optimizer that folds constant primitive expressions in the AST
 class ConstantFolder extends Visitor
@@ -9,7 +10,7 @@ class ConstantFolder extends Visitor
       return node.argument
     if node.argument.type is 'Literal' and
     not (node.argument.value instanceof RegExp)
-      if 'prefix' not of node or node.prefix
+      if not hasProp(node, 'prefix') or node.prefix
         result = eval("#{node.operator}(#{node.argument.raw})")
       else
         result = eval("(#{node.argument.raw})#{node.operator}")

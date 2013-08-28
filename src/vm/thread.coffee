@@ -1,4 +1,5 @@
 {VmError, VmTimeoutError} = require '../runtime/errors'
+{isArray} = require '../runtime/util'
 
 
 class Fiber
@@ -8,7 +9,6 @@ class Fiber
     @callStack = []
     @evalStack = null
     @depth = -1
-    @error = null
     @rv = undef
     @paused = false
     # fiber-specific registers
@@ -20,14 +20,15 @@ class Fiber
   run: ->
     frame = @callStack[@depth]
     while @depth >= 0 and frame and not @paused
-      if @error
-        frame = @unwind()
+      if err
+        frame = @unwind(err)
       frame.run()
-      if @error instanceof VmError
-        @injectStackTrace(@error)
+      if (err = frame.error) instanceof VmError
+        @injectStackTrace(err)
       if not frame.done()
         # possibly a function call, ensure 'frame' is pointing to the top
         frame = @callStack[@depth]
+        err = frame.error
         continue
       # function returned, check if this was a constructor invocation
       # and act accordingly
@@ -35,22 +36,23 @@ class Fiber
         if typeof @rv not in ['object', 'function']
           @rv = frame.scope.get(0) # return this
       frame = @popFrame()
-      if frame and not @error
+      if frame and not err
         # set the return value
         frame.evalStack.push(@rv)
         @rv = undef
     if @timedOut()
       err = new VmTimeoutError(this)
       @injectStackTrace(err)
+    if err
       throw err
-    if @error
-      throw @error
 
-  unwind: ->
+  unwind: (err) ->
     # unwind the call stack searching for a guard set to handle this
     frame = @callStack[@depth]
     while frame
-      # ip is always pointing to the next opcode, so subtract one
+      # ensure the error is set on the current frame
+      frame.error = err
+      # ip is always pointing to the next instruction, so subtract one
       ip = frame.ip - 1
       for guard in frame.script.guards
         if guard.start <= ip <= guard.end
@@ -58,8 +60,8 @@ class Fiber
             # try/catch
             if ip <= guard.handler
               # thrown inside the guarded region
-              frame.evalStack.push(@error)
-              @error = null
+              frame.evalStack.push(err)
+              frame.error = null
               frame.ip = guard.handler
               if guard.finalizer != null
                 # if the catch returns from the function, the finally
@@ -71,14 +73,19 @@ class Fiber
                 frame.finalizer = guard.finalizer
             else
               # thrown outside the guarded region(eg: catch or finally block)
-              continue
+              if guard.finalizer and frame.ip <= guard.finalizer
+                # there's a finally block and it was thrown inside the
+                # catch block, make sure  executed
+                frame.ip = guard.finalizer
+              else
+                continue
           else
             # try/finally
             frame.ip = guard.finalizer
           frame.paused = false
           return frame
       frame = @popFrame()
-    throw @error
+    throw err
 
   injectStackTrace: (err) ->
     trace = []
@@ -98,10 +105,15 @@ class Fiber
         line: frame.line
         column: frame.column
       })
-    if not err.trace
-      err.trace = trace
+    if err.trace
+      t = err.trace
+      # error was rethrown, inject the current trace at the end of
+      # the leaf trace
+      while isArray(t[t.length - 1])
+        t = t[t.length - 1]
+      t.push(trace)
     else
-      err.trace.push(trace)
+      err.trace = trace
     # show stack trace on node.js
     err.stack = err.toString()
 
@@ -123,7 +135,8 @@ class Fiber
 
   checkCallStack: ->
     if @depth is @maxDepth
-      @error = new VmError('maximum call stack size exceeded')
+      @callStack[@depth].error =
+        new VmError('maximum call stack size exceeded')
       @pause()
       return false
     return true
@@ -167,7 +180,7 @@ class Frame
       instructions[@ip++].exec(this, @evalStack, @scope, @realm)
     if @fiber.timeout == 0
       @paused = @fiber.paused = true
-    if not @paused and not @fiber.error and (len = @evalStack.len()) != 0
+    if not @paused and not @error and (len = @evalStack.len()) != 0
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
 
