@@ -55,6 +55,15 @@ Compile programs and run later
 4
 ```
 
+Compiled scripts can be serialized/deserialized to/from JSON-friendly
+structures:
+```js
+> scriptObj = script.toJSON()
+> serializedScript = JSON.stringify(scriptObj)
+> deserializedScript = Vm.fromJSON(JSON.parse(serializedScript))
+> vm.run(deserializedScript)
+```
+
 Expose objects to be used by code running inside the Vm
 ```js
 > vm.realm.global.factorial = function factorial(n) { return n > 1 ? factorial(n - 1) * n : 1 }
@@ -88,7 +97,6 @@ fiber.run()
 
 Builtin objects are exposed, but each Vm instance uses a copy-on-write
 algorithm to maintain its own state of builtin globals:
-
 ```js
 > vm.eval('Object.prototype') === Object.prototype
 true
@@ -100,7 +108,7 @@ false
 ```
 
 Its possible to provide a instruction timeout(maximum number of instructions a
-fiber can execute)
+fiber can execute).
 ```js
 > vm.eval("i = 0; while (true) i++", 'timeout.js', 500)
 TimeoutError: Script timed out
@@ -117,9 +125,15 @@ See more examples [here](https://github.com/tarruda/vm.js/blob/master/test/vm.co
 
 This was inspired by [Continuum](https://github.com/Benvie/continuum) which is
 a ECMAScript 6 virtual machine implemented in pure javascript. I wrote this
-because I wanted a smaller codebase(about 3k lines of coffeescript code) and
-seamless integration with the host virtual machine(no need to call strange
+because I wanted a smaller codebase(less than 5k lines of coffeescript code)
+ and seamless integration with the host virtual machine(no need to call strange
 internal methods to access objects manipulated by the vm).
 
 For parsing source code this library uses the
 [esprima parser](https://github.com/ariya/esprima).
+
+There are about 200 acceptance tests that are run twice: once inside
+a normal Vm and again inside a self-hosted Vm(think about
+the movie 'Inception' for an easy analogy). That means it is capable
+of running moderately complex javascript code(since it runs itself plus
+the esprima parser), so it should be stable enough for most uses.
