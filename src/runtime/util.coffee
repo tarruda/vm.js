@@ -31,7 +31,18 @@ if typeof Array.isArray != 'function'
 else
   isArray = Array.isArray
 
+# This is used mainly to set runtime properties(eg: __mdid__) so they are
+# not enumerable.
+if typeof Object.defineProperty == 'function'
+  defProp = (obj, prop, descriptor) ->
+    Object.defineProperty(obj, prop, descriptor)
+else
+  defProp = (obj, prop, descriptor) ->
+    # polyfill with a normal property set(it will be enumerable)
+    obj[prop] = descriptor.value
+
 exports.prototypeOf = prototypeOf
 exports.create = create
 exports.hasProp = hasProp
 exports.isArray = isArray
+exports.defProp = defProp

@@ -50,17 +50,17 @@
 # implement getters/setters or proxies).
 
 
-class PropertyMetadata
-  constructor: (@enumerable = true, @configurable = true) ->
+class PropertyDescriptor
+  constructor: (@enumerable = false, @configurable = false) ->
 
 
-class DataPropertyMetadata extends PropertyMetadata
-  constructor: (@value, @writable, enumerable, configurable) ->
+class DataPropertyDescriptor extends PropertyDescriptor
+  constructor: (@value = undef, @writable = false, enumerable, configurable) ->
     super(enumerable, configurable)
 
 
-class AccessorPropertyMetadata extends PropertyMetadata
-  constructor: (@getter, @setter, enumerable, configurable) ->
+class AccessorPropertyDescriptor extends PropertyDescriptor
+  constructor: (@get, @set, enumerable, configurable) ->
     super(enumerable, configurable)
 
 
@@ -101,20 +101,20 @@ class ObjectMetadata
 
   get: (key, target = @object) ->
     property = @searchProperty(key)
-    if property instanceof AccessorPropertyMetadata
-      return property.getter.call(target, key)
-    if property instanceof DataPropertyMetadata
+    if property instanceof AccessorPropertyDescriptor
+      return property.get.call(target)
+    if property instanceof DataPropertyDescriptor
       return property.value
     return property
 
   set: (key, value, target = @object) ->
     property = @getOwnProperty(key)
-    if property instanceof AccessorPropertyMetadata
-      if property.setter
-        property.setter.call(target, key, value)
+    if property instanceof AccessorPropertyDescriptor
+      if property.set
+        property.set.call(target, value)
         return true
       return false
-    if property instanceof DataPropertyMetadata
+    if property instanceof DataPropertyDescriptor
       if property.writable
         property.value = value
         return true
@@ -128,15 +128,31 @@ class ObjectMetadata
     if not @hasOwnProperty(key)
       return false
     property = @getOwnProperty(key)
-    if property instanceof PropertyMetadata and not property.configurable
+    if property instanceof PropertyDescriptor and not property.configurable
       return false
     @delOwnProperty(key)
     return true
 
-  defineProperty: (key, property) ->
+  defineProperty: (key, descriptor) ->
     if not @extensible
       return false
-    @properties[key] = property
+    if 'value' of descriptor or 'writable' of descriptor
+      prop = new DataPropertyDescriptor(
+        descriptor.value,
+        descriptor.writable,
+        descriptor.enumerable,
+        descriptor.configurable
+      )
+    else if typeof descriptor.get == 'function'
+      prop = new AccessorPropertyDescriptor(
+        descriptor.get,
+        descriptor.set,
+        descriptor.enumerable,
+        descriptor.writable
+      )
+    else
+      return
+    @properties[key] = prop
     return true
 
   instanceOf: (klass) ->
@@ -144,21 +160,32 @@ class ObjectMetadata
     while md != null
       if md.object == klass.prototype
         return true
-      if not md.proto
+      proto = md.proto
+      if not proto
         return md.object instanceof klass
-      md = md.proto
+      md = proto
     return false
 
   isEnumerable: (k) ->
     v = @properties[k] or @object[k]
-    return not (v instanceof PropertyMetadata) or v.enumerable
+    return not (v instanceof PropertyDescriptor) or v.enumerable
+
+  ownKeys: ->
+    keys = []
+    for own k of @object
+      if @isEnumerable(k)
+        keys.push(k)
+    for own k of @properties
+      if @isEnumerable(k)
+        keys.push(k)
+    return keys
 
   enumerateKeys: ->
     keys = []
     md = this
     while md
       keys = keys.concat(md.ownKeys())
-      md = md.proto
+      md = md.proto or @realm.mdproto(md.object)
     return new ArrayIterator(keys)
 
 
@@ -181,8 +208,14 @@ class CowObjectMetadata extends ObjectMetadata
   setOwnProperty: (key, value) ->
     if hasProp(@exclude, key)
       delete @exclude[key]
-    if not hasProp(@properties, key) or value != @properties[key]
-      @properties[key] = value
+    if not hasProp(@properties, key)
+      @defineProperty(key, {
+        value: value
+        writable: true
+        enumerable: true
+        configurable: true
+      })
+    @properties[key].value = value
 
   delOwnProperty: (key) ->
     if hasProp(@properties, key)
@@ -190,13 +223,13 @@ class CowObjectMetadata extends ObjectMetadata
     @exclude[key] = null
 
   isEnumerable: (k) ->
-    if hasProp(@exclude, k)
+    if not super(k)
       return false
-    return super(k)
+    return not hasProp(@exclude, k)
 
 
-# This ensures only explicitly specified builtin properties are leaked
-# into the Realm
+# This class prevents unwanted properties from leaking into into the Realm's
+# global object
 class RestrictedObjectMetadata extends CowObjectMetadata
   constructor: (object, realm) ->
     super(object, realm)
@@ -215,9 +248,12 @@ class RestrictedObjectMetadata extends CowObjectMetadata
       return @object[key]
     return undef
 
+  isEnumerable: (k) ->
+    if not super(k)
+      return false
+    return hasProp(@leak, k)
+
 
 exports.ObjectMetadata = ObjectMetadata
 exports.CowObjectMetadata = CowObjectMetadata
 exports.RestrictedObjectMetadata = RestrictedObjectMetadata
-exports.DataPropertyMetadata = DataPropertyMetadata
-exports.AccessorPropertyMetadata = AccessorPropertyMetadata

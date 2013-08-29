@@ -142,10 +142,10 @@ module.exports = (grunt) ->
           base: './'
 
     clean:
-      node:
+      all:
         ['build']
-      browser:
-        ['build']
+      self:
+        ['build/self.js']
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-livereload'
@@ -188,6 +188,7 @@ module.exports = (grunt) ->
     'coffee_build'
     'self_load'
     'test'
+    'clean:self'
     'uglify'
   ]
 
@@ -197,7 +198,7 @@ module.exports = (grunt) ->
   ]
 
   grunt.registerTask 'debug-browser', [
-    'clean:browser'
+    'clean'
     'livereload-start'
     'common-rebuild'
     'coffee_build'
@@ -206,7 +207,7 @@ module.exports = (grunt) ->
   ]
 
   grunt.registerTask 'debug-nodejs', [
-    'clean:node'
+    'clean'
     'common-rebuild'
     'coffee_build'
     'self_load'

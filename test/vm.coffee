@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 0
+selftest = 1
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -1460,6 +1460,39 @@ tests = {
 
   'eval("(")': [undefined, ((global) -> )]
   '(function(a) { return a })(4)': [4]
+
+  # property descriptors
+  """
+  (function() {
+    var obj, l, k;
+    obj = {i: 0};
+    o = {}
+    Object.defineProperty(obj, 'prop1', {
+      get: function() { return ++this.i; },
+      set: function(val) { this.i = val + 10; },
+      enumerable: true
+    });
+    Object.defineProperty(obj, 'prop2', {
+      value: 'val',
+    });
+    Object.defineProperty(o, 'prop3', {
+      value: 5,
+      writable: true,
+      configurable: true,
+      enumerable: true
+    });
+    obj.prop2 = 'val2';
+    l = [obj.prop2, delete obj.prop2];
+    l.push(obj.prop2);
+    l.push(obj.prop1);
+    l.push(obj.prop1);
+    obj.prop1 = 3;
+    l.push(obj.prop1);
+    l.push(obj.prop1);
+    for (k in obj) l.push(k);
+    return l;
+  })();
+  """: [['val', false, 'val', 1, 2, 14, 15, 'i', 'prop1'], {o: {prop3: 5}}]
 }
 
 merge = {

@@ -1,6 +1,6 @@
 Visitor = require '../ast/visitor'
 {StopIteration, ArrayIterator} = require '../runtime/builtin'
-{hasProp, create} = require '../runtime/util'
+{defProp, hasProp, create} = require '../runtime/util'
 {VmTypeError, VmEvalError, VmReferenceError} = require '../runtime/errors'
 RegExpProxy = require '../runtime/regexp_proxy'
 {Fiber, Scope, WithScope} = require './thread'
@@ -377,7 +377,7 @@ call = (frame, length, func, target, name, construct) ->
     catch e
       throwErr(frame, new VmEvalError(e.message))
     return
-  if func.__vmfunction__
+  if hasProp(func, '__vmfunction__')
     func.__callname__ = name
     func.__fiber__ = fiber
     func.__construct__ = construct
@@ -411,9 +411,12 @@ createFunction = (script, scope, realm) ->
     if run
       fiber.run()
       return fiber.rv
-  rv.__vmfunction__ = true
-  rv.__source__ = script.source
-  rv.name = rv.__name__ = script.name
+  defProp(rv, '__vmfunction__', {value: true})
+  defProp(rv, '__source__', {value: script.source})
+  defProp(rv, '__name__', {value: script.name})
+  defProp(rv, '__construct__', {value: script.name, writable: true})
+  defProp(rv, '__fiber__', {value: null, writable: true})
+  defProp(rv, '__callname__', {value: null, writable: true})
   return rv
 
 

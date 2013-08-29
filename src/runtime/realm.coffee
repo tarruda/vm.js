@@ -4,15 +4,15 @@
 } = require './errors'
 {
   ObjectMetadata, CowObjectMetadata, RestrictedObjectMetadata
-  DataPropertyMetadata
 } = require './metadata'
-{isArray, prototypeOf, create, hasProp} = require './util'
+{defProp, isArray, prototypeOf, create, hasProp} = require './util'
 RegExpProxy = require './regexp_proxy'
 
 
 {ArrayIterator, StopIteration} = require './builtin'
 
 
+# these special runtime properties need to be handled separately
 runtimeProperties = {
   '__mdid__': null
   '__md__': null
@@ -79,7 +79,7 @@ class Realm
 
     register = (obj, restrict) =>
       if not hasProp(obj, '__mdid__')
-        obj.__mdid__ = currentId + 1
+        defProp(obj, '__mdid__', {value: currentId + 1, writable: true})
       currentId = Math.max(obj.__mdid__, currentId)
       if hasProp(nativeMetadata, obj.__mdid__)
         return
@@ -100,6 +100,31 @@ class Realm
               register(obj[k], restrict[k])
         return
       return nativeMetadata[obj.__mdid__] = new ObjectMetadata(obj)
+
+    getOwnPropertyDescriptor = (obj, key) =>
+
+    defineProperty = (obj, key, descriptor) =>
+      type = typeof obj
+      objType = type in ['object', 'function']
+      if objType
+        if hasProp(obj, '__mdid__')
+          nativeMetadata[obj.__mdid__].defineProperty(key, descriptor)
+        else
+          if not hasProp(runtimeProperties, key) and
+          hasProp(descriptor, 'value') and
+          hasProp(descriptor, 'writable') and descriptor.writable and
+          hasProp(descriptor, 'enumerable') and descriptor.enumerable and
+          hasProp(descriptor, 'configurable') and descriptor.configurable
+            # normal propertY
+            obj[key] = descriptor.value
+          else
+            if not hasProp(obj, '__md__')
+              defProp(obj, '__md__', {
+                value: new ObjectMetadata(obj, this)
+                writable: true
+              })
+            obj.__md__.defineProperty(key, descriptor)
+      return undef
 
     register Object, {
       'prototype': [
@@ -286,6 +311,7 @@ class Realm
     nativeMetadata[Object.__mdid__].properties = {
       create: create
       getPrototypeOf: prototypeOf
+      defineProperty: defineProperty
     }
 
     nativeMetadata[Object.prototype.__mdid__].properties = {
@@ -294,7 +320,7 @@ class Realm
 
     nativeMetadata[Function.prototype.__mdid__].properties = {
       toString: ->
-        if @__source__
+        if @__vmfunction__
           return @__source__
         return @toString()
     }
@@ -338,6 +364,8 @@ class Realm
         return @toString()
     }
 
+    # retrieves the metadata from the closest object in the prototype chain
+    # that has a metadata
     @mdproto = (obj) ->
       proto = prototypeOf(obj)
       if proto
@@ -408,24 +436,25 @@ class Realm
       type = typeof obj
       objType = type in ['object', 'function']
       if hasProp(runtimeProperties, key)
-        # one of the special runtime properties. needs to be handled
-        # separately
         if objType
           if hasProp(obj, '__mdid__')
-            # nativeMetadata already uses copy-on-write, so no need to
-            # define a special property
-            nativeMetadata[obj.__mdid__].set(key, val)
+            md = nativeMetadata[obj.__mdid__]
           else
             if not hasProp(obj, '__md__')
-              obj.__md__ = new ObjectMetadata(obj, this)
+              defProp(obj, '__md__', {
+                value: new ObjectMetadata(obj, this)
+                writable: true
+              })
             md = obj.__md__
-            if not md.hasDefProperty(key)
-              prop = new DataPropertyMetadata(val, true, true, true)
-              md.defineProperty(key, prop)
-            md.set(key, val)
+          if not md.hasDefProperty(key)
+            md.defineProperty(key, {
+              value: val
+              writable: true
+              enumerable: true
+              configurable: true
+            })
+          md.set(key, val)
         return val
-      if hasProp(runtimeProperties, key)
-        return undef
       if objType
         if hasProp(obj, '__md__')
           obj.__md__.set(key, val)
@@ -441,29 +470,29 @@ class Realm
       if hasProp(runtimeProperties, key)
         if objType
           if hasProp(obj, '__mdid__')
-            nativeMetadata[obj.__mdid__].del(key)
+            return nativeMetadata[obj.__mdid__].del(key)
           else if hasProp(obj, '__md__')
-            obj.__md__.delDefProperty(key)
+            return obj.__md__.delDefProperty(key)
         return true
       if objType
         if type == 'function' and key == 'prototype'
           # a function prototype cannot be deleted
           return false
         if hasProp(obj, '__md__')
-          obj.__md__.del(key)
+          return obj.__md__.del(key)
         else if hasProp(obj, '__mdid__')
-          nativeMetadata[obj.__mdid__].del(key)
+          return nativeMetadata[obj.__mdid__].del(key)
         else
-          delete obj[key]
+          return delete obj[key]
       return true
 
     @instanceOf = (klass, obj) ->
       if not obj? or typeof obj not in ['object', 'function']
         return false
-      if hasProp(obj, '__md__')
-        return obj.__md__.instanceOf(klass)
       if hasProp(obj, '__mdid__')
         return nativeMetadata[obj.__mdid__].instanceOf(klass)
+      if hasProp(obj, '__md__')
+        return obj.__md__.instanceOf(klass)
       return obj instanceof klass
 
     @getNativeMetadata = (obj) ->
