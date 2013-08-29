@@ -93,6 +93,11 @@ opcodes = [
     f.fiber.rv = s.pop()                              # function
     ret(f)
 
+  Op 'YIELD', (f, s) -> f.fiber.pause()               # yield from generator
+  Op 'YIELDV', (f, s) ->                              # yield value from
+    f.fiber.yielded = s.pop()                         # generator
+    f.fiber.pause()
+
   Op 'THROW', (f, s, l) -> throwErr(f, s.pop())       # throw something
   Op 'SR1', (f, s, l) -> f.fiber.r1 = s.pop()         # save to register 1
   Op 'SR2', (f, s, l) -> f.fiber.r2 = s.pop()         # save to register 2
@@ -112,7 +117,7 @@ opcodes = [
 
   Op 'NEXT', (f, s, l) ->                             # calls iterator 'next'
     callm(f, 0, 'next', s.pop())
-    if f.error == StopIteration
+    if f.error instanceof StopIteration
       f.error = null
       f.paused = false
       f.ip = @args[0]
@@ -312,7 +317,7 @@ opcodes = [
     # get the index of the script with function code
     scriptIndex = @args[0]
     # create a new function, passing the current local scope
-    s.push(createFunction(f.script.scripts[scriptIndex], l, r))
+    s.push(createFunction(f.script.scripts[scriptIndex], l, r, @args[1]))
 
   # debug related opcodes
   Op 'LINE', (f) -> f.setLine(@args[0])               # set line number
@@ -394,27 +399,92 @@ call = (frame, length, func, target, name, construct) ->
     throwErr(frame, nativeError)
 
 
-createFunction = (script, scope, realm) ->
-  rv = ->
-    run = false
-    if fiber = rv.__fiber__
-      fiber.callStack[fiber.depth].paused = true
-      rv.__fiber__ = null
-      construct = rv.__construct__
-      rv.__construct__ = null
-    else
-      fiber = new Fiber(realm)
-      run = true
-    name = rv.__callname__ or script.name
-    rv.__callname__ = null
-    fiber.pushFrame(script, this, scope, arguments, name, construct)
-    if run
+createGenerator = (caller, script, scope, realm, target, args, callname) ->
+  if caller
+    timeout = caller.timeout
+  fiber = new Fiber(realm, timeout)
+  frame = fiber.pushFrame(script, target, scope, args, callname, false)
+  newborn = true
+
+  send = (obj) ->
+    if newborn and obj != undef
+      throw new VmTypeError(
+        'no argument must be passed when starting generator')
+    if fiber.done()
+      throw new VmError('generator closed')
+    frame = fiber.callStack[fiber.depth]
+    if newborn
+      newborn = false
       fiber.run()
+    else
+      frame.evalStack.push(obj)
+      fiber.resume()
+    if caller
+      # transfer timeout back to the caller fiber
+      caller.timeout = fiber.timeout
+    if fiber.done()
+      rv.closed = true
+      throw new StopIteration(fiber.rv, 'generator has stopped')
+    return fiber.yielded
+
+  thrw = (e) ->
+    if newborn
+      close()
+      return e
+    if fiber.done()
+      throw new VmError('generator closed')
+    frame = fiber.callStack[fiber.depth]
+    frame.error = e
+    fiber.resume()
+    if fiber.done()
       return fiber.rv
+    return fiber.yielded
+
+  # TODO run active finally blocks and propagate errors thrown to the caller
+  close = -> fiber.depth = -1
+
+  rv = {
+    next: send
+    send: send
+    throw: thrw
+    close: close
+    closed: false
+  }
+
+  return rv
+
+createFunction = (script, scope, realm, generator) ->
+  if generator
+    rv = ->
+      name = rv.__callname__ or script.name
+      gen = createGenerator(rv.__fiber__, script, scope, realm, this,
+        arguments, name)
+      if not (fiber = rv.__fiber__)
+        return gen
+      fiber.callStack[fiber.depth].evalStack.push(gen)
+      rv.__fiber__ = null
+      rv.__callname__ = null
+  else
+    rv = ->
+      run = false
+      if fiber = rv.__fiber__
+        fiber.callStack[fiber.depth].paused = true
+        rv.__fiber__ = null
+        construct = rv.__construct__
+        rv.__construct__ = null
+      else
+        fiber = new Fiber(realm)
+        run = true
+      name = rv.__callname__ or script.name
+      rv.__callname__ = null
+      fiber.pushFrame(script, this, scope, arguments, name, construct)
+      if run
+        fiber.run()
+        return fiber.rv
   defProp(rv, '__vmfunction__', {value: true})
   defProp(rv, '__source__', {value: script.source})
   defProp(rv, '__name__', {value: script.name})
-  defProp(rv, '__construct__', {value: script.name, writable: true})
+  defProp(rv, '__construct__', {value: null, writable: true})
   defProp(rv, '__fiber__', {value: null, writable: true})
   defProp(rv, '__callname__', {value: null, writable: true})
   return rv

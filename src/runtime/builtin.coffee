@@ -1,8 +1,10 @@
 {VmError} = require './errors'
 
 
+class StopIteration extends VmError
+  @display: 'StopIteration'
 
-StopIteration = new VmError()
+  constructor: (@value, @message = 'iterator has stopped') ->
 
 
 class ArrayIterator
@@ -11,7 +13,7 @@ class ArrayIterator
 
   next: ->
     if @index >= @elements.length
-      throw StopIteration
+      throw new StopIteration()
     return @elements[@index++]
 
 

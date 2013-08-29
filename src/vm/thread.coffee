@@ -9,7 +9,7 @@ class Fiber
     @callStack = []
     @evalStack = null
     @depth = -1
-    @rv = undef
+    @yielded = @rv = undef
     @paused = false
     # fiber-specific registers
     # temporary registers
@@ -127,6 +127,7 @@ class Fiber
     if args
       frame.evalStack.push(args)
     @callStack[++@depth] = frame
+    return frame
 
   pushEvalFrame: (frame, script) ->
     if not @checkCallStack()
@@ -161,6 +162,11 @@ class Fiber
       return @rexp
 
   timedOut: -> @timeout == 0
+
+  send: (obj) ->
+    @callStack[@depth].evalStack.push(obj)
+
+  done: -> @depth == -1
 
 
 class Frame

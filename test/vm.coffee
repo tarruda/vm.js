@@ -1509,6 +1509,41 @@ tests = {
   };
   obj.method()() === obj;
   """: [true, ((global) -> )]
+
+  # generators
+  """
+  function* gen(i) {
+    i = yield i + 1;
+    i = yield i * 2;
+    yield i * 4;
+    return 55;
+    yield i * 1000;
+  }
+
+  g = gen(10);
+
+  l = [g.send(), g.send(20), g.send(30)];
+  l.push(g.send());
+  """: [undefined, ((global) ->
+    expect(global.l).to.eql([11, 40, 120])
+    expect(global.errorThrown.value).to.be(55)
+    expect(global.g.closed).to.eql(true)
+  )]
+
+  """
+  function* fib() {
+    var i = 0, j = 1;
+    while (true) {
+      x = yield i;
+      var t = i;
+      i = j;
+      j += t;
+    }
+  }
+
+  var g = fib();
+  [g.next(), g.next(), g.next(), g.next(), g.next(), g.next()];
+  """: [[0, 1, 1, 2, 3, 5], ((global) -> )]
 }
 
 merge = {

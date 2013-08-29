@@ -73,7 +73,9 @@ class Vm
 
 compile = (source, emitter) ->
   transformer = new Transformer(new ConstantFolder(), emitter)
-  transformer.transform(esprima.parse(source, {loc: true}))
+  transformer.transform(esprima.parse(source, {
+    loc: true
+  }))
   return emitter.end()
 
 module.exports = Vm

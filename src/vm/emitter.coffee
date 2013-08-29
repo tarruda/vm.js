@@ -127,7 +127,7 @@ class Emitter extends Visitor
 
   popLabel: -> @labels.pop()
     
-  declareFunction: (name, index) ->
+  declareFunction: (name, index, generator) ->
     @declareVar(name)
     scope = @scope(name)
     if scope
@@ -137,7 +137,7 @@ class Emitter extends Visitor
     # a function is declared by binding a name to the function ref
     # before other statements that are not function declarations
     codes = [
-      new FUNCTION([index])
+      new FUNCTION([index, generator])
       opcode
       new POP()
     ]
@@ -589,21 +589,21 @@ class Emitter extends Visitor
         else declarator.init = declarator.init.left
         fn.visit(declaration)
       # emit function body
-      if node.body.type == 'BlockStatement'
-        fn.visit(node.body.body)
-      else
+      if node.expression
         # arrow expression
         fn.visit(node.body)
         fn.RETV()
+      else
+        fn.visit(node.body.body)
       return fn.end()
     functionIndex = @scripts.length
     @scripts.push(emit)
     if node.isExpression
       # push function on the stack
-      @FUNCTION(functionIndex)
+      @FUNCTION(functionIndex, node.generator)
     if node.declare
       # declare so the function will be bound at the beginning of the context
-      @declareFunction(node.declare, functionIndex)
+      @declareFunction(node.declare, functionIndex, node.generator)
     return node
 
   FunctionDeclaration: (node) ->
@@ -851,8 +851,11 @@ class Emitter extends Visitor
     return node
 
   YieldExpression: (node) ->
-    # A yield expression
-    throw new Error('not implemented')
+    if node.argument
+      @visit(node.argument)
+      @YIELDV()
+    else
+      @YIELD()
 
   ComprehensionExpression: (node) ->
     # An array comprehension. The blocks array corresponds to the sequence
