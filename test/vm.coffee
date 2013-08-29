@@ -1531,6 +1531,22 @@ tests = {
   )]
 
   """
+  function* seq() {
+    var i = 0;
+    while (true) yield ++i;
+  }
+
+  l = [];
+  for (i of seq()) {
+    if (l.length > 5)
+      break;
+    l.push(i);
+  }
+  """:[6, ((global) ->
+    expect(global.l).to.eql([1, 2, 3, 4, 5, 6])
+  )]
+
+  """
   function* fib() {
     var i = 0, j = 1;
     while (true) {

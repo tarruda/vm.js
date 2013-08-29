@@ -449,6 +449,7 @@ createGenerator = (caller, script, scope, realm, target, args, callname) ->
     throw: thrw
     close: close
     closed: false
+    iterator: -> rv
   }
 
   return rv
