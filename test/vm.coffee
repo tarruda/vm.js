@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 1
+selftest = 0
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -1493,6 +1493,22 @@ tests = {
     return l;
   })();
   """: [['val', false, 'val', 1, 2, 14, 15, 'i', 'prop1'], {o: {prop3: 5}}]
+
+  # arrow functions
+  """
+  let square = x => x * x;
+  square(2);
+  """: [4, ((global) -> )]
+
+  # lexical 'this'
+  """
+  const obj = {
+    method: function () {
+      return () => this;
+    }
+  };
+  obj.method()() === obj;
+  """: [true, ((global) -> )]
 }
 
 merge = {

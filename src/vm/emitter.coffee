@@ -565,7 +565,10 @@ class Emitter extends Visitor
     # emit function code only at the end so it can access all scope
     # variables defined after it
     emit = =>
-      fn = new Emitter([{this: 0, arguments: 1}].concat(@scopes), @filename,
+      initialScope = {this: 0, arguments: 1}
+      if node.lexicalThis
+        delete initialScope.this
+      fn = new Emitter([initialScope].concat(@scopes), @filename,
         name, @original, source)
       # load the the 'arguments' object into the local scope
       fn.ARGS()
@@ -586,7 +589,12 @@ class Emitter extends Visitor
         else declarator.init = declarator.init.left
         fn.visit(declaration)
       # emit function body
-      fn.visit(node.body.body)
+      if node.body.type == 'BlockStatement'
+        fn.visit(node.body.body)
+      else
+        # arrow expression
+        fn.visit(node.body)
+        fn.RETV()
       return fn.end()
     functionIndex = @scripts.length
     @scripts.push(emit)
@@ -607,6 +615,13 @@ class Emitter extends Visitor
   FunctionExpression: (node) ->
     node.isExpression = true
     node.declare = false
+    @VmFunction(node)
+    return node
+
+  ArrowFunctionExpression: (node) ->
+    node.isExpression = true
+    node.declare = false
+    node.lexicalThis = true
     @VmFunction(node)
     return node
 
@@ -848,6 +863,7 @@ class Emitter extends Visitor
   ComprehensionBlock: (node) ->
     # A for or for each block in an array comprehension or generator expression
     throw new Error('not implemented')
+
   ClassExpression: (node) ->
     throw new Error('not implemented')
 
@@ -858,9 +874,6 @@ class Emitter extends Visitor
     throw new Error('not implemented')
 
   ClassHeritage: (node) ->
-    throw new Error('not implemented')
-
-  ArrowFunctionExpression: (node) ->
     throw new Error('not implemented')
 
   ExportBatchSpecifier: (node) ->

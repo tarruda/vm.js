@@ -157,13 +157,6 @@ class Visitor
     node.body = @visit(node.body)
     return node
 
-  ArrowExpression: (node) ->
-    node.params = @visit(node.params)
-    node.defaults = @visit(node.defaults)
-    node.rest = @visit(node.rest)
-    node.body = @visit(node.body)
-    return node
-
   SequenceExpression: (node) ->
     node.expressions = @visit(node.expressions)
     return node
@@ -212,27 +205,6 @@ class Visitor
     node.property = @visit(node.property)
     return node
 
-  YieldExpression: (node) ->
-    node.argument = @visit(node.argument)
-    return node
-
-  ComprehensionExpression: (node) ->
-    node.body = @visit(node.body)
-    node.blocks = @visit(node.blocks)
-    node.filter = @visit(node.filter)
-    return node
-
-  GeneratorExpression: (node) ->
-    node.body = @visit(node.body)
-    node.blocks = @visit(node.blocks)
-    node.filter = @visit(node.filter)
-    return node
-
-  LetExpression: (node) ->
-    node.head = @visit(node.head)
-    node.body = @visit(node.body)
-    return node
-
   ObjectPattern: (node) ->
     for property in node.properties
       property.value = @visit(property.value)
@@ -254,14 +226,81 @@ class Visitor
     node.body = @visit(node.body)
     return node
 
+  Identifier: (node) -> node
+
+  Literal: (node) -> node
+
+  YieldExpression: (node) ->
+    node.argument = @visit(node.argument)
+    return node
+
+  ComprehensionExpression: (node) ->
+    node.body = @visit(node.body)
+    node.blocks = @visit(node.blocks)
+    node.filter = @visit(node.filter)
+    return node
+
   ComprehensionBlock: (node) ->
     node.left = @visit(node.pattern)
     node.right = @visit(node.right)
     return node
 
-  Identifier: (node) -> node
+  ClassExpression: (node) ->
+    throw new Error('not implemented')
 
-  Literal: (node) -> node
+  ClassBody: (node) ->
+    throw new Error('not implemented')
+
+  ClassDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  ClassHeritage: (node) ->
+    throw new Error('not implemented')
+
+  ArrowFunctionExpression: (node) ->
+    node.params = @visit(node.params)
+    node.defaults = @visit(node.defaults)
+    node.rest = @visit(node.rest)
+    node.body = @visit(node.body)
+    return node
+
+    throw new Error('not implemented')
+
+  ExportBatchSpecifier: (node) ->
+    throw new Error('not implemented')
+
+  ExportSpecifier: (node) ->
+    throw new Error('not implemented')
+
+  ExportDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  ImportSpecifier: (node) ->
+    throw new Error('not implemented')
+
+  ImportDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  MethodDefinition: (node) ->
+    throw new Error('not implemented')
+
+  Property: (node) ->
+    throw new Error('not implemented')
+
+  ModuleDeclaration: (node) ->
+    throw new Error('not implemented')
+
+  SpreadElement: (node) ->
+    throw new Error('not implemented')
+
+  TemplateElement: (node) ->
+    throw new Error('not implemented')
+
+  TaggedTemplateExpression: (node) ->
+    throw new Error('not implemented')
+
+  TemplateLiteral: (node) ->
+    throw new Error('not implemented')
 
 
 module.exports = Visitor
