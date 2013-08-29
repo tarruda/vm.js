@@ -101,6 +101,15 @@ class Realm
         return
       return nativeMetadata[obj.__mdid__] = new ObjectMetadata(obj)
 
+    getPrototypeOf = (obj) ->
+      if hasProp(obj, '__mdid__')
+        proto = nativeMetadata[obj.__mdid__].proto
+      else if hasProp(obj, '__md__')
+        proto = obj.__md__.proto
+      if proto
+        return proto
+      return prototypeOf(obj)
+
     getOwnPropertyDescriptor = (obj, key) =>
 
     defineProperty = (obj, key, descriptor) =>
@@ -310,7 +319,7 @@ class Realm
    
     nativeMetadata[Object.__mdid__].properties = {
       create: create
-      getPrototypeOf: prototypeOf
+      getPrototypeOf: getPrototypeOf
       defineProperty: defineProperty
     }
 
@@ -365,7 +374,7 @@ class Realm
     }
 
     # retrieves the metadata from the closest object in the prototype chain
-    # that has a metadata
+    # that has a metadata object associated
     @mdproto = (obj) ->
       proto = prototypeOf(obj)
       if proto
