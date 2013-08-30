@@ -463,6 +463,7 @@ class Emitter extends Visitor
       end: end
     }
     @guards.push(guard)
+    @ENTER_GUARD(@guards.length - 1)
     start.mark()
     @visit(node.block)
     @JMP(finalizer)
@@ -492,10 +493,11 @@ class Emitter extends Visitor
       if not node.handlers.length
         for hook in @tryStatements[@tryStatements.length - 1].hooks
           hook()
-        # return from the function so the next frame can be checked
-        # for a guard
-        @RET()
+        # exit guard and pause to rethrow exception
+        @EXIT_GUARD()
+        @PAUSE()
     end.mark()
+    @EXIT_GUARD()
     @tryStatements.pop()
     return node
 

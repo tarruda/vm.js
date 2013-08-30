@@ -25,7 +25,16 @@ class Fiber
       frame.run()
       if (err = frame.error) instanceof VmError
         @injectStackTrace(err)
-      if not frame.done()
+      if frame.done()
+        if frame.guards.length
+          guard = frame.guards.pop()
+          if guard.finalizer
+            # we returned in the middle of a 'try' statement.
+            # if there's a finalizer, it be executed before returning
+            frame.ip = guard.finalizer
+            frame.exitIp = guard.end
+            continue
+      else
         # possibly a function call, ensure 'frame' is pointing to the top
         frame = @callStack[@depth]
         err = frame.error
@@ -47,14 +56,15 @@ class Fiber
       throw err
 
   unwind: (err) ->
-    # unwind the call stack searching for a guard set to handle this
+    # unwind the call stack searching for a guard
     frame = @callStack[@depth]
     while frame
       # ensure the error is set on the current frame
       frame.error = err
       # ip is always pointing to the next instruction, so subtract one
       ip = frame.ip - 1
-      for guard in frame.script.guards
+      if len = frame.guards.length
+        guard = frame.guards[len - 1]
         if guard.start <= ip <= guard.end
           if guard.handler != null
             # try/catch
@@ -63,14 +73,6 @@ class Fiber
               frame.evalStack.push(err)
               frame.error = null
               frame.ip = guard.handler
-              if guard.finalizer != null
-                # if the catch returns from the function, the finally
-                # block still must be executed, so adjust the exitIp
-                # to match the try/catch/finally block last ip.
-                frame.exitIp = guard.end
-                # warn the frame about finalization so the RET instruction
-                # will correctly jump to it
-                frame.finalizer = guard.finalizer
             else
               # thrown outside the guarded region(eg: catch or finally block)
               if guard.finalizer and frame.ip <= guard.finalizer
@@ -78,6 +80,7 @@ class Fiber
                 # catch block, make sure  executed
                 frame.ip = guard.finalizer
               else
+                frame = @popFrame()
                 continue
           else
             # try/finally
@@ -176,6 +179,7 @@ class Frame
     @exitIp = @script.instructions.length
     @paused = false
     @finalizer = null
+    @guards = []
     @rv = undef
     @line = @column = -1
 
@@ -190,7 +194,7 @@ class Frame
       # debug assertion
       throw new Error("Evaluation stack has #{len} items after execution")
 
-  done: -> @ip is @exitIp
+  done: -> @ip == @exitIp
 
   # later we will use these methods to notify listeners(eg: debugger)
   # about line/column changes

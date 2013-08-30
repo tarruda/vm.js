@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 0
+selftest = 1
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -728,6 +728,21 @@ tests = {
   )]
 
   """
+  (function() {
+    var err;
+    try {
+      throw 'error';
+    } catch (e) {
+      err = e;
+    } finally {
+      err += ' thrown';
+    }
+  
+    return err;
+  })();
+  """: ['error thrown']
+
+  """
   function fn1() {
     try {
       fn2();
@@ -743,7 +758,8 @@ tests = {
   fn1();
   """: [5, ((global) ->
     expect(global.e).to.not.exist # 'e' should be local to the catch block
-    expect(global.a).to.eql('error'))]
+    expect(global.a).to.eql('error')
+  )]
 
   """
   function fn1() {
@@ -825,6 +841,35 @@ tests = {
     expect(global.errorThrown).to.eql('err')
     expect(global.obj).to.eql([1, 2])
   )]
+
+
+  """
+  l = [];
+
+  function f() {
+      try {
+          throw 'err1'
+      } catch (e) {
+          try {
+              throw 'err2'
+          } catch (e) {
+              try {
+                  throw 'err3'
+              } catch (e) {
+                  return 10;
+              } finally {
+                  l.push(1);
+              }
+          } finally {
+              l.push(2);
+          }
+      } finally {
+          l.push(3);
+      }
+  }
+
+  f();
+  """: [10, ((global) -> )]
 
   """
   errors = []
