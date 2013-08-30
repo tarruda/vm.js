@@ -94,8 +94,7 @@ opcodes = [
     ret(f)
 
   Op 'PAUSE', (f, s) -> f.paused = true               # pause frame
-  Op 'YIELD', (f, s) -> f.fiber.pause()               # yield from generator
-  Op 'YIELDV', (f, s) ->                              # yield value from
+  Op 'YIELD', (f, s) ->                               # yield value from
     f.fiber.yielded = s.pop()                         # generator
     f.fiber.pause()
 
@@ -103,7 +102,12 @@ opcodes = [
   Op 'ENTER_GUARD', (f) ->                            # enter guarded region
     f.guards.push(f.script.guards[@args[0]])
 
-  Op 'EXIT_GUARD', (f) -> f.guards.pop()              # exit guarded region
+  Op 'EXIT_GUARD', (f) ->                             # exit guarded region
+    currentGuard = f.guards[f.guards.length - 1]
+    specifiedGuard = f.script.guards[@args[0]]
+    if specifiedGuard == currentGuard
+      f.guards.pop()
+
   Op 'SR1', (f, s, l) -> f.fiber.r1 = s.pop()         # save to register 1
   Op 'SR2', (f, s, l) -> f.fiber.r2 = s.pop()         # save to register 2
   Op 'SR3', (f, s, l) -> f.fiber.r3 = s.pop()         # save to register 3
@@ -441,12 +445,25 @@ createGenerator = (caller, script, scope, realm, target, args, callname) ->
     frame = fiber.callStack[fiber.depth]
     frame.error = e
     fiber.resume()
+    if caller
+      caller.timeout = fiber.timeout
     if fiber.done()
       return fiber.rv
     return fiber.yielded
 
-  # TODO run active finally blocks and propagate errors thrown to the caller
-  close = -> fiber.depth = -1
+  close = ->
+    if fiber.done()
+      return
+    if newborn
+      fiber.depth = -1
+    # force a return
+    frame = fiber.callStack[fiber.depth]
+    frame.evalStack.clear()
+    frame.ip = frame.exitIp
+    fiber.resume()
+    if caller
+      caller.timeout = fiber.timeout
+    return fiber.rv
 
   rv = {
     next: send
@@ -498,7 +515,8 @@ createFunction = (script, scope, realm, generator) ->
 
 ret = (frame) ->
   frame.evalStack.clear()
-  frame.ip = frame.exitIp
+  frame.exitIp = frame.ip
+  # frame.ip = frame.exitIp
 
 
 debug = ->

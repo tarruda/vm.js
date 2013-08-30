@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 1
+selftest = 0
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -869,7 +869,41 @@ tests = {
   }
 
   f();
-  """: [10, ((global) -> )]
+  """: [10, ((global) ->
+    expect(global.l).to.eql([1, 2, 3])
+  )]
+
+  """
+  l = [];
+
+  function f() {
+      try {
+          throw 'err1'
+      } catch (e) {
+          try {
+              throw 'err2'
+          } catch (e) {
+              try {
+                  throw 'err3'
+              } catch (e) {
+                  return 10;
+              } finally {
+                  l.push(1);
+                  return 11;
+              }
+          } finally {
+              l.push(2);
+              return 12;
+          }
+      } finally {
+          l.push(3);
+      }
+  }
+
+  f();
+  """: [12, ((global) ->
+    expect(global.l).to.eql([1, 2, 3])
+  )]
 
   """
   errors = []
@@ -1573,6 +1607,79 @@ tests = {
     expect(global.l).to.eql([11, 40, 120])
     expect(global.errorThrown.value).to.be(55)
     expect(global.g.closed).to.eql(true)
+  )]
+
+  """
+  function *throwGen() {
+    yield 5;
+    try {
+      yield 6;
+      yield 7;
+    } catch (e) {
+      error = e;
+      yield 8;
+    }
+  }
+  g1 = throwGen();
+  g2 = throwGen();
+
+  l1 = [g1.next(), g1.next(), g1.next()];
+  l2 = [g2.next(), g2.next(), g2.throw(new Error('test'))];
+  """: [[5, 6, 8], ((global) ->
+    expect(global.l1).to.eql([5, 6, 7])
+  )]
+
+  """
+  function *throwGen(l) {
+    try {
+      yield 0;
+    } catch (e) {
+      try {
+        yield 0;
+      } catch(e) {
+        try {
+          yield 0;
+        } finally {
+          l.push(-1);
+        }
+      } finally {
+        l.push(-2);
+      }
+    } finally {
+      l.push(-3);
+      return 13;
+    }
+    return 14;
+  }
+  l1 = [];
+  g1 = throwGen(l1);
+  g1.send();
+  g1.close();
+  l2 = [];
+  g2 = throwGen(l2);
+  g2.send(); g2.throw('err');
+  g2.close();
+  l3 = [];
+  g3 = throwGen(l3);
+  g3.send(); g3.throw('err'); g3.throw('err');
+  g3.close();
+  """: [13, ((global) ->
+    expect(global.l1).to.eql([-3])
+    expect(global.l2).to.eql([-2, -3])
+    expect(global.l3).to.eql([-1, -2, -3])
+  )]
+
+  """
+  l = [];
+  function* receive() {
+    l.push(yield 1);
+    return 50;
+  }
+  g = receive();
+  g.send();
+  g.send(10);
+  """: [undefined, ((global) ->
+    expect(global.errorThrown.value).to.eql(50)
   )]
 
   """

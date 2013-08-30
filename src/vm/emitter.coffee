@@ -463,7 +463,8 @@ class Emitter extends Visitor
       end: end
     }
     @guards.push(guard)
-    @ENTER_GUARD(@guards.length - 1)
+    guardId = @guards.length - 1
+    @ENTER_GUARD(guardId)
     start.mark()
     @visit(node.block)
     @JMP(finalizer)
@@ -494,10 +495,10 @@ class Emitter extends Visitor
         for hook in @tryStatements[@tryStatements.length - 1].hooks
           hook()
         # exit guard and pause to rethrow exception
-        @EXIT_GUARD()
+        @EXIT_GUARD(guardId)
         @PAUSE()
     end.mark()
-    @EXIT_GUARD()
+    @EXIT_GUARD(guardId)
     @tryStatements.pop()
     return node
 
@@ -684,6 +685,7 @@ class Emitter extends Visitor
     return node
 
   CallExpression: (node) ->
+    len = node.arguments.length
     @visit(node.arguments) # push arguments
     if node.callee.type is 'MemberExpression'
       @visit(node.callee.object) # push target
@@ -692,12 +694,12 @@ class Emitter extends Visitor
       @visitProperty(node.callee) # push property
       if node.callee.property.type == 'Identifier'
         fname = node.callee.property.name
-      @CALLM(node.arguments.length, fname)
+      @CALLM(len, fname)
     else
       @visit(node.callee)
       if node.callee.type == 'Identifier'
         fname = node.callee.name
-      @CALL(node.arguments.length, fname)
+      @CALL(len, fname)
     return node
 
   visitProperty: (memberExpression) ->
@@ -853,11 +855,9 @@ class Emitter extends Visitor
     return node
 
   YieldExpression: (node) ->
-    if node.argument
-      @visit(node.argument)
-      @YIELDV()
-    else
-      @YIELD()
+    @visit(node.argument)
+    @YIELD()
+    return node
 
   ComprehensionExpression: (node) ->
     # An array comprehension. The blocks array corresponds to the sequence

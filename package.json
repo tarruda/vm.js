@@ -36,7 +36,16 @@
     "microtime": "~0.4.0",
     "source-map-support": "~0.2.1"
   },
-  "keywords": [],
+  "keywords": [
+    "vm",
+    "harmony",
+    "sandbox",
+    "coroutine",
+    "generator",
+    "fiber",
+    "javascript-sandbox",
+    "virtual-machine"
+  ],
   "engines": {
     "node": ">=0.8.0"
   }

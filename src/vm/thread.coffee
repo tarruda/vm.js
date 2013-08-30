@@ -19,6 +19,7 @@ class Fiber
 
   run: ->
     frame = @callStack[@depth]
+    err = frame.error
     while @depth >= 0 and frame and not @paused
       if err
         frame = @unwind(err)
@@ -33,6 +34,7 @@ class Fiber
             # if there's a finalizer, it be executed before returning
             frame.ip = guard.finalizer
             frame.exitIp = guard.end
+            frame.paused = false
             continue
       else
         # possibly a function call, ensure 'frame' is pointing to the top
