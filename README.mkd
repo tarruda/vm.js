@@ -114,12 +114,38 @@ fiber can execute).
 TimeoutError: Script timed out
     at timeout.js:1:20
 ```
-
 The TimeoutError has a 'fiber' property that references the paused fiber(it can
 be resumed, optionally passing another timeout to the 'resume' method).
 
 
-See more examples [here](https://github.com/tarruda/vm.js/blob/master/test/vm.coffee).
+As shown above, some harmony features are available. Here's a generator
+example:
+```js
+> vm.eval(
+'function* fib() {' +
+  'var i = 0, j = 1, t;' +
+  'while (true) {' +
+    'yield i;' +
+    't = i;' +
+    'i = j;' +
+    'j += t;' +
+  '}' +
+'}')
+> vm.eval('l = []')
+> vm.eval('for (let i of fib()) {if (l.length > 10) break; l.push(i)}')
+> vm.eval('l')
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+```
+
+Like normal functions, the 'fib' generator can be used outside a vm instance:
+```js
+> g = vm.realm.global.fib(); l = [];
+> while (l.length < 11) l.push(g.next())
+> l
+[0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+```
+
+See more examples and supported features [here](https://github.com/tarruda/vm.js/blob/master/test/vm.coffee).
 
 ### Comments
 
