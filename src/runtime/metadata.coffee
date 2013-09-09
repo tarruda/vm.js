@@ -55,7 +55,7 @@ class PropertyDescriptor
 
 
 class DataPropertyDescriptor extends PropertyDescriptor
-  constructor: (@value = undef, @writable = false, enumerable, configurable) ->
+  constructor: (@value, @writable = false, enumerable, configurable) ->
     super(enumerable, configurable)
 
 
@@ -119,7 +119,7 @@ class ObjectMetadata
         property.value = value
         return true
       return false
-    if property is undef and not @extensible
+    if property is undefined and not @extensible
       return false
     @setOwnProperty(key, value)
     return true
@@ -203,7 +203,7 @@ class CowObjectMetadata extends ObjectMetadata
       return @properties[key]
     if hasProp(@object, key) and not hasProp(@exclude, key)
       return @object[key]
-    return undef
+    return undefined
 
   setOwnProperty: (key, value) ->
     if hasProp(@exclude, key)
@@ -246,7 +246,7 @@ class RestrictedObjectMetadata extends CowObjectMetadata
     if hasProp(@leak, key) and hasProp(@object, key) and
     not hasProp(@exclude, key)
       return @object[key]
-    return undef
+    return undefined
 
   isEnumerable: (k) ->
     if not super(k)

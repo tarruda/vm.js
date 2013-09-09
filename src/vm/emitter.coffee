@@ -1,4 +1,5 @@
-{parse} = esprima
+{parse} = require('esprima')
+
 Script = require './script'
 opcodes = require './opcodes'
 Visitor = require '../ast/visitor'

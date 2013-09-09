@@ -9,7 +9,7 @@ class Fiber
     @callStack = []
     @evalStack = null
     @depth = -1
-    @yielded = @rv = undef
+    @yielded = @rv = undefined
     @paused = false
     # fiber-specific registers
     # temporary registers
@@ -50,7 +50,7 @@ class Fiber
       if frame and not err
         # set the return value
         frame.evalStack.push(@rv)
-        @rv = undef
+        @rv = undefined
     if @timedOut()
       err = new VmTimeoutError(this)
       @injectStackTrace(err)
@@ -182,7 +182,7 @@ class Frame
     @paused = false
     @finalizer = null
     @guards = []
-    @rv = undef
+    @rv = undefined
     @line = @column = -1
 
   run: ->

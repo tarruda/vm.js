@@ -27,7 +27,7 @@ runtimeProperties = {
 class Realm
   constructor: (merge) ->
     global = {
-      undefined: undef
+      undefined: undefined
       Object: Object
       Function: Function
       Number: Number
@@ -133,7 +133,7 @@ class Realm
                 writable: true
               })
             obj.__md__.defineProperty(key, descriptor)
-      return undef
+      return undefined
 
     register Object, {
       'prototype': [
@@ -407,7 +407,7 @@ class Realm
 
     @get = (obj, key) ->
       if not obj?
-        return undef
+        return undefined
       type = typeof obj
       objType = type in ['object', 'function']
       if hasProp(runtimeProperties, key)
@@ -422,7 +422,7 @@ class Realm
         else
           # primitive
           return nativeMetadata[obj.__mdid__].get(key)
-        return undef
+        return undefined
       if type == 'string' and typeof key == 'number' or key == 'length'
         # char at index or string length
         return obj[key]

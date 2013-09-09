@@ -1,9 +1,11 @@
-Visitor = require '../ast/visitor'
-{StopIteration, ArrayIterator} = require '../runtime/builtin'
-{defProp, hasProp, create} = require '../runtime/util'
-{VmTypeError, VmEvalError, VmReferenceError} = require '../runtime/errors'
-RegExpProxy = require '../runtime/regexp_proxy'
-{Fiber, Scope, WithScope} = require './thread'
+esprima = require('esprima')
+
+Visitor = require('../ast/visitor')
+{StopIteration, ArrayIterator} = require('../runtime/builtin')
+{defProp, hasProp, create} = require('../runtime/util')
+{VmTypeError, VmEvalError, VmReferenceError} = require('../runtime/errors')
+RegExpProxy = require('../runtime/regexp_proxy')
+{Fiber, Scope, WithScope} = require('./thread')
 
 
 OpcodeClassFactory = ( ->
@@ -286,14 +288,14 @@ opcodes = [
 
   Op 'VOID', (f, s) ->
     s.pop()
-    s.push(undef)
+    s.push(undefined)
 
   Op 'JMP', (f, s, l) -> f.ip = @args[0]              # unconditional jump
   Op 'JMPT', (f, s, l) -> f.ip = @args[0] if s.pop()  # jump if true
   Op 'JMPF', (f, s, l) -> f.ip = @args[0] if not s.pop()# jump if false
 
   Op 'UNDEF', (f, s) ->
-    s.push(undef)
+    s.push(undefined)
 
   Op 'LITERAL', (f, s, l) ->                          # push literal value
     s.push(@args[0])
@@ -347,7 +349,7 @@ callm = (frame, length, key, target, name) ->
   {evalStack: stack, realm} = frame
   if not target?
     id = 'null'
-    if target == undef
+    if target == undefined
       id = 'undefined'
     return throwErr(frame, new VmTypeError(
       "Cannot call method '#{key}' of #{id}"))
@@ -416,7 +418,7 @@ createGenerator = (caller, script, scope, realm, target, args, callname) ->
   newborn = true
 
   send = (obj) ->
-    if newborn and obj != undef
+    if newborn and obj != undefined
       throw new VmTypeError(
         'no argument must be passed when starting generator')
     if fiber.done()

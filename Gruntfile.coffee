@@ -1,14 +1,4 @@
-{spawn} = require 'child_process'
-path = require 'path'
-
 module.exports = (grunt) ->
-  data =
-    # map used to store files with the debugger statement
-    # used to automatically turn debugging on/off
-    debug: null
-    # current test runner process
-    child: null
-
   grunt.initConfig
     pkg: grunt.file.readJSON('package.json')
 
@@ -21,7 +11,7 @@ module.exports = (grunt) ->
         no_empty_param_list: level: 'error'
         no_stand_alone_at: level: 'error'
         no_backticks: level: 'ignore'
-        no_implicit_braces: level: 'error'
+        no_implicit_braces: level: 'ignore'
         space_operators: level: 'error'
       src:
         src: 'src/**/*.coffee'
@@ -30,56 +20,21 @@ module.exports = (grunt) ->
 
     coffee_build:
         options:
-          wrap: true
-          sourceMap: true
-          disableModuleWrap: [
-            'platform/common_init.coffee'
-            'node_modules/esprima/esprima.js'
-            'platform/browser_esprima_rebind.js'
-            'platform/browser_export.coffee'
-            'platform/node_init.coffee'
-            'platform/node_export.coffee'
-          ]
-          disableSourceMap: [
-            'node_modules/esprima/esprima.js'
-            'platform/browser_esprima_rebind.js'
-          ]
+          moduleId: 'Vm'
+          disableModuleWrap: 'src/index.coffee'
         browser:
-          files: [{
-            src: [
-              'node_modules/esprima/esprima.js'
-              'platform/browser_esprima_rebind.js'
-              'platform/common_init.coffee'
-              'src/**/*.coffee'
-              'platform/browser_export.coffee'
-            ]
+          options:
+            includedDeps: 'node_modules/esprima/esprima.js'
+            src: 'src/index.coffee'
             dest: 'build/browser/vm.js'
-          }, {
-            src: [
-              'node_modules/esprima/esprima.js'
-              'platform/browser_esprima_rebind.js'
-              'platform/common_init.coffee'
-              'test/**/*.coffee'
-            ]
+        browser_test:
+          options:
+            src: 'test/**/*.coffee'
             dest: 'build/browser/test.js'
-          }]
-        nodejs:
-          files: [{
-            src: [
-              'platform/common_init.coffee'
-              'platform/node_init.coffee'
-              'src/**/*.coffee'
-              'platform/node_export.coffee'
-            ]
-            dest: 'build/node/vm.js'
-          }, {
-            src: [
-              'platform/common_init.coffee'
-              'platform/node_init.coffee'
-              'test/**/*.coffee'
-            ]
-            dest: 'build/node/test.js'
-          }]
+        nodejs_test:
+          options:
+            src: ['src/**/*.coffee', 'test/**/*.coffee']
+            dest: 'build/nodejs'
 
     uglify:
       browser_dist:
@@ -89,44 +44,39 @@ module.exports = (grunt) ->
         files:
           'build/browser/vm.min.js': ['build/browser/vm.js']
 
-    check_debug:
-      all: [
-        'platform/**/*.js'
-        'platform/**/*.coffee'
-        'src/**/*.coffee'
-        'test/**/*.coffee'
-      ]
-
-    test:
-      all: [
+    mocha_debug:
+      options:
+        check: ['src/**/*.coffee', 'test/**/*.coffee']
+      nodejs: [
         'test/index.js'
         'build/self.js'
-        'build/node/test.js'
+        'build/nodejs/**/*.js'
       ]
 
     watch:
       options:
         nospawn: true
-      browser:
+      browser_test:
         files: [
           'src/**/*.coffee'
           'test/**/*.coffee'
         ]
         tasks: [
           'coffeelint:changed'
+          'coffee_build:browser_test'
           'coffee_build:browser'
           'livereload'
         ]
-      nodejs:
+      nodejs_test:
         files: [
           'src/**/*.coffee'
           'test/**/*.coffee'
         ]
         tasks: [
           'coffeelint:changed'
-          'coffee_build:nodejs'
-          'check_debug:changed'
-          'test'
+          'coffee_build:nodejs_test'
+          'coffee_build:browser'
+          'mocha_debug'
         ]
 
     connect:
@@ -142,10 +92,10 @@ module.exports = (grunt) ->
           base: './'
 
     clean:
-      all:
-        ['build']
-      self:
-        ['build/self.js']
+      all: ['build']
+      nodejs: ['build/nodejs']
+      browser: ['build/browser']
+      self: ['build/self.js']
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
   grunt.loadNpmTasks 'grunt-contrib-livereload'
@@ -154,36 +104,18 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
   grunt.loadNpmTasks 'grunt-coffee-build'
+  grunt.loadNpmTasks 'grunt-mocha-debug'
   grunt.loadNpmTasks 'grunt-release'
-
-  grunt.registerMultiTask 'check_debug', ->
-    data.debug = {}
-    files = @filesSrc
-    for file in files
-      code = grunt.file.read(file)
-      if /^\s*debugger\s*/gm.test(code)
-        data.debug[file] = true
-      else delete data.debug[file]
 
   grunt.registerTask 'self_load', ->
     code = grunt.file.read('./build/browser/vm.js')
     assign = "vmjs = #{JSON.stringify(code)}"
     grunt.file.write('./build/self.js', assign)
 
-  grunt.registerMultiTask 'test', ->
-    done = @async()
-    args = @filesSrc
-    args.unshift('--check-leaks')
-    if data.debug and Object.keys(data.debug).length
-      args.unshift('--debug-brk')
-    opts = stdio: 'inherit'
-    data.child = spawn('./node_modules/.bin/mocha', args, opts)
-    data.child.on 'close', (code) ->
-      data.child = null
-      done(code is 0)
+  grunt.registerTask 'test', ['mocha_debug']
 
   grunt.registerTask 'build', [
-    'clean'
+    'clean:all'
     'coffeelint'
     'coffee_build'
     'self_load'
@@ -192,34 +124,28 @@ module.exports = (grunt) ->
     'uglify'
   ]
 
-  grunt.registerTask 'common-rebuild', [
+  grunt.registerTask 'debug-browser', [
+    'livereload-start'
     'connect'
     'coffeelint'
-  ]
-
-  grunt.registerTask 'debug-browser', [
-    'clean'
-    'livereload-start'
-    'common-rebuild'
-    'coffee_build'
+    'coffee_build:browser_test'
+    'coffee_build:browser'
     'self_load'
-    'watch:browser'
+    'watch:browser_test'
   ]
 
   grunt.registerTask 'debug-nodejs', [
-    'clean'
-    'common-rebuild'
-    'coffee_build'
+    'coffeelint'
+    'coffee_build:nodejs_test'
+    'coffee_build:browser'
     'self_load'
-    'check_debug'
-    'test'
-    'watch:nodejs'
+    'mocha_debug'
+    'watch:nodejs_test'
   ]
 
   grunt.registerTask 'default', [
     'debug-nodejs'
   ]
-
 
   grunt.event.on 'watch', (action, filepath) ->
     coffeelint = grunt.config.getRaw('coffeelint')

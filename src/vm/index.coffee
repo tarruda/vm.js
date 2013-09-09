@@ -1,9 +1,11 @@
-Transformer = require '../ast/transformer'
-Realm = require '../runtime/realm'
-ConstantFolder = require '../ast/constant_folder'
-Emitter = require './emitter'
-{Fiber} = require './thread'
-Script = require './script'
+esprima = require('esprima')
+
+Transformer = require('../ast/transformer')
+Realm = require('../runtime/realm')
+ConstantFolder = require('../ast/constant_folder')
+Emitter = require('./emitter')
+{Fiber} = require('./thread')
+Script = require('./script')
 
 
 class Vm
@@ -73,9 +75,8 @@ class Vm
 
 compile = (source, emitter) ->
   transformer = new Transformer(new ConstantFolder(), emitter)
-  transformer.transform(esprima.parse(source, {
-    loc: true
-  }))
+  ast = esprima.parse(source,loc: true)
+  transformer.transform(ast)
   return emitter.end()
 
 module.exports = Vm

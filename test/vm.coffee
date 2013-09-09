@@ -27,7 +27,7 @@ tests = {
   'void(0)': [undefined]
   'void(x=1)': [undefined, {x: 1}]
   'typeof 5': ['number']
-  'typeof undef': ['undefined']
+  'typeof undefined': ['undefined']
   'n=5; typeof n': ['number', {n: 5}]
   'typeof true': ['boolean']
   'b=true; typeof b': ['boolean', {b: true}]
@@ -718,7 +718,7 @@ tests = {
 
   """
   throw new EvalError('err')
-  """: [undef, ((global) ->
+  """: [undefined, ((global) ->
     expect(global.errorThrown.stack).to.eql(
       """
       EvalError: err
@@ -1012,7 +1012,7 @@ tests = {
   """
   s = null
   s.name = 1
-  """: [undef, ((global) ->
+  """: [undefined, ((global) ->
     errString = global.errorThrown.toString()
     expect(errString).to.eql(
       """
@@ -1042,7 +1042,7 @@ tests = {
   }
 
   abc()
-  """: [undef, ((global) ->
+  """: [undefined, ((global) ->
     errString = global.errorThrown.toString()
     expect(errString).to.eql(
       """
@@ -1070,7 +1070,7 @@ tests = {
   (function() {
     name()
   })()
-  """: [undef, ((global) ->
+  """: [undefined, ((global) ->
     errString = global.errorThrown.toString()
     expect(errString).to.eql(
       """
@@ -1147,11 +1147,11 @@ tests = {
 
   """
   [new Number(1), new Number(null), new Number(undefined)]
-  """: [[new Number(1), new Number(null), new Number(undef)]]
+  """: [[new Number(1), new Number(null), new Number(undefined)]]
 
   """
   [new Boolean(1), new Boolean(null), new Boolean(undefined)]
-  """: [[new Boolean(1), new Boolean(null), new Boolean(undef)]]
+  """: [[new Boolean(1), new Boolean(null), new Boolean(undefined)]]
 
   """
   dog = new Dog()
