@@ -20,18 +20,19 @@ module.exports = (grunt) ->
 
     coffee_build:
         options:
-          moduleId: 'Vm'
-          main: 'src/index.coffee'
+          globalAliases: ['Vm']
+          src_base: 'src'
+          src: '/**/*.coffee'
+          main: 'index.coffee'
         browser:
           options:
             includedDeps: 'node_modules/esprima/esprima.js'
-            src: 'src/index.coffee'
             dest: 'build/browser/vm.js'
         browser_test:
           options:
             src: 'test/**/*.coffee'
             dest: 'build/browser/test.js'
-        nodejs_test:
+        nodejs:
           options:
             src: ['src/**/*.coffee', 'test/**/*.coffee']
             dest: 'build/nodejs'
@@ -67,14 +68,14 @@ module.exports = (grunt) ->
           'coffee_build:browser'
           'livereload'
         ]
-      nodejs_test:
+      nodejs:
         files: [
           'src/**/*.coffee'
           'test/**/*.coffee'
         ]
         tasks: [
           'coffeelint:changed'
-          'coffee_build:nodejs_test'
+          'coffee_build:nodejs'
           'coffee_build:browser'
           'mocha_debug'
         ]
@@ -136,11 +137,11 @@ module.exports = (grunt) ->
 
   grunt.registerTask 'debug-nodejs', [
     'coffeelint'
-    'coffee_build:nodejs_test'
+    'coffee_build:nodejs'
     'coffee_build:browser'
     'self_load'
     'mocha_debug'
-    'watch:nodejs_test'
+    'watch:nodejs'
   ]
 
   grunt.registerTask 'default', [
