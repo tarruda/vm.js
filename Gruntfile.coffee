@@ -21,7 +21,7 @@ module.exports = (grunt) ->
     coffee_build:
         options:
           moduleId: 'Vm'
-          disableModuleWrap: 'src/index.coffee'
+          main: 'src/index.coffee'
         browser:
           options:
             includedDeps: 'node_modules/esprima/esprima.js'
@@ -149,10 +149,6 @@ module.exports = (grunt) ->
 
   grunt.event.on 'watch', (action, filepath) ->
     coffeelint = grunt.config.getRaw('coffeelint')
-    checkDebug = grunt.config.getRaw('check_debug')
     if /\.coffee$/.test filepath
-      checkDebug.changed = [filepath]
       coffeelint.changed = src: filepath
       grunt.regarde = changed: ['test.js']
-      if data.child
-        data.child.kill('SIGTERM')
