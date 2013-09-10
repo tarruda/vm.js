@@ -1,7 +1,4 @@
 /node_modules/
-/build/
-!/build/nodejs/src
-!/build/browser/vm.js.*
 .*
 *.log
 *.swp
