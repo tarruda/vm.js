@@ -12,7 +12,7 @@
       "url": "https://github.com/tarruda/vm.js/blob/master/LICENSE-MIT"
     }
   ],
-  "main": ".build/nodejs/src/index",
+  "main": "./build/nodejs/src/index",
   "author": {
     "name": "Thiago de Arruda",
     "email": "tpadilha84@gmail.com"

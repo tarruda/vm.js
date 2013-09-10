@@ -113,7 +113,7 @@ module.exports = (grunt) ->
 
   grunt.registerTask 'test', ['mocha_debug']
 
-  grunt.registerTask 'build', [
+  grunt.registerTask 'rebuild', [
     'clean:all'
     'coffeelint'
     'coffee_build'
@@ -141,6 +141,8 @@ module.exports = (grunt) ->
     'mocha_debug'
     'watch:nodejs'
   ]
+
+  grunt.registerTask 'publish', ['rebuild', 'release']
 
   grunt.registerTask 'default', [
     'debug-nodejs'
