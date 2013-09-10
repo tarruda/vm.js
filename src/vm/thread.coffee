@@ -122,13 +122,15 @@ class Fiber
     # show stack trace on node.js
     err.stack = err.toString()
 
-  pushFrame: (script, target, parent, args, name = '<anonymous>',
+  pushFrame: (script, target, parent, args, self, name = '<anonymous>',
   construct = false) ->
     if not @checkCallStack()
       return
     scope = new Scope(parent, script.localNames, script.localLength)
     scope.set(0, target)
     frame = new Frame(this, script, scope, @realm, name, construct)
+    if self
+      frame.evalStack.push(self)
     if args
       frame.evalStack.push(args)
     @callStack[++@depth] = frame

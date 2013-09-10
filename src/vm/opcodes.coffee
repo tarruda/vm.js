@@ -133,10 +133,13 @@ opcodes = [
       f.paused = false
       f.ip = @args[0]
 
-  Op 'ARGS', (f, s, l) ->                             # prepare the 'arguments'
-    l.set(1, s.pop())                                 # object
-    # the fiber pushing the arguments object cancels
-    # this opcode pop calL
+  Op 'FUNCTION_SETUP', (f, s, l) ->                   # prepare the arguments
+    l.set(1, s.pop())                                 # object and the self
+    fn = s.pop()                                      # reference when the
+    if @args[0]                                       # function has a name
+      l.set(2, fn)
+    # the fiber pushing the arguments object and
+    # the self reference cancels this opcode pop calL
   , -> 0
 
   Op 'GLOBAL', (f, s, l, r) -> s.push(r.global)       # push the global object
@@ -410,11 +413,11 @@ call = (frame, length, func, target, name, construct) ->
     throwErr(frame, nativeError)
 
 
-createGenerator = (caller, script, scope, realm, target, args, callname) ->
+createGenerator = (caller, script, scope, realm, target, args, fn, callname) ->
   if caller
     timeout = caller.timeout
   fiber = new Fiber(realm, timeout)
-  frame = fiber.pushFrame(script, target, scope, args, callname, false)
+  frame = fiber.pushFrame(script, target, scope, args, fn, callname, false)
   newborn = true
 
   send = (obj) ->
@@ -483,7 +486,7 @@ createFunction = (script, scope, realm, generator) ->
     rv = ->
       name = rv.__callname__ or script.name
       gen = createGenerator(rv.__fiber__, script, scope, realm, this,
-        arguments, name)
+        arguments, rv, name)
       if not (fiber = rv.__fiber__)
         return gen
       fiber.callStack[fiber.depth].evalStack.push(gen)
@@ -502,7 +505,7 @@ createFunction = (script, scope, realm, generator) ->
         run = true
       name = rv.__callname__ or script.name
       rv.__callname__ = null
-      fiber.pushFrame(script, this, scope, arguments, name, construct)
+      fiber.pushFrame(script, this, scope, arguments, rv, name, construct)
       if run
         fiber.run()
         return fiber.rv

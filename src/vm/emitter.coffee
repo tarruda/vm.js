@@ -21,7 +21,7 @@ class Emitter extends Visitor
     if scopes
       @scriptScope = scopes[0]
     @localNames = []
-    @varIndex = 2
+    @varIndex = 3
     @guards = []
     @currentLine = -1
     @currentColumn = -1
@@ -180,8 +180,9 @@ class Emitter extends Visitor
       guard.finalizer = guard.finalizer.ip if guard.finalizer
       guard.end = guard.end.ip
     # calculate the maximum evaluation stack size
-    max = 1 # at least 1 stack size is needed for the arguments object
-    current = 0
+    # at least 2 stack size is needed for the arguments object
+    # and the self function reference
+    current = max = 2
     for code in @instructions
       current += code.calculateFactor()
       max = Math.max(current, max)
@@ -570,12 +571,15 @@ class Emitter extends Visitor
     # variables defined after it
     emit = =>
       initialScope = {this: 0, arguments: 1}
+      if node.id
+        # a function that has a name can reference itself
+        initialScope[name] = 2
       if node.lexicalThis
         delete initialScope.this
       fn = new Emitter([initialScope].concat(@scopes), @filename,
         name, @original, source)
-      # load the the 'arguments' object into the local scope
-      fn.ARGS()
+      # perform initial function call setup
+      fn.FUNCTION_SETUP(node.id?)
       len = node.params.length
       if node.rest
         # initialize rest parameter

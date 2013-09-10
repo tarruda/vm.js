@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 0
+selftest = 1
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -133,6 +133,10 @@ tests = {
   """
   (function() {})()
   """: [undefined]
+
+  """
+  (function factorial(n) { return n > 1 ? n * factorial(n - 1) : 1 })(5);
+  """: [120]
 
   """
   x = 5;

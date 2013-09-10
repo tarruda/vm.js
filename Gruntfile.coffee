@@ -21,12 +21,10 @@ module.exports = (grunt) ->
     coffee_build:
         options:
           globalAliases: ['Vm']
-          src_base: 'src'
-          src: '/**/*.coffee'
-          main: 'index.coffee'
+          src: 'src/**/*.coffee'
+          main: 'src/index.coffee'
         browser:
           options:
-            includedDeps: 'node_modules/esprima/esprima.js'
             dest: 'build/browser/vm.js'
         browser_test:
           options:
