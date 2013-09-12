@@ -46,11 +46,21 @@ module.exports = (grunt) ->
     mocha_debug:
       options:
         check: ['src/**/*.coffee', 'test/**/*.coffee']
-      nodejs: [
-        'test/index.js'
-        'build/self.js'
-        'build/nodejs/**/*.js'
-      ]
+      nodejs:
+        options:
+          src: [
+            'build/self.js'
+            'test/node_init.js'
+            'build/nodejs/**/*.js'
+          ]
+      phantomjs:
+        options:
+          phantomjs: true
+          src: [
+            'build/self.js'
+            'node_modules/expect.js/expect.js'
+            'build/browser/test.js'
+          ]
 
     watch:
       options:
@@ -64,7 +74,7 @@ module.exports = (grunt) ->
           'coffeelint:changed'
           'coffee_build:browser_test'
           'coffee_build:browser'
-          'livereload'
+          'mocha_debug'
         ]
       nodejs:
         files: [
@@ -133,10 +143,10 @@ module.exports = (grunt) ->
     'watch:browser_test'
   ]
 
-  grunt.registerTask 'debug-nodejs', [
+  grunt.registerTask 'debug', [
     'coffeelint'
     'coffee_build:nodejs'
-    'coffee_build:browser'
+    'coffee_build:browser_test'
     'self_load'
     'mocha_debug'
     'watch:nodejs'
@@ -144,9 +154,7 @@ module.exports = (grunt) ->
 
   grunt.registerTask 'publish', ['rebuild', 'release']
 
-  grunt.registerTask 'default', [
-    'debug-nodejs'
-  ]
+  grunt.registerTask 'default', [ 'debug' ]
 
   grunt.event.on 'watch', (action, filepath) ->
     coffeelint = grunt.config.getRaw('coffeelint')

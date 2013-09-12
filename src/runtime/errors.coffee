@@ -30,6 +30,9 @@ class VmError
     return rv
 
 
+  stackTrace: -> @toString()
+
+
 class VmEvalError extends VmError
   @display: 'EvalError'
 

@@ -1,7 +1,7 @@
 Vm = require '../src/vm'
 
 # flag to enable/disable running the tests from a self-hosted vm
-selftest = 1
+selftest = 0
 # flag to enable/disable running the tests from a native vm
 nativetest = 1
 
@@ -237,7 +237,7 @@ tests = {
     for (k in obj) l.push(k)
   })();
   """: [undefined, ((global) ->
-    expect(global.errorThrown.stack).to.be(
+    expect(global.errorThrown.stackTrace()).to.be(
       """
       TypeError: object is not a function
           at <script>:2:37
@@ -723,7 +723,7 @@ tests = {
   """
   throw new EvalError('err')
   """: [undefined, ((global) ->
-    expect(global.errorThrown.stack).to.eql(
+    expect(global.errorThrown.stackTrace()).to.eql(
       """
       EvalError: err
           at <script>:1:10
@@ -1253,7 +1253,7 @@ tests = {
   """: [false, ((global) ->
     expect(global.x).to.be(5)
     expect('y' of global).to.be(false)
-    expect(global.err.stack).to.be(
+    expect(global.err.stackTrace()).to.be(
       """
       TypeError: Object #<Object> has no method 'abs'
           at <script>:4:6
@@ -1274,7 +1274,7 @@ tests = {
   """: [true, ((global) ->
     expect(global.x).to.be('-5')
     expect('y' of global).to.be(false)
-    expect(global.err.stack).to.be(
+    expect(global.err.stackTrace()).to.be(
       """
       TypeError: Property 'stringify' of object #<Object> is not a function
           at <script>:4:6
@@ -1497,7 +1497,7 @@ tests = {
   """
   f = new Function('a,', 'return 5;');
   """: [undefined, ((global) ->
-    expect(global.errorThrown.stack).to.be(
+    expect(global.errorThrown.stackTrace()).to.be(
       """
       EvalError: Line 1: Unexpected token )
           at <script>:1:8
@@ -1508,7 +1508,7 @@ tests = {
   """
   throw new URIError('err')
   """: [undefined, ((global) ->
-    expect(global.errorThrown.stack).to.be(
+    expect(global.errorThrown.stackTrace()).to.be(
       """
       URIError: err
           at <script>:1:10
@@ -1523,7 +1523,7 @@ tests = {
   }
   f('a', 'b')
   """: [undefined, ((global) ->
-    expect(global.errorThrown.stack).to.be(
+    expect(global.errorThrown.stackTrace()).to.be(
       """
       URIError: ab
           at f (<eval>:2:10)
@@ -1845,7 +1845,7 @@ describe 'API', ->
       vm.eval(code, '<timeout>', 500)
     catch e
       fiber = e.fiber
-      expect(e.stack).to.eql(
+      expect(e.stackTrace()).to.eql(
         """
         TimeoutError: Script timed out
             at infiniteLoop (<timeout>:4:15)
@@ -1860,7 +1860,7 @@ describe 'API', ->
       try
         fiber.resume(1000)
       catch e
-        expect(e.stack).to.eql(
+        expect(e.stackTrace()).to.eql(
           """
           TimeoutError: Script timed out
               at infiniteLoop (<timeout>:4:15)
