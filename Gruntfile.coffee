@@ -45,6 +45,7 @@ module.exports = (grunt) ->
 
     mocha_debug:
       options:
+        reporter: 'dot'
         check: ['src/**/*.coffee', 'test/**/*.coffee']
       nodejs:
         options:
@@ -53,9 +54,11 @@ module.exports = (grunt) ->
             'test/node_init.js'
             'build/nodejs/**/*.js'
           ]
-      phantomjs:
+      browser:
         options:
           phantomjs: true
+          phantomTimeout: 30000
+          listenAddress: '0.0.0.0'
           src: [
             'build/self.js'
             'node_modules/expect.js/expect.js'
@@ -65,17 +68,6 @@ module.exports = (grunt) ->
     watch:
       options:
         nospawn: true
-      browser_test:
-        files: [
-          'src/**/*.coffee'
-          'test/**/*.coffee'
-        ]
-        tasks: [
-          'coffeelint:changed'
-          'coffee_build:browser_test'
-          'coffee_build:browser'
-          'mocha_debug'
-        ]
       nodejs:
         files: [
           'src/**/*.coffee'
@@ -83,22 +75,9 @@ module.exports = (grunt) ->
         ]
         tasks: [
           'coffeelint:changed'
-          'coffee_build:nodejs'
-          'coffee_build:browser'
+          'coffee_build'
           'mocha_debug'
         ]
-
-    connect:
-      options:
-        hostname: '0.0.0.0'
-        middleware: (connect, options) -> [
-          connect.static(options.base)
-          connect.directory(options.base)
-        ]
-      project:
-        options:
-          port: 8000
-          base: './'
 
     clean:
       all: ['build']
@@ -107,9 +86,7 @@ module.exports = (grunt) ->
       self: ['build/self.js']
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
-  grunt.loadNpmTasks 'grunt-contrib-livereload'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
-  grunt.loadNpmTasks 'grunt-contrib-connect'
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
   grunt.loadNpmTasks 'grunt-coffee-build'
@@ -128,25 +105,14 @@ module.exports = (grunt) ->
     'coffeelint'
     'coffee_build'
     'self_load'
-    'test'
+    'mocha_debug'
     'clean:self'
     'uglify'
   ]
 
-  grunt.registerTask 'debug-browser', [
-    'livereload-start'
-    'connect'
-    'coffeelint'
-    'coffee_build:browser_test'
-    'coffee_build:browser'
-    'self_load'
-    'watch:browser_test'
-  ]
-
   grunt.registerTask 'debug', [
     'coffeelint'
-    'coffee_build:nodejs'
-    'coffee_build:browser_test'
+    'coffee_build'
     'self_load'
     'mocha_debug'
     'watch:nodejs'
@@ -160,4 +126,3 @@ module.exports = (grunt) ->
     coffeelint = grunt.config.getRaw('coffeelint')
     if /\.coffee$/.test filepath
       coffeelint.changed = src: filepath
-      grunt.regarde = changed: ['test.js']
