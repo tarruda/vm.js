@@ -13,10 +13,11 @@ module.exports = (grunt) ->
         no_backticks: level: 'ignore'
         no_implicit_braces: level: 'ignore'
         space_operators: level: 'error'
-      src:
-        src: 'src/**/*.coffee'
-      test:
-        src: 'test/**/*.coffee'
+      all:
+        src: [
+          'src/**/*.coffee'
+          'test/**/*.coffee'
+        ]
 
     coffee_build:
         options:
@@ -57,8 +58,8 @@ module.exports = (grunt) ->
       browser:
         options:
           phantomjs: true
-          phantomTimeout: 30000
           listenAddress: '0.0.0.0'
+          listenPort: 8000
           src: [
             'build/self.js'
             'node_modules/expect.js/expect.js'
@@ -68,14 +69,15 @@ module.exports = (grunt) ->
     watch:
       options:
         nospawn: true
-      nodejs:
+      all:
         files: [
           'src/**/*.coffee'
           'test/**/*.coffee'
         ]
         tasks: [
-          'coffeelint:changed'
+          'coffeelint'
           'coffee_build'
+          'livereload'
           'mocha_debug'
         ]
 
@@ -86,6 +88,7 @@ module.exports = (grunt) ->
       self: ['build/self.js']
 
   grunt.loadNpmTasks 'grunt-contrib-watch'
+  grunt.loadNpmTasks 'grunt-contrib-livereload'
   grunt.loadNpmTasks 'grunt-contrib-uglify'
   grunt.loadNpmTasks 'grunt-contrib-clean'
   grunt.loadNpmTasks 'grunt-coffeelint'
@@ -111,11 +114,12 @@ module.exports = (grunt) ->
   ]
 
   grunt.registerTask 'debug', [
+    'livereload-start'
     'coffeelint'
     'coffee_build'
     'self_load'
     'mocha_debug'
-    'watch:nodejs'
+    'watch'
   ]
 
   grunt.registerTask 'publish', ['rebuild', 'release']
@@ -123,6 +127,6 @@ module.exports = (grunt) ->
   grunt.registerTask 'default', [ 'debug' ]
 
   grunt.event.on 'watch', (action, filepath) ->
-    coffeelint = grunt.config.getRaw('coffeelint')
+    grunt.config('coffeelint.all.src', filepath)
     if /\.coffee$/.test filepath
-      coffeelint.changed = src: filepath
+      grunt.regarde = changed: ['test.js']

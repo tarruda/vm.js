@@ -7,7 +7,7 @@ Emitter = require('./emitter')
 {Fiber} = require('./thread')
 Script = require('./script')
 
-
+ 
 class Vm
   constructor: (merge, allowEval = false) ->
     @realm = new Realm(merge)
