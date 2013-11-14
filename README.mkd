@@ -2,7 +2,7 @@
 
 > Javascript bytecode compiler/vm written in CoffeeScript.
 
-[![Dependency status](https://david-dm.org/tarruda/vm.js.png)](https://david-dm.org/tarruda/vm.js)
+[![Dependency status](https://david-dm.org/tarruda/vm.js.png)](https://david-dm.org/tarruda/vm.js) [![Build Status](https://travis-ci.org/tarruda/vm.js.png)](https://travis-ci.org/tarruda/vm.js)
 
 ## Installation
 ```shell
