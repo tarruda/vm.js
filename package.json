@@ -17,6 +17,10 @@
     "name": "Thiago de Arruda",
     "email": "tpadilha84@gmail.com"
   },
+  "scripts": {
+    "test": "./node_modules/.bin/grunt test",
+    "pretest": "./node_modules/.bin/grunt rebuild"
+  },
   "dependencies": {
     "esprima": "git://github.com/tarruda/esprima.git#harmony"
   },
@@ -28,13 +32,14 @@
     "grunt-contrib-watch": "~0.5.3",
     "grunt-contrib-livereload": "~0.1.2",
     "grunt-coffee-build": "~1.4.8",
-    "grunt-coffeelint": "0.0.7",
-    "grunt-mocha-debug": "0.0.6",
+    "grunt-coffeelint": "~0.0.7",
+    "grunt-mocha-debug": "~0.0.6",
     "grunt-release": "~0.5.1",
     "expect.js": "~0.2.0",
     "benchmark": "~1.0.0",
     "microtime": "~0.4.0",
-    "source-map-support": "~0.2.1"
+    "source-map-support": "~0.2.1",
+    "grunt-cli": "~0.1.11"
   },
   "keywords": [
     "vm",
