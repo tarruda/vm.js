@@ -1,10 +1,24 @@
 # vm.js
 
-> Javascript bytecode compiler/vm written in coffeescript
+> Javascript bytecode compiler/vm written in CoffeeScript.
+
+[![Dependency status](https://david-dm.org/tarruda/vm.js.png)](https://david-dm.org/tarruda/vm.js)
 
 ## Installation
 ```shell
 npm install vm.js
+```
+
+## Tests
+
+There are about 200 acceptance tests that are run twice: once inside
+a normal Vm and again inside a self-hosted Vm(think about
+the movie 'Inception' for an easy analogy). That means it is capable
+of running moderately complex javascript code(since it runs itself plus
+the esprima parser), so it should be stable enough for most uses.
+
+```shell
+npm test
 ```
 
 ### Overview
@@ -16,9 +30,8 @@ ECMAScript 6 environment(for now only some features are supported)
 Here are some possible use cases:
 
 - Simple in-process javascript sandbox
-- Async-to-sync API adapter using fibers(lightweight in-process threads)
+- Async-to-sync API adapter using fibers (lightweight in-process threads)
 - Use new ECMAScript features in very old browsers
-
 
 ### Usage
 
@@ -29,7 +42,7 @@ Vms.
 Start by creating a new instance:
 
 ```js
-> Vm = require('vm.js') 
+> Vm = require('vm.js')
 > vm = new Vm()
 ```
 
@@ -151,15 +164,10 @@ See more examples and supported features [here](https://github.com/tarruda/vm.js
 
 This was inspired by [Continuum](https://github.com/Benvie/continuum) which is
 a ECMAScript 6 virtual machine implemented in pure javascript. I wrote this
-because I wanted a smaller codebase(less than 5k lines of coffeescript code)
+because I wanted a smaller codebase(less than 5k lines of CoffeeScript code)
  and seamless integration with the host virtual machine(no need to call strange
 internal methods to access objects manipulated by the vm).
 
 For parsing source code this library uses the
 [esprima parser](https://github.com/ariya/esprima).
 
-There are about 200 acceptance tests that are run twice: once inside
-a normal Vm and again inside a self-hosted Vm(think about
-the movie 'Inception' for an easy analogy). That means it is capable
-of running moderately complex javascript code(since it runs itself plus
-the esprima parser), so it should be stable enough for most uses.
