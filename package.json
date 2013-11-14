@@ -34,7 +34,8 @@
     "expect.js": "~0.2.0",
     "benchmark": "~1.0.0",
     "microtime": "~0.4.0",
-    "source-map-support": "~0.2.1"
+    "source-map-support": "~0.2.1",
+    "mocha": "~1.14.0"
   },
   "keywords": [
     "vm",
